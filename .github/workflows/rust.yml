@@ -1,0 +1,107 @@
+name: Lint, Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  MSRV:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+      MSRV: 1.77.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+          targets: x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Check build with MSRV
+        run: |
+          cargo --locked check
+          cargo --locked check --target x86_64-apple-darwin
+          cargo --locked check --target x86_64-unknown-freebsd
+          cargo --locked check --target x86_64-unknown-netbsd
+
+  fmt:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+      RUST_BACKTRACE: full
+      RUST_LOG: trace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          # We use some nightly fmt options.
+          toolchain: nightly
+          components: rustfmt
+          targets: x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd
+      - uses: Swatinem/rust-cache@v2
+      - name: Check formatting
+        run: |
+          cargo --locked fmt -- --check
+          cargo --locked check --target x86_64-apple-darwin
+          cargo --locked check --target x86_64-unknown-freebsd
+          cargo --locked check --target x86_64-unknown-netbsd
+
+  clippy:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+      RUST_BACKTRACE: full
+      RUST_LOG: trace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
+          targets: x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd
+      - uses: Swatinem/rust-cache@v2
+      - name: Catch common mistakes and unwrap calls
+        run: |
+          cargo --locked clippy
+          cargo --locked clippy --target x86_64-apple-darwin
+          cargo --locked clippy --target x86_64-unknown-freebsd
+          cargo --locked clippy --target x86_64-unknown-netbsd
+
+  linux_test:
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy]
+    strategy:
+      matrix:
+        # Test in both debug and release mode
+        env:
+          - PROFILE: dev
+          - PROFILE: release
+    env:
+      RUSTFLAGS: -D warnings
+      RUST_BACKTRACE: full
+      RUST_LOG: trace
+      PROFILE: ${{ matrix.env.PROFILE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build and Test
+        run: cargo test
+
+  doc_build:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check documentation build
+        run: cargo --locked doc --all-features

@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "core",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+repository = "https://github.com/zeenix/zarlink/"
+
+[profile.bench]
+debug = true
+strip = "none"
