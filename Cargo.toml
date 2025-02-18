@@ -1,7 +1,5 @@
 [workspace]
-members = [
-    "core",
-]
+members = ["zarlink"]
 resolver = "2"
 
 [workspace.package]
