@@ -3,4 +3,10 @@ name = "zarlink"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["alloc"]
+alloc = []
+heapless = ["dep:heapless"]
+
 [dependencies]
+heapless = { version = "0.8.0", optional = true }
