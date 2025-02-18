@@ -88,6 +88,4 @@ cp .githooks/* .git/hooks/
 
 We follow the
 [Rust Code of Conduct](https://www.rust-lang.org/conduct.html). For escalation or moderation issues
-please contact Zeeshan (zeeshanak@gnome.org) instead of the Rust moderation team.
-
-[C-SEND-SYNC]: https://rust-lang.github.io/api-guidelines/interoperability.html#c-send-sync
+please contact [Zeeshan](mailto:zeeshanak@gnome.org) instead of the Rust moderation team.
