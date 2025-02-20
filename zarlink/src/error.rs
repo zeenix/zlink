@@ -2,9 +2,9 @@
 #[derive(Debug)]
 pub enum Error {
     /// An error occurred while reading from the socket.
-    ReadError,
+    SocketRead,
     /// An error occurred while writing to the socket.
-    WriteError,
+    SocketWrite,
 }
 
 /// The Result type for the zarlink crate.
