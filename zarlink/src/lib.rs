@@ -8,8 +8,8 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../../README.md")]
 
-#[cfg(all(not(feature = "alloc"), not(feature = "heapless")))]
-compile_error!("Either the `alloc` or `heapless` feature must be enabled");
+#[cfg(not(feature = "alloc"))]
+compile_error!("Currently the `alloc` feature is required");
 
 pub mod connection;
 mod error;
