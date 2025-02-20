@@ -11,6 +11,7 @@
 #[cfg(all(not(feature = "alloc"), not(feature = "heapless")))]
 compile_error!("Either the `alloc` or `heapless` feature must be enabled");
 
+pub mod connection;
 mod error;
 pub use error::{Error, Result};
 
