@@ -11,6 +11,9 @@
 #[cfg(all(not(feature = "alloc"), not(feature = "heapless")))]
 compile_error!("Either the `alloc` or `heapless` feature must be enabled");
 
+mod error;
+pub use error::{Error, Result};
+
 /// Test add.
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
