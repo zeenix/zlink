@@ -6,11 +6,10 @@
     missing_docs
 )]
 #![warn(unreachable_pub)]
-#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../README.md")]
 
-pub mod connection;
-mod error;
-pub use error::{Error, Result};
+#[cfg(all(not(feature = "alloc"), not(feature = "heapless")))]
+compile_error!("Either the `alloc` or `heapless` feature must be enabled");
 
 /// Test add.
 pub fn add(left: u64, right: u64) -> u64 {
