@@ -12,5 +12,6 @@
 compile_error!("Either 'std' or 'embedded' feature must be enabled.");
 
 pub mod connection;
+pub use connection::Connection;
 mod error;
 pub use error::{Error, Result};
