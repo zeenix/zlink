@@ -110,7 +110,6 @@ impl<S: Socket> Connection<S> {
     /// targets are limited to service implementations only, since this is only needed by clients.
     /// This limitation is likely going to be removed once [`serde-json-core` can handle complex
     /// enums](https://github.com/rust-embedded-community/serde-json-core/issues/94).
-    #[cfg(feature = "std")]
     pub async fn receive_reply<'r, Params, ReplyError>(
         &'r mut self,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
@@ -138,13 +137,28 @@ impl<S: Socket> Connection<S> {
         struct Error<'r> {
             error: &'r str,
         }
+        #[cfg(feature = "std")]
         if serde_json::from_slice::<Error<'_>>(buffer).is_ok() {
             return Ok(Err(serde_json::from_slice::<ReplyError>(buffer)?));
         }
+        #[cfg(not(feature = "std"))]
+        if serde_json_core::from_slice::<Error<'_>>(buffer).is_ok() {
+            return Ok(Err(serde_json_core::from_slice::<ReplyError>(buffer)?.0));
+        }
 
-        serde_json::from_slice::<Reply<_>>(buffer)
-            .map_err(Into::into)
-            .map(Ok)
+        #[cfg(feature = "std")]
+        {
+            serde_json::from_slice::<Reply<_>>(buffer)
+                .map_err(Into::into)
+                .map(Ok)
+        }
+
+        #[cfg(not(feature = "std"))]
+        {
+            serde_json_core::from_slice::<Reply<_>>(buffer)
+                .map_err(Into::into)
+                .map(|(r, _)| Ok(r))
+        }
     }
 
     // Reads at least one full message from the socket.

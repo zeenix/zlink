@@ -13,6 +13,9 @@ pub enum Error {
     /// Error serialization to JSON.
     #[cfg(not(feature = "std"))]
     JsonSerialize(serde_json_core::ser::Error),
+    /// Error deserialization from JSON.
+    #[cfg(not(feature = "std"))]
+    JsonDeserialize(serde_json_core::de::Error),
 }
 
 /// The Result type for the zarlink crate.
@@ -32,6 +35,13 @@ impl From<serde_json_core::ser::Error> for Error {
     }
 }
 
+#[cfg(not(feature = "std"))]
+impl From<serde_json_core::de::Error> for Error {
+    fn from(e: serde_json_core::de::Error) -> Self {
+        Error::JsonDeserialize(e)
+    }
+}
+
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -39,9 +49,11 @@ impl core::fmt::Display for Error {
             Error::SocketWrite => write!(f, "An error occurred while writing to the socket"),
             Error::BufferOverflow => write!(f, "Buffer overflow"),
             #[cfg(feature = "std")]
-            Error::Json(e) => write!(f, "Error serializing or deserializing to/from JSON: {}", e),
+            Error::Json(e) => write!(f, "Error serializing or deserializing to/from JSON: {e}"),
             #[cfg(not(feature = "std"))]
-            Error::JsonSerialize(e) => write!(f, "Error serializing to JSON: {}", e),
+            Error::JsonSerialize(e) => write!(f, "Error serializing to JSON: {e}"),
+            #[cfg(not(feature = "std"))]
+            Error::JsonDeserialize(e) => write!(f, "Error deserializing from JSON: {e}"),
         }
     }
 }
