@@ -31,3 +31,17 @@ impl From<serde_json_core::ser::Error> for Error {
         Error::JsonSerialize(e)
     }
 }
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::SocketRead => write!(f, "An error occurred while reading from the socket"),
+            Error::SocketWrite => write!(f, "An error occurred while writing to the socket"),
+            Error::BufferOverflow => write!(f, "Buffer overflow"),
+            #[cfg(feature = "std")]
+            Error::Json(e) => write!(f, "Error serializing or deserializing to/from JSON: {}", e),
+            #[cfg(not(feature = "std"))]
+            Error::JsonSerialize(e) => write!(f, "Error serializing to JSON: {}", e),
+        }
+    }
+}
