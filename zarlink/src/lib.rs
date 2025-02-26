@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(
     missing_debug_implementations,
     nonstandard_style,
@@ -8,8 +8,8 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../../README.md")]
 
-#[cfg(not(feature = "alloc"))]
-compile_error!("Currently the `alloc` feature is required");
+#[cfg(all(not(feature = "std"), not(feature = "embedded")))]
+compile_error!("Either 'std' or 'embedded' feature must be enabled.");
 
 pub mod connection;
 mod error;
