@@ -72,10 +72,7 @@ impl<S: Socket> Connection<S> {
             more,
             upgrade,
         };
-        #[cfg(not(feature = "std"))]
-        serde_json_core::to_slice(&call, &mut self.write_buffer)?;
-        #[cfg(feature = "std")]
-        serde_json::to_writer(&mut self.write_buffer, &call)?;
+        to_slice(&call, &mut self.write_buffer)?;
 
         self.socket.write(&self.write_buffer).await
     }
@@ -130,34 +127,13 @@ impl<S: Socket> Connection<S> {
             self.read_pos = null_index + 1;
         }
 
-        // We try to deserialize into a miminal struct first to check if it's an error and then
-        // deserialize into the user provided `ReplyError` if that's the case. This is to minimize
-        // parsing as much as possible.
-        #[derive(Debug, Serialize, Deserialize)]
-        struct Error<'r> {
-            error: &'r str,
-        }
-        #[cfg(feature = "std")]
-        if serde_json::from_slice::<Error<'_>>(buffer).is_ok() {
-            return Ok(Err(serde_json::from_slice::<ReplyError>(buffer)?));
-        }
-        #[cfg(not(feature = "std"))]
-        if serde_json_core::from_slice::<Error<'_>>(buffer).is_ok() {
-            return Ok(Err(serde_json_core::from_slice::<ReplyError>(buffer)?.0));
-        }
-
-        #[cfg(feature = "std")]
-        {
-            serde_json::from_slice::<Reply<_>>(buffer)
-                .map_err(Into::into)
-                .map(Ok)
-        }
-
-        #[cfg(not(feature = "std"))]
-        {
-            serde_json_core::from_slice::<Reply<_>>(buffer)
-                .map_err(Into::into)
-                .map(|(r, _)| Ok(r))
+        // First try to parse it as an error.
+        // FIXME: This will mean the document will be parsed twice. We should instead try to
+        // quickly check if `error` field is present and then parse to the appropriate type based on
+        // that information. Perhaps a simple parser using `winnow`?
+        match from_slice::<ReplyError>(buffer) {
+            Ok(e) => Ok(Err(e)),
+            Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
         }
     }
 
@@ -266,3 +242,37 @@ const BUFFER_SIZE: usize = 1024;
 #[cfg(feature = "std")]
 const MAX_BUFFER_SIZE: usize = 1024 * 1024; // Don't allow buffers over 1MB.
 const METHOD_NAME_BUFFER_SIZE: usize = 256;
+
+fn from_slice<'a, T>(buffer: &'a [u8]) -> crate::Result<T>
+where
+    T: Deserialize<'a>,
+{
+    #[cfg(feature = "std")]
+    {
+        serde_json::from_slice::<T>(buffer).map_err(Into::into)
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        serde_json_core::from_slice::<T>(buffer)
+            .map_err(Into::into)
+            .map(|(e, _)| e)
+    }
+}
+
+fn to_slice<T>(value: &T, buf: &mut [u8]) -> crate::Result<()>
+where
+    T: Serialize + ?Sized,
+{
+    #[cfg(feature = "std")]
+    {
+        serde_json::to_writer(buf, value).map_err(Into::into)
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        serde_json_core::to_slice(value, buf)
+            .map_err(Into::into)
+            .map(|_| ())
+    }
+}
