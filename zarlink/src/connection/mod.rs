@@ -237,7 +237,7 @@ impl<S: Socket> Connection<S> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Reply<Params> {
     parameters: Params,
-    continues: bool,
+    continues: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
