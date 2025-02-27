@@ -240,6 +240,18 @@ pub struct Reply<Params> {
     continues: Option<bool>,
 }
 
+impl<Params> Reply<Params> {
+    /// The parameters of the reply.
+    pub fn parameters(&self) -> &Params {
+        &self.parameters
+    }
+
+    /// If there are more replies to come.
+    pub fn continues(&self) -> Option<bool> {
+        self.continues
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Call<'c, P> {
     method: &'c str,
