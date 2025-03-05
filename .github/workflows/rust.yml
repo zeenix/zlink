@@ -47,7 +47,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         run: |
-          cargo --locked fmt -- --check --target ${{ matrix.target }}
+          cargo --locked fmt --target ${{ matrix.target }} -- --check
 
   clippy:
     runs-on: ubuntu-latest
