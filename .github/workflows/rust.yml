@@ -9,6 +9,10 @@ on:
 jobs:
   MSRV:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env:
+          - TARGET: [x86_64-unknown-linux-gnu, x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd]
     env:
       RUSTFLAGS: -D warnings
       MSRV: 1.81.0
@@ -17,18 +21,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.MSRV }}
-          targets: x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd
+          targets: ${{ matrix.env.TARGET }}
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Check build with MSRV
         run: |
-          cargo --locked check
-          cargo --locked check --target x86_64-apple-darwin
-          cargo --locked check --target x86_64-unknown-freebsd
-          cargo --locked check --target x86_64-unknown-netbsd
+          cargo --locked check --target ${{ matrix.env.TARGET }}
 
   fmt:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env:
+          - TARGET: [x86_64-unknown-linux-gnu, x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd]
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: full
@@ -40,14 +45,11 @@ jobs:
           # We use some nightly fmt options.
           toolchain: nightly
           components: rustfmt
-          targets: x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd
+          targets: ${{ matrix.env.TARGET }}
       - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         run: |
-          cargo --locked fmt -- --check
-          cargo --locked check --target x86_64-apple-darwin
-          cargo --locked check --target x86_64-unknown-freebsd
-          cargo --locked check --target x86_64-unknown-netbsd
+          cargo --locked fmt -- --check --target ${{ matrix.env.TARGET }}
 
   clippy:
     runs-on: ubuntu-latest
