@@ -35,6 +35,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75a2a4b1b190afb6f5425f10f6a8f959d2ea0b9c2b1d79553551850539e4674"
 
 [[package]]
+name = "mayheap"
+version = "0.1.0"
+source = "git+https://github.com/zeenix/mayheap#38235b7270d161937a4abed70d8e48341e98ccc9"
+dependencies = [
+ "heapless",
+ "serde",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,7 +143,7 @@ checksum = "00e2473a93778eb0bad35909dff6a10d28e63f792f16ed15e404fca9d5eeedbe"
 name = "zarlink"
 version = "0.1.0"
 dependencies = [
- "heapless",
+ "mayheap",
  "memchr",
  "serde",
  "serde-json-core",

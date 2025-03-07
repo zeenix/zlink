@@ -3,6 +3,7 @@
 mod socket;
 use core::fmt::Debug;
 
+use mayheap::{String, Vec};
 use serde::{Deserialize, Serialize};
 pub use socket::Socket;
 
@@ -14,19 +15,9 @@ pub struct Connection<S: Socket> {
     socket: S,
     read_pos: usize,
 
-    #[cfg(feature = "std")]
-    write_buffer: Vec<u8>,
-    #[cfg(not(feature = "std"))]
-    write_buffer: [u8; BUFFER_SIZE],
-    #[cfg(feature = "std")]
-    method_name_buffer: String,
-    #[cfg(not(feature = "std"))]
-    method_name_buffer: heapless::String<METHOD_NAME_BUFFER_SIZE>,
-
-    #[cfg(feature = "std")]
-    read_buffer: Vec<u8>,
-    #[cfg(not(feature = "std"))]
-    read_buffer: [u8; BUFFER_SIZE],
+    write_buffer: Vec<u8, BUFFER_SIZE>,
+    method_name_buffer: String<METHOD_NAME_BUFFER_SIZE>,
+    read_buffer: Vec<u8, BUFFER_SIZE>,
 }
 
 impl<S: Socket> Connection<S> {
@@ -35,18 +26,9 @@ impl<S: Socket> Connection<S> {
         Self {
             socket,
             read_pos: 0,
-            #[cfg(feature = "std")]
-            write_buffer: vec![0; BUFFER_SIZE],
-            #[cfg(feature = "std")]
-            read_buffer: vec![0; BUFFER_SIZE],
-            #[cfg(not(feature = "std"))]
-            write_buffer: [0; BUFFER_SIZE],
-            #[cfg(not(feature = "std"))]
-            read_buffer: [0; BUFFER_SIZE],
-            #[cfg(feature = "std")]
-            method_name_buffer: String::with_capacity(METHOD_NAME_BUFFER_SIZE),
-            #[cfg(not(feature = "std"))]
-            method_name_buffer: heapless::String::new(),
+            write_buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
+            read_buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
+            method_name_buffer: String::new(),
         }
     }
 
@@ -175,7 +157,6 @@ impl<S: Socket> Connection<S> {
         Ok(())
     }
 
-    #[cfg(not(feature = "std"))]
     fn push_method_name(
         &mut self,
         interface: &'static str,
@@ -190,20 +171,6 @@ impl<S: Socket> Connection<S> {
         self.method_name_buffer
             .push_str(method)
             .map_err(|_| crate::Error::BufferOverflow)?;
-
-        Ok(())
-    }
-
-    #[cfg(feature = "std")]
-    fn push_method_name(
-        &mut self,
-        interface: &'static str,
-        method: &'static str,
-    ) -> crate::Result<()> {
-        self.method_name_buffer.clear();
-        self.method_name_buffer.push_str(interface);
-        self.method_name_buffer.push('.');
-        self.method_name_buffer.push_str(method);
 
         Ok(())
     }
