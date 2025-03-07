@@ -84,11 +84,6 @@ impl<S: Socket> Connection<S> {
     ///    Charlie { param1: String },
     /// }
     /// ```
-    ///
-    /// This method is only available when the `std` feature is enabled. This means that embedded
-    /// targets are limited to service implementations only, since this is only needed by clients.
-    /// This limitation is likely going to be removed once [`serde-json-core` can handle complex
-    /// enums](https://github.com/rust-embedded-community/serde-json-core/issues/94).
     pub async fn receive_reply<'r, Params, ReplyError>(
         &'r mut self,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
