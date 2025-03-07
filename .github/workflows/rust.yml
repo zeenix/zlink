@@ -81,8 +81,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build and Test
         run: |
-          cargo test
-          cargo test --no-default-features --features embedded
+          cargo test --release
+          cargo test --release --no-default-features --features embedded
 
   doc_build:
     runs-on: ubuntu-latest
