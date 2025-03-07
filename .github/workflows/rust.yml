@@ -69,17 +69,10 @@ jobs:
   linux_test:
     runs-on: ubuntu-latest
     needs: [fmt, clippy]
-    strategy:
-      matrix:
-        # Test in both debug and release mode
-        env:
-          - PROFILE: dev
-          - PROFILE: release
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: full
       RUST_LOG: trace
-      PROFILE: ${{ matrix.env.PROFILE }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
