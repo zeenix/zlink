@@ -84,8 +84,6 @@ impl<S: Socket> Connection<S> {
     ///    Charlie { param1: String },
     /// }
     /// ```
-    ///
-    /// Note: Adjacently tagged enums in `serde` require either `std` or `alloc` feature.
     pub async fn receive_reply<'r, Params, ReplyError>(
         &'r mut self,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>

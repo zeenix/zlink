@@ -5,8 +5,8 @@ edition = "2021"
 
 [features]
 default = ["std"]
-std = ["dep:serde_json", "memchr/std", "mayheap/alloc"]
-embedded = ["dep:serde-json-core", "mayheap/heapless"]
+std = ["dep:serde_json", "memchr/std", "mayheap/alloc", "serde/std"]
+embedded = ["dep:serde-json-core", "mayheap/heapless", "serde/alloc"]
 
 [dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }
