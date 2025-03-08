@@ -38,7 +38,9 @@ impl<S: Socket> Connection<S> {
     /// derive:
     ///
     /// ```rust
-    /// #[derive(Debug, serde::Serialize)]
+    /// use serde::{Serialize, Deserialize};
+    ///
+    /// #[derive(Debug, Serialize, Deserialize)]
     /// #[serde(tag = "method", content = "parameters")]
     /// enum MyMethods<'m> {
     ///    // The name needs to be the fully-qualified name of the error.
@@ -113,6 +115,22 @@ impl<S: Socket> Connection<S> {
             Ok(e) => Ok(Err(e)),
             Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
         }
+    }
+
+    /// Receive a method call over the socket.
+    ///
+    /// The generic `M` is the type of the method name and its input parameters. This should be a
+    /// type that can deserialize itself from a complete method call message, i-e an object
+    /// containing `method` and `parameter` fields. This can be easily achieved using the
+    /// `serde::Deserialize` derive (See the code snippet in [`Connection::send_call`] documentation
+    /// for an example).
+    pub async fn receive_call<'m, M>(&'m mut self) -> crate::Result<Call<M>>
+    where
+        M: Deserialize<'m>,
+    {
+        let buffer = self.read_message_bytes().await?;
+
+        from_slice::<Call<M>>(buffer)
     }
 
     // Reads at least one full message from the socket and return a single message bytes.
