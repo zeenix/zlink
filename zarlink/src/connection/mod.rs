@@ -103,6 +103,20 @@ impl<S: Socket> Connection<S> {
         Params: Deserialize<'r>,
         ReplyError: Deserialize<'r>,
     {
+        let buffer = self.read_message_bytes().await?;
+
+        // First try to parse it as an error.
+        // FIXME: This will mean the document will be parsed twice. We should instead try to
+        // quickly check if `error` field is present and then parse to the appropriate type based on
+        // that information. Perhaps a simple parser using `winnow`?
+        match from_slice::<ReplyError>(buffer) {
+            Ok(e) => Ok(Err(e)),
+            Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
+        }
+    }
+
+    // Reads at least one full message from the socket and return a single message bytes.
+    async fn read_message_bytes<'b>(&'b mut self) -> crate::Result<&'b [u8]> {
         self.read_from_socket().await?;
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
@@ -116,17 +130,8 @@ impl<S: Socket> Connection<S> {
             self.read_pos = null_index + 1;
         }
 
-        // First try to parse it as an error.
-        // FIXME: This will mean the document will be parsed twice. We should instead try to
-        // quickly check if `error` field is present and then parse to the appropriate type based on
-        // that information. Perhaps a simple parser using `winnow`?
-        match from_slice::<ReplyError>(buffer) {
-            Ok(e) => Ok(Err(e)),
-            Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
-        }
+        Ok(buffer)
     }
-
-    // pub async fn receive_method_call<'m>(&'m mut self) -> crate::Result<
 
     // Reads at least one full message from the socket.
     async fn read_from_socket(&mut self) -> crate::Result<()> {
