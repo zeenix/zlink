@@ -1,7 +1,6 @@
 # TODO
 
 * zarlink: Provides all the API but leaves actual transport to external crates.
-  * Socket trait
   * Connection
 
     * Generic over Socket
@@ -11,7 +10,6 @@
   * Service (code snippet below)
     * generic over Listener
     * new(listener)
-  * nostd (Use #![warn(clippy::std_instead_of_core)] if `std` still a feature)
   * Basic tests (start with `add-tests` branch)
   * CI to build for both std and embedded
 
