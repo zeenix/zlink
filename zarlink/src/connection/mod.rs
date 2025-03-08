@@ -241,8 +241,17 @@ impl<M> Call<M> {
     }
 }
 
-// TODO: Cargo features to customize buffer sizes.
-const BUFFER_SIZE: usize = 4096;
+#[cfg(feature = "io-buffer-1mb")]
+const BUFFER_SIZE: usize = 1024 * 1024;
+#[cfg(all(not(feature = "io-buffer-1mb"), feature = "io-buffer-16kb"))]
+const BUFFER_SIZE: usize = 16 * 1024;
+#[cfg(all(
+    not(feature = "io-buffer-1mb"),
+    not(feature = "io-buffer-16kb"),
+    feature = "io-buffer-4kb"
+))]
+const BUFFER_SIZE: usize = 4 * 1024;
+
 #[cfg(feature = "std")]
 const MAX_BUFFER_SIZE: usize = 100 * 1024 * 1024; // Don't allow buffers over 100MB.
 

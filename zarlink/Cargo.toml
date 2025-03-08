@@ -5,8 +5,23 @@ edition = "2021"
 
 [features]
 default = ["std"]
-std = ["dep:serde_json", "memchr/std", "mayheap/alloc", "serde/std"]
-embedded = ["dep:serde-json-core", "mayheap/heapless", "serde/alloc"]
+std = [
+    "dep:serde_json",
+    "memchr/std",
+    "mayheap/alloc",
+    "serde/std",
+    "io-buffer-1mb",
+]
+embedded = [
+    "dep:serde-json-core",
+    "mayheap/heapless",
+    "serde/alloc",
+    "io-buffer-4kb",
+]
+# I/O buffer sizes: 4kb, 16kb, 64kb, 1mb (highest selected if multiple enabled).
+io-buffer-4kb = []
+io-buffer-16kb = []
+io-buffer-1mb = []
 
 [dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }
