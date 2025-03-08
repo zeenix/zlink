@@ -29,7 +29,7 @@
   * embassy_usb-based transport
   * Will need to create a connection concept through multiplexing
     * https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html
-* zarlink-gen (generates code from IDL)
+* zarlink-codegen (generates code from IDL)
 
 * zarlink
   * Update README if we end up never using alloc directly.
