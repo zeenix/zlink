@@ -242,9 +242,9 @@ impl<M> Call<M> {
 }
 
 // TODO: Cargo features to customize buffer sizes.
-const BUFFER_SIZE: usize = 1024;
+const BUFFER_SIZE: usize = 4096;
 #[cfg(feature = "std")]
-const MAX_BUFFER_SIZE: usize = 1024 * 1024; // Don't allow buffers over 1MB.
+const MAX_BUFFER_SIZE: usize = 100 * 1024 * 1024; // Don't allow buffers over 100MB.
 
 fn from_slice<'a, T>(buffer: &'a [u8]) -> crate::Result<T>
 where
