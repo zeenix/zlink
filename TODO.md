@@ -1,18 +1,15 @@
 # TODO
 
 * zarlink: Provides all the API but leaves actual transport to external crates.
-  * Connection
-
-    * Generic over Socket
-    * low-level API to send/receive messages.
-    * features of buffer sizes: 4k, 16k (default), 64k, 1M (highest selected if all enabled)
+  * Basic tests for Connection API
   * Listener trait
   * Service (code snippet below)
     * generic over Listener
     * new(listener)
-  * Basic tests (start with `add-tests` branch)
-  * CI to build for both std and embedded
-
+    * tests
+* zarlink-tokio
+  * Use https://docs.rs/async-compat/latest/async_compat/
+  * tests (start with `add-tests` branch)
 * zarlink-macros
   * service attribute macro (takes a mod, see below)
     * keeps Interface trait objects
@@ -20,8 +17,7 @@
     * takes a Connection instance
     * user drives it
     * introspection https://varlink.org/Service
-* zarlink-tokio
-  * Use https://docs.rs/async-compat/latest/async_compat/
+  * tests
 * zarlink-smol
 * zarlink-usb
   * USB (using nusb) transport
