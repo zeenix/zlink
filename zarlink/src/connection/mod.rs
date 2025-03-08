@@ -3,7 +3,7 @@
 mod socket;
 use core::fmt::Debug;
 
-use mayheap::{String, Vec};
+use mayheap::Vec;
 use serde::{Deserialize, Serialize};
 pub use socket::Socket;
 
@@ -16,7 +16,6 @@ pub struct Connection<S: Socket> {
     read_pos: usize,
 
     write_buffer: Vec<u8, BUFFER_SIZE>,
-    method_name_buffer: String<METHOD_NAME_BUFFER_SIZE>,
     read_buffer: Vec<u8, BUFFER_SIZE>,
 }
 
@@ -28,28 +27,41 @@ impl<S: Socket> Connection<S> {
             read_pos: 0,
             write_buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
             read_buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
-            method_name_buffer: String::new(),
         }
     }
 
     /// Sends a method call.
-    pub async fn send_call<P>(
+    ///
+    /// The generic `M` is the type of the method name and its input parameters. This should be a
+    /// type that can serialize itself to a complete method call message, i-e an object containing
+    /// `method` and `parameter` fields. This can be easily achieved using the `serde::Serialize`
+    /// derive:
+    ///
+    /// ```rust
+    /// #[derive(Debug, serde::Serialize)]
+    /// #[serde(tag = "method", content = "parameters")]
+    /// enum MyMethods<'m> {
+    ///    // The name needs to be the fully-qualified name of the error.
+    ///    #[serde(rename = "org.example.ftl.Alpha")]
+    ///    Alpha { param1: u32, param2: &'m str},
+    ///    #[serde(rename = "org.example.ftl.Bravo")]
+    ///    Bravo,
+    ///    #[serde(rename = "org.example.ftl.Charlie")]
+    ///    Charlie { param1: &'m str },
+    /// }
+    /// ```
+    pub async fn send_call<M>(
         &mut self,
-        interface: &'static str,
-        method: &'static str,
-        parameters: P,
+        method: M,
         one_way: Option<bool>,
         more: Option<bool>,
         upgrade: Option<bool>,
     ) -> crate::Result<()>
     where
-        P: Serialize + Debug,
+        M: Serialize + Debug,
     {
-        self.push_method_name(interface, method)?;
-
         let call = Call {
-            method: &self.method_name_buffer,
-            parameters,
+            method,
             one_way,
             more,
             upgrade,
@@ -114,6 +126,8 @@ impl<S: Socket> Connection<S> {
         }
     }
 
+    // pub async fn receive_method_call<'m>(&'m mut self) -> crate::Result<
+
     // Reads at least one full message from the socket.
     async fn read_from_socket(&mut self) -> crate::Result<()> {
         if self.read_pos > 0 {
@@ -151,24 +165,6 @@ impl<S: Socket> Connection<S> {
 
         Ok(())
     }
-
-    fn push_method_name(
-        &mut self,
-        interface: &'static str,
-        method: &'static str,
-    ) -> crate::Result<()> {
-        self.method_name_buffer
-            .push_str(interface)
-            .map_err(|_| crate::Error::BufferOverflow)?;
-        self.method_name_buffer
-            .push('.')
-            .map_err(|_| crate::Error::BufferOverflow)?;
-        self.method_name_buffer
-            .push_str(method)
-            .map_err(|_| crate::Error::BufferOverflow)?;
-
-        Ok(())
-    }
 }
 
 /// A successful method call reply.
@@ -191,9 +187,9 @@ impl<Params> Reply<Params> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Call<'c, P> {
-    method: &'c str,
-    parameters: P,
+struct Call<M> {
+    #[serde(flatten)]
+    method: M,
     one_way: Option<bool>,
     more: Option<bool>,
     upgrade: Option<bool>,
@@ -203,7 +199,6 @@ struct Call<'c, P> {
 const BUFFER_SIZE: usize = 1024;
 #[cfg(feature = "std")]
 const MAX_BUFFER_SIZE: usize = 1024 * 1024; // Don't allow buffers over 1MB.
-const METHOD_NAME_BUFFER_SIZE: usize = 256;
 
 fn from_slice<'a, T>(buffer: &'a [u8]) -> crate::Result<T>
 where
