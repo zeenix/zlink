@@ -7,8 +7,12 @@
     * Generic over Socket
     * low-level API to send/receive messages.
     * features of buffer sizes: 4k, 16k (default), 64k, 1M (highest selected if all enabled)
-  * Basic tests (start with `add-tests` branch)
+  * Listener trait
+  * Service (code snippet below)
+    * generic over Listener
+    * new(listener)
   * nostd (Use #![warn(clippy::std_instead_of_core)] if `std` still a feature)
+  * Basic tests (start with `add-tests` branch)
   * CI to build for both std and embedded
 
 * zarlink-macros
@@ -25,9 +29,12 @@
   * USB (using nusb) transport
 * zarlink-micro
   * embassy_usb-based transport
+  * Will need to create a connection concept through multiplexing
+    * https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html
 * zarlink-gen (generates code from IDL)
 
 * zarlink
+  * Update README if we end up never using alloc directly.
   * More efficient parsing of messages in Connection using winnow
     * https://github.com/winnow-rs/winnow/tree/main/examples/json
     * Remove the FIXMEs
@@ -45,11 +52,63 @@ Maybe later:
 
 ## Code snippets
 
+### Service
+
+```rust
+struct Service<L> {
+    listener: L,
+}
+
+impl<L> Service<L>
+where
+    L: Listener,
+{
+      async fn run<'h, Handler, MethodCall, Reply>(
+        &'h mut self,
+        mut handler: Handler,
+    ) -> Result<(), Error>
+    where
+        Handler: AsyncFnMut(&'h mut Self, MethodCall) -> Reply,
+        MethodCall: Deserialize<'h>,
+        Reply: Serialize,
+    {
+        loop {
+            // Receive the next message from the connection.
+            let call: MethodCall = serde_json::from_str("{ \"x\": 32 }").unwrap();
+            let _: Reply = handler(self, call).await;
+            // Send reply on the connection.
+        }
+
+        Ok(())
+    }
+}
+```
+
 ### service macro
 
 ```rust
 #[varlink::service]
 pub mod my_service {
+    // The attribute adds a:
+    // * A `Listener` generic.
+    // * `new` method that takes a connection.
+    // * `<field-name>` and `set_<field-name>` methods for each field.
+    #[varlink(interface))]
+    struct Ftl {
+        drive_condition: DriveCondition,
+        coordinates:
+    }
+
+    #[varlink(interface(name = "org.example.ftl"))]
+    impl Ftl {
+        // Special args:
+        //
+        // * `connection`: Reference to the connection which received the call.
+        async fn monitor(&mut self) -> Result<DriveCondition> {
+            Ok(self.drive_condition)
+        }
+    }
+
     #[derive(Debug, Serialize, Deserialize)]
     struct DriveCondition {
         state: DriveState,
@@ -76,29 +135,6 @@ pub mod my_service {
         longitude: f32,
         latitude: f32,
         distance: i64,
-    }
-
-    // The attribute adds a:
-    // * A `Socket` generic.
-    // * `connection` field.
-    // * `get_connection` method.
-    // * `new` method that takes a connection.
-    // * `<field-name>` and `set_<field-name>` methods for each field.
-    // 
-    // It also mangles the field names so they're not used directy by the user implementation.
-    #[varlink(interface))]
-    struct Ftl {
-        // This attribute makes `drive_condition` to be sent out as a reply 
-        #[varlink(event)]
-        drive_condition: DriveCondition,
-        coordinates: 
-    }
-
-    #[varlink(interface(name = "org.example.ftl"))]
-    impl Ftl {
-        async fn monitor(&mut self) -> Result<DriveCondition> {
-            Ok(self.drive_condition)
-        }
     }
 }
 ```
