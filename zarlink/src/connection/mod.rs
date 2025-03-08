@@ -143,7 +143,7 @@ impl<S: Socket> Connection<S> {
                 }
 
                 self.write_buffer
-                    .extend(std::iter::repeat(0).take(BUFFER_SIZE));
+                    .extend(core::iter::repeat(0).take(BUFFER_SIZE));
             }
 
             pos += bytes_read;
