@@ -11,13 +11,10 @@ An asynchronous no-std-compatible Varlink Rust crate. It consists for the follow
 
 ## Why does zarlink require a global allocator?
 
-Originally, `zarlink` was also intended to be no_alloc as well but due to a serious of hurdles, this
-idea was abandoned. For example we need to make use of APIs from certain external crates that
-require `alloc`:
+Originally, `zarlink` was also intended to be no_alloc as well but due to a series of hurdles, this
+idea was abandoned. For example we need to make use of the enum representations in `serde` but [most
+enum representations in `serde` require `alloc`][meris].
 
-* [Most enum representations in `serde`][meris].
-* `futures_util::future::select_all`.
-
-Still, we make every effort to minimize allocations as much as possible.
+Still, we make every effort to minimize allocations as much as possible. In fact, we don't do any allocations in `zarlink` itself unless `std` feature is enabled.
 
 [meris]: https://github.com/serde-rs/serde-rs.github.io/pull/179
