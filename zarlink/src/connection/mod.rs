@@ -134,7 +134,7 @@ impl<S: Socket> Connection<S> {
     }
 
     // Reads at least one full message from the socket and return a single message bytes.
-    async fn read_message_bytes<'b>(&'b mut self) -> crate::Result<&'b [u8]> {
+    async fn read_message_bytes(&mut self) -> crate::Result<&'_ [u8]> {
         self.read_from_socket().await?;
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
