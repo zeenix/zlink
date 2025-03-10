@@ -8,7 +8,7 @@
     * new(listener)
     * tests
 * zarlink-tokio
-  * Use https://docs.rs/async-compat/latest/async_compat/
+  * Use <https://docs.rs/async-compat/latest/async_compat/>
   * tests (start with `add-tests` branch)
 * zarlink-macros
   * service attribute macro (takes a mod, see below)
@@ -16,7 +16,7 @@
       * Similar to zbus but no async-trait use (Use Box directly: hint: heapless also has a Box)
     * takes a Connection instance
     * user drives it
-    * introspection https://varlink.org/Service
+    * introspection <https://varlink.org/Service>
   * tests
 * zarlink-smol
 * zarlink-usb
@@ -24,15 +24,15 @@
 * zarlink-micro
   * embassy_usb-based transport
   * Will need to create a connection concept through multiplexing
-    * https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html
+    * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
 * zarlink-codegen (generates code from IDL)
 
 * zarlink
   * Update README if we end up never using alloc directly.
   * More efficient parsing of messages in Connection using winnow
-    * https://github.com/winnow-rs/winnow/tree/main/examples/json
+    * <https://github.com/winnow-rs/winnow/tree/main/examples/json>
     * Remove the FIXMEs
-  * enums support in serde-json-core: https://github.com/rust-embedded-community/serde-json-core/issues/94
+  * enums support in serde-json-core: <https://github.com/rust-embedded-community/serde-json-core/issues/94>
   * Support client-side API for nostd (e.g Connection::receive_reply)
 
 Maybe later:
