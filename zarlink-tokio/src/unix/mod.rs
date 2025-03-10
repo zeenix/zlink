@@ -41,3 +41,9 @@ impl Socket for Stream {
         Ok(())
     }
 }
+
+impl From<UnixStream> for Stream {
+    fn from(stream: UnixStream) -> Self {
+        Self(stream)
+    }
+}
