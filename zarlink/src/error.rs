@@ -16,6 +16,9 @@ pub enum Error {
     /// Error deserialization from JSON.
     #[cfg(not(feature = "std"))]
     JsonDeserialize(serde_json_core::de::Error),
+    /// An I/O error.
+    #[cfg(feature = "std")]
+    Io(std::io::Error),
 }
 
 /// The Result type for the zarlink crate.
@@ -42,6 +45,13 @@ impl From<serde_json_core::de::Error> for Error {
     }
 }
 
+#[cfg(feature = "std")]
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::Io(e)
+    }
+}
+
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -54,6 +64,8 @@ impl core::fmt::Display for Error {
             Error::JsonSerialize(e) => write!(f, "Error serializing to JSON: {e}"),
             #[cfg(not(feature = "std"))]
             Error::JsonDeserialize(e) => write!(f, "Error deserializing from JSON: {e}"),
+            #[cfg(feature = "std")]
+            Error::Io(e) => write!(f, "I/O error: {e}"),
         }
     }
 }
