@@ -24,6 +24,22 @@ pub enum Error {
 /// The Result type for the zarlink crate.
 pub type Result<T> = core::result::Result<T, Error>;
 
+impl core::error::Error for Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            #[cfg(feature = "std")]
+            Error::Json(e) => Some(e),
+            #[cfg(not(feature = "std"))]
+            Error::JsonSerialize(e) => Some(e),
+            #[cfg(not(feature = "std"))]
+            Error::JsonDeserialize(e) => Some(e),
+            #[cfg(feature = "std")]
+            Error::Io(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
