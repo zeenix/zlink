@@ -1,0 +1,14 @@
+[package]
+name = "zarlink-tokio"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+zarlink = { path = "../zarlink" }
+tokio = { version = "1.44.0", features = ["net", "io-util"] }
+
+[dev-dependencies]
+tokio = { version = "1.44.0", features = ["macros", "rt"] }
