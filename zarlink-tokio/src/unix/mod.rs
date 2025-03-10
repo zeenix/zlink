@@ -13,7 +13,7 @@ pub type Connection = zarlink::Connection<Stream>;
 pub struct Stream(UnixStream);
 
 impl Stream {
-    /// Create a new Unix Domain Socket connection.
+    /// Connect to Unix Domain Socket at the given path.
     pub async fn connect<P>(path: P) -> zarlink::Result<Connection>
     where
         P: AsRef<std::path::Path>,
