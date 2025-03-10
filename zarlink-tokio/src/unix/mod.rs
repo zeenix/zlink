@@ -4,34 +4,33 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
 };
+use zarlink::{connection::Socket, Result};
 
 /// The connection type that uses Unix Domain Sockets for transport.
 pub type Connection = zarlink::Connection<Stream>;
 
-/// The [`zarlink::connection::Socket`] implementation using Unix Domain Sockets.
+/// Connect to Unix Domain Socket at the given path.
+pub async fn connect<P>(path: P) -> Result<Connection>
+where
+    P: AsRef<std::path::Path>,
+{
+    UnixStream::connect(path)
+        .await
+        .map(Stream)
+        .map(Connection::new)
+        .map_err(Into::into)
+}
+
+/// The [`Socket`] implementation using Unix Domain Sockets.
 #[derive(Debug)]
 pub struct Stream(UnixStream);
 
-impl Stream {
-    /// Connect to Unix Domain Socket at the given path.
-    pub async fn connect<P>(path: P) -> zarlink::Result<Connection>
-    where
-        P: AsRef<std::path::Path>,
-    {
-        UnixStream::connect(path)
-            .await
-            .map(Self)
-            .map(Connection::new)
-            .map_err(Into::into)
-    }
-}
-
-impl zarlink::connection::Socket for Stream {
-    async fn read(&mut self, buf: &mut [u8]) -> zarlink::Result<usize> {
+impl Socket for Stream {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.0.read(buf).await.map_err(Into::into)
     }
 
-    async fn write(&mut self, buf: &[u8]) -> zarlink::Result<()> {
+    async fn write(&mut self, buf: &[u8]) -> Result<()> {
         let mut pos = 0;
 
         while pos < buf.len() {
