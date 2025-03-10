@@ -14,13 +14,14 @@ pub struct Stream(UnixStream);
 
 impl Stream {
     /// Create a new Unix Domain Socket connection.
-    pub async fn connect<P>(path: P) -> zarlink::Result<Self>
+    pub async fn connect<P>(path: P) -> zarlink::Result<Connection>
     where
         P: AsRef<std::path::Path>,
     {
         UnixStream::connect(path)
             .await
             .map(Self)
+            .map(Connection::new)
             .map_err(Into::into)
     }
 }
