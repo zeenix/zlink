@@ -176,20 +176,20 @@ impl<S: Socket> Connection<S> {
             // This marks end of all messages. After this loop is finished, we'll have 2 consecutive
             // null bytes at the end. This is then used by the callers to determine that they've
             // read all messages and can now reset the `read_pos`.
-            self.write_buffer[total_read] = b'\0';
+            self.read_buffer[total_read] = b'\0';
 
-            if self.write_buffer[total_read - 1] == b'\0' {
+            if self.read_buffer[total_read - 1] == b'\0' {
                 // One or more full messages were read.
                 break;
             }
 
             #[cfg(feature = "std")]
-            if total_read >= self.write_buffer.len() {
+            if total_read >= self.read_buffer.len() {
                 if total_read >= MAX_BUFFER_SIZE {
                     return Err(crate::Error::BufferOverflow);
                 }
 
-                self.write_buffer
+                self.read_buffer
                     .extend(core::iter::repeat(0).take(BUFFER_SIZE));
             }
 
