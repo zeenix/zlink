@@ -68,9 +68,10 @@ impl<S: Socket> Connection<S> {
             more,
             upgrade,
         };
-        to_slice(&call, &mut self.write_buffer)?;
+        let len = to_slice(&call, &mut self.write_buffer)?;
+        self.write_buffer[len] = b'\0';
 
-        self.socket.write(&self.write_buffer).await
+        self.socket.write(&self.write_buffer[..=len]).await
     }
 
     /// Receives a method call reply.
@@ -272,19 +273,20 @@ where
     }
 }
 
-fn to_slice<T>(value: &T, buf: &mut [u8]) -> crate::Result<()>
+fn to_slice<T>(value: &T, buf: &mut [u8]) -> crate::Result<usize>
 where
     T: Serialize + ?Sized,
 {
     #[cfg(feature = "std")]
     {
-        serde_json::to_writer(buf, value).map_err(Into::into)
+        let mut buf = std::io::Cursor::new(buf);
+        serde_json::to_writer(&mut buf, value)?;
+
+        Ok(buf.position() as usize)
     }
 
     #[cfg(not(feature = "std"))]
     {
-        serde_json_core::to_slice(value, buf)
-            .map_err(Into::into)
-            .map(|_| ())
+        serde_json_core::to_slice(value, buf).map_err(Into::into)
     }
 }
