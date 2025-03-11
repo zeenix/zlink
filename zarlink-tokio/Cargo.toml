@@ -12,3 +12,5 @@ tokio = { version = "1.44.0", features = ["net", "io-util"] }
 
 [dev-dependencies]
 tokio = { version = "1.44.0", features = ["macros", "rt"] }
+serde = { version = "1.0.218", default-features = false, features = ["derive"] }
+serde_repr = "0.1.20"
