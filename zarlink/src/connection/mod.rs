@@ -229,8 +229,11 @@ impl<Params> Reply<Params> {
 pub struct Call<M> {
     #[serde(flatten)]
     method: M,
+    #[serde(skip_serializing_if = "Option::is_none")]
     oneway: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     more: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     upgrade: Option<bool>,
 }
 
