@@ -2,11 +2,17 @@
 
 * zarlink: Provides all the API but leaves actual transport to external crates.
   * Basic tests for Connection API
+  * Better Connection::receive_reply return type
+    * Flatten Results
+      * Generic on Error that defaults to `()`.
+  * Connection::{send_reply, send_error, call_method}
   * Listener trait
   * Service (code snippet below)
     * generic over Listener
     * new(listener)
+    * handle multiple replies
     * tests
+  * FDs
 * zarlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
   * tests (start with `add-tests` branch)
@@ -34,13 +40,6 @@
     * Remove the FIXMEs
   * enums support in serde-json-core: <https://github.com/rust-embedded-community/serde-json-core/issues/94>
   * Support client-side API for nostd (e.g Connection::receive_reply)
-
-Maybe later:
-
-* zarlink
-  * Revive heapfull crate (heapfull branch)
-    * Add heapless proxy feature.
-    * alloc and heapless feature (one must be enabled)
 
 ---------------------------------------
 
