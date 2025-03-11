@@ -213,6 +213,11 @@ impl<Params> Reply<Params> {
         &self.parameters
     }
 
+    /// Convert the reply into its parameters.
+    pub fn into_parameters(self) -> Params {
+        self.parameters
+    }
+
     /// If there are more replies to come.
     pub fn continues(&self) -> Option<bool> {
         self.continues
