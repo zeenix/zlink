@@ -55,7 +55,7 @@ impl<S: Socket> Connection<S> {
     pub async fn send_call<M>(
         &mut self,
         method: M,
-        one_way: Option<bool>,
+        oneway: Option<bool>,
         more: Option<bool>,
         upgrade: Option<bool>,
     ) -> crate::Result<()>
@@ -64,7 +64,7 @@ impl<S: Socket> Connection<S> {
     {
         let call = Call {
             method,
-            one_way,
+            oneway,
             more,
             upgrade,
         };
@@ -214,7 +214,7 @@ impl<Params> Reply<Params> {
 pub struct Call<M> {
     #[serde(flatten)]
     method: M,
-    one_way: Option<bool>,
+    oneway: Option<bool>,
     more: Option<bool>,
     upgrade: Option<bool>,
 }
@@ -226,8 +226,8 @@ impl<M> Call<M> {
     }
 
     /// If the method call doesn't want a reply.
-    pub fn one_way(&self) -> Option<bool> {
-        self.one_way
+    pub fn oneway(&self) -> Option<bool> {
+        self.oneway
     }
 
     /// If the method call is requesting more replies.
