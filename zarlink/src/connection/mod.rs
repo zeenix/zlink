@@ -162,6 +162,15 @@ impl<S: Socket> Connection<S> {
         let mut pos = self.read_pos;
         loop {
             let bytes_read = self.socket.read(&mut self.read_buffer[pos..]).await?;
+            if bytes_read == 0 {
+                #[cfg(not(feature = "std"))]
+                return Err(crate::Error::SocketRead);
+                #[cfg(feature = "std")]
+                return Err(crate::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "unexpected EOF",
+                )));
+            }
             let total_read = pos + bytes_read;
 
             // This marks end of all messages. After this loop is finished, we'll have 2 consecutive
