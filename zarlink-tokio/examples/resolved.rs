@@ -12,12 +12,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut connection =
         zarlink_tokio::unix::connect("/run/systemd/resolve/io.systemd.Resolve").await?;
 
-    for name in args().skip(1) {
-        for address in resolve(&mut connection, &name)
+    let args: Vec<_> = args().skip(1).collect();
+
+    // First send out all the method calls (let's make use of pipelinning feature of Varlink!).
+    for name in args.clone() {
+        let resolve = Method::ResolveHostName { name: &name };
+        connection
+            .send_call::<_, &'static str>(resolve, None, None, None)
+            .await?;
+    }
+
+    // Then fetch the results and print them.
+    for name in args.clone() {
+        match connection
+            .receive_reply::<ReplyParams, ReplyError>()
             .await
-            .map_err(|e| e.to_string())?
+            .map(|r| r.into_parameters().addresses)
         {
-            println!("{}", address);
+            Ok(addresses) => {
+                println!("Results for '{}':", name);
+                for address in addresses {
+                    println!("\t{}", address);
+                }
+            }
+            Err(e) => eprintln!("Error resolving '{}': {}", name, e),
         }
     }
 
