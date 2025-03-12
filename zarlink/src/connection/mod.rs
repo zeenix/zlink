@@ -79,11 +79,11 @@ impl<S: Socket> Connection<S> {
     ///
     /// The generic parameters needs some explanation:
     ///
-    /// * `R` is the type of the successful reply. This should be a type that can deserialize itself
-    ///   from the `parameters` field of the reply.
-    /// * `E` is the type of the error reply. This should be a type that can deserialize itself from
-    ///   the whole reply object itself and must fail when there is no `error` field in the object.
-    ///   This can be easily achieved using the `serde::Deserialize` derive:
+    /// * `Params` is the type of the successful reply. This should be a type that can deserialize
+    ///   itself from the `parameters` field of the reply.
+    /// * `ReplyError` is the type of the error reply. This should be a type that can deserialize
+    ///   itself from the whole reply object itself and must fail when there is no `error` field in
+    ///   the object. This can be easily achieved using the `serde::Deserialize` derive:
     ///
     /// ```rust
     /// use serde::{Deserialize, Serialize};
