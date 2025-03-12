@@ -33,8 +33,8 @@ impl<S: Socket> Connection<S> {
 
     /// Sends a method call.
     ///
-    /// The generic `M` is the type of the method name and its input parameters. This should be a
-    /// type that can serialize itself to a complete method call message, i-e an object containing
+    /// The generic `Method` is the type of the method name and its input parameters. This should be
+    /// a type that can serialize itself to a complete method call message, i-e an object containing
     /// `method` and `parameter` fields. This can be easily achieved using the `serde::Serialize`
     /// derive:
     ///
@@ -53,15 +53,15 @@ impl<S: Socket> Connection<S> {
     ///    Charlie { param1: &'m str },
     /// }
     /// ```
-    pub async fn send_call<M, ReplyError>(
+    pub async fn send_call<Method, ReplyError>(
         &mut self,
-        method: M,
+        method: Method,
         oneway: Option<bool>,
         more: Option<bool>,
         upgrade: Option<bool>,
     ) -> crate::Result<(), ReplyError>
     where
-        M: Serialize + Debug,
+        Method: Serialize + Debug,
     {
         let call = Call {
             method,
@@ -121,22 +121,24 @@ impl<S: Socket> Connection<S> {
 
     /// Receive a method call over the socket.
     ///
-    /// The generic `M` is the type of the method name and its input parameters. This should be a
-    /// type that can deserialize itself from a complete method call message, i-e an object
+    /// The generic `Method` is the type of the method name and its input parameters. This should be
+    /// a type that can deserialize itself from a complete method call message, i-e an object
     /// containing `method` and `parameter` fields. This can be easily achieved using the
     /// `serde::Deserialize` derive (See the code snippet in [`Connection::send_call`] documentation
     /// for an example).
-    pub async fn receive_call<'m, M, ReplyError>(&'m mut self) -> crate::Result<Call<M>, ReplyError>
+    pub async fn receive_call<'m, Method, ReplyError>(
+        &'m mut self,
+    ) -> crate::Result<Call<Method>, ReplyError>
     where
-        M: Deserialize<'m>,
+        Method: Deserialize<'m>,
     {
         let buffer = self.read_message_bytes().await?;
 
-        from_slice::<Call<M>, _>(buffer)
+        from_slice::<Call<Method>, _>(buffer)
     }
 
     // Reads at least one full message from the socket and return a single message bytes.
-    async fn read_message_bytes<E>(&mut self) -> crate::Result<&'_ [u8], E> {
+    async fn read_message_bytes<ReplyError>(&mut self) -> crate::Result<&'_ [u8], ReplyError> {
         self.read_from_socket().await?;
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
@@ -154,7 +156,7 @@ impl<S: Socket> Connection<S> {
     }
 
     // Reads at least one full message from the socket.
-    async fn read_from_socket<E>(&mut self) -> crate::Result<(), E> {
+    async fn read_from_socket<ReplyError>(&mut self) -> crate::Result<(), ReplyError> {
         if self.read_pos > 0 {
             // This means we already have at least one message in the buffer so no need to read.
             return Ok(());
