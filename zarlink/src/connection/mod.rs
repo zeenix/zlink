@@ -137,6 +137,47 @@ impl<S: Socket> Connection<S> {
         from_slice::<Call<Method>, _>(buffer)
     }
 
+    /// Send a reply over the socket.
+    ///
+    /// The generic parameter `Params` is the type of the successful reply. This should be a type
+    /// that can serialize itself as the `parameters` field of the reply.
+    pub async fn send_reply<Params, ReplyError>(
+        &mut self,
+        parameters: Params,
+        continues: Option<bool>,
+    ) -> crate::Result<(), ReplyError>
+    where
+        Params: Serialize + Debug,
+    {
+        let reply = Reply {
+            parameters,
+            continues,
+        };
+        let len = to_slice(&reply, &mut self.write_buffer)?;
+        self.write_buffer[len] = b'\0';
+
+        self.socket.write(&self.write_buffer[..=len]).await
+    }
+
+    /// Send an error reply over the socket.
+    ///
+    /// The generic parameter `ReplyError` is the type of the error reply. This should be a type
+    /// that can serialize itself to the whole reply object, containing `error` and `parameter`
+    /// fields. This can be easily achieved using the `serde::Serialize` derive (See the code
+    /// snippet in [`Connection::receive_reply`] documentation for an example).
+    pub async fn send_error<ReplyError>(
+        &mut self,
+        error: ReplyError,
+    ) -> crate::Result<(), ReplyError>
+    where
+        ReplyError: Serialize + Debug,
+    {
+        let len = to_slice(&error, &mut self.write_buffer)?;
+        self.write_buffer[len] = b'\0';
+
+        self.socket.write(&self.write_buffer[..=len]).await
+    }
+
     // Reads at least one full message from the socket and return a single message bytes.
     async fn read_message_bytes<ReplyError>(&mut self) -> crate::Result<&'_ [u8], ReplyError> {
         self.read_from_socket().await?;
