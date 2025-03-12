@@ -4,6 +4,7 @@ mod socket;
 use core::fmt::Debug;
 
 use mayheap::Vec;
+use memchr::memchr;
 use serde::{Deserialize, Serialize};
 pub use socket::Socket;
 
@@ -140,7 +141,7 @@ impl<S: Socket> Connection<S> {
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
         // the buffer.
-        let null_index = memchr::memchr(b'\0', &self.read_buffer[self.read_pos..]).unwrap();
+        let null_index = memchr(b'\0', &self.read_buffer[self.read_pos..]).unwrap() + self.read_pos;
         let buffer = &self.read_buffer[self.read_pos..null_index];
         if self.read_buffer[null_index + 1] == b'\0' {
             // This means we're reading the last message and can now reset the index.
