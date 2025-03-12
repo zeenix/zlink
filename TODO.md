@@ -1,11 +1,8 @@
 # TODO
 
 * zarlink: Provides all the API but leaves actual transport to external crates.
-  * Basic tests for Connection API
-  * Better Connection::receive_reply return type
-    * Flatten Results
-      * Generic on Error that defaults to `()`.
-  * Connection::{send_reply, send_error, call_method}
+  * Basic e2e test for zarlink_tokio::Connection (Use the Ftl example from varlink docs)
+  * Connection::call_method
   * Listener trait
   * Service (code snippet below)
     * generic over Listener
