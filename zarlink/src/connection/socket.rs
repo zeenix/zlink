@@ -7,8 +7,14 @@ pub trait Socket {
     /// Read from a socket.
     ///
     /// On completion, the number of bytes read is returned.
-    fn read(&mut self, buf: &mut [u8]) -> impl Future<Output = crate::Result<usize>>;
+    fn read<ReplyError>(
+        &mut self,
+        buf: &mut [u8],
+    ) -> impl Future<Output = crate::Result<usize, ReplyError>>;
 
     /// Write to the socket.
-    fn write(&mut self, buf: &[u8]) -> impl Future<Output = crate::Result<()>>;
+    fn write<ReplyError>(
+        &mut self,
+        buf: &[u8],
+    ) -> impl Future<Output = crate::Result<(), ReplyError>>;
 }

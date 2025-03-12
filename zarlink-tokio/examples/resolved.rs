@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for name in args().skip(1) {
         for address in resolve(&mut connection, &name)
-            .await?
+            .await
             .map_err(|e| e.to_string())?
         {
             println!("{}", address);
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn resolve<'c>(
     connection: &'c mut Connection,
     name: &str,
-) -> zarlink::Result<Result<Vec<ResolvedAddress>, ReplyError<'c>>> {
+) -> Result<Vec<ResolvedAddress>, zarlink::Error<ReplyError<'c>>> {
     // Send out the method call.
     let resolve = Method::ResolveHostName { name: &name };
     connection.send_call(resolve, None, None, None).await?;
@@ -36,7 +36,7 @@ async fn resolve<'c>(
     connection
         .receive_reply::<ReplyParams, ReplyError>()
         .await
-        .map(|r| r.map(|r| r.into_parameters().addresses))
+        .map(|r| r.into_parameters().addresses)
         .map_err(Into::into)
 }
 

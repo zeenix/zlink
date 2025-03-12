@@ -1,6 +1,8 @@
 /// The Error type for the zarlink crate.
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<ReplyError = &'static str> {
+    /// An error from the service.
+    Reply(ReplyError),
     /// An error occurred while reading from the socket.
     SocketRead,
     /// An error occurred while writing to the socket.
@@ -22,9 +24,12 @@ pub enum Error {
 }
 
 /// The Result type for the zarlink crate.
-pub type Result<T> = core::result::Result<T, Error>;
+pub type Result<T, ReplyError> = core::result::Result<T, Error<ReplyError>>;
 
-impl core::error::Error for Error {
+impl<T> core::error::Error for Error<T>
+where
+    T: core::fmt::Display + core::fmt::Debug,
+{
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             #[cfg(feature = "std")]
@@ -41,36 +46,40 @@ impl core::error::Error for Error {
 }
 
 #[cfg(feature = "std")]
-impl From<serde_json::Error> for Error {
+impl<T> From<serde_json::Error> for Error<T> {
     fn from(e: serde_json::Error) -> Self {
         Error::Json(e)
     }
 }
 
 #[cfg(not(feature = "std"))]
-impl From<serde_json_core::ser::Error> for Error {
+impl<T> From<serde_json_core::ser::Error> for Error<T> {
     fn from(e: serde_json_core::ser::Error) -> Self {
         Error::JsonSerialize(e)
     }
 }
 
 #[cfg(not(feature = "std"))]
-impl From<serde_json_core::de::Error> for Error {
+impl<T> From<serde_json_core::de::Error> for Error<T> {
     fn from(e: serde_json_core::de::Error) -> Self {
         Error::JsonDeserialize(e)
     }
 }
 
 #[cfg(feature = "std")]
-impl From<std::io::Error> for Error {
+impl<T> From<std::io::Error> for Error<T> {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
     }
 }
 
-impl core::fmt::Display for Error {
+impl<T> core::fmt::Display for Error<T>
+where
+    T: core::fmt::Display,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Error::Reply(e) => write!(f, "server error: {e}"),
             Error::SocketRead => write!(f, "An error occurred while reading from the socket"),
             Error::SocketWrite => write!(f, "An error occurred while writing to the socket"),
             Error::BufferOverflow => write!(f, "Buffer overflow"),

@@ -52,13 +52,13 @@ impl<S: Socket> Connection<S> {
     ///    Charlie { param1: &'m str },
     /// }
     /// ```
-    pub async fn send_call<M>(
+    pub async fn send_call<M, ReplyError>(
         &mut self,
         method: M,
         oneway: Option<bool>,
         more: Option<bool>,
         upgrade: Option<bool>,
-    ) -> crate::Result<()>
+    ) -> crate::Result<(), ReplyError>
     where
         M: Serialize + Debug,
     {
@@ -101,7 +101,7 @@ impl<S: Socket> Connection<S> {
     /// ```
     pub async fn receive_reply<'r, Params, ReplyError>(
         &'r mut self,
-    ) -> crate::Result<Result<Reply<Params>, ReplyError>>
+    ) -> crate::Result<Reply<Params>, ReplyError>
     where
         Params: Deserialize<'r>,
         ReplyError: Deserialize<'r>,
@@ -112,9 +112,9 @@ impl<S: Socket> Connection<S> {
         // FIXME: This will mean the document will be parsed twice. We should instead try to
         // quickly check if `error` field is present and then parse to the appropriate type based on
         // that information. Perhaps a simple parser using `winnow`?
-        match from_slice::<ReplyError>(buffer) {
-            Ok(e) => Ok(Err(e)),
-            Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
+        match from_slice::<ReplyError, ReplyError>(buffer) {
+            Ok(e) => Err(crate::Error::Reply(e)),
+            Err(_) => from_slice::<Reply<_>, _>(buffer),
         }
     }
 
@@ -125,17 +125,17 @@ impl<S: Socket> Connection<S> {
     /// containing `method` and `parameter` fields. This can be easily achieved using the
     /// `serde::Deserialize` derive (See the code snippet in [`Connection::send_call`] documentation
     /// for an example).
-    pub async fn receive_call<'m, M>(&'m mut self) -> crate::Result<Call<M>>
+    pub async fn receive_call<'m, M, ReplyError>(&'m mut self) -> crate::Result<Call<M>, ReplyError>
     where
         M: Deserialize<'m>,
     {
         let buffer = self.read_message_bytes().await?;
 
-        from_slice::<Call<M>>(buffer)
+        from_slice::<Call<M>, _>(buffer)
     }
 
     // Reads at least one full message from the socket and return a single message bytes.
-    async fn read_message_bytes(&mut self) -> crate::Result<&'_ [u8]> {
+    async fn read_message_bytes<E>(&mut self) -> crate::Result<&'_ [u8], E> {
         self.read_from_socket().await?;
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
@@ -153,7 +153,7 @@ impl<S: Socket> Connection<S> {
     }
 
     // Reads at least one full message from the socket.
-    async fn read_from_socket(&mut self) -> crate::Result<()> {
+    async fn read_from_socket<E>(&mut self) -> crate::Result<(), E> {
         if self.read_pos > 0 {
             // This means we already have at least one message in the buffer so no need to read.
             return Ok(());
@@ -273,7 +273,7 @@ const BUFFER_SIZE: usize = 4 * 1024;
 #[cfg(feature = "std")]
 const MAX_BUFFER_SIZE: usize = 100 * 1024 * 1024; // Don't allow buffers over 100MB.
 
-fn from_slice<'a, T>(buffer: &'a [u8]) -> crate::Result<T>
+fn from_slice<'a, T, ReplyError>(buffer: &'a [u8]) -> crate::Result<T, ReplyError>
 where
     T: Deserialize<'a>,
 {
@@ -290,7 +290,7 @@ where
     }
 }
 
-fn to_slice<T>(value: &T, buf: &mut [u8]) -> crate::Result<usize>
+fn to_slice<T, ReplyError>(value: &T, buf: &mut [u8]) -> crate::Result<usize, ReplyError>
 where
     T: Serialize + ?Sized,
 {
