@@ -58,7 +58,7 @@ where
         mut handler: Handler,
     ) -> Result<(), Error>
     where
-        Handler: AsyncFnMut(&'h mut Self, MethodCall) -> Reply,
+        Handler: MethodHandler<'h, MethodCall, Reply>,
         MethodCall: Deserialize<'h>,
         Reply: Serialize,
     {
@@ -72,59 +72,60 @@ where
         Ok(())
     }
 }
+
+pub type MethodHandler<'h, MethodCall, Reply> = AsyncFnMut(&'h mut Service, MethodCall) -> Reply;
 ```
 
 ### service macro
 
 ```rust
+struct Ftl {
+    drive_condition: DriveCondition,
+    coordinates: Coordinate,
+}
+
+// This attribute macro defines a varlink service.
+//
+// It mainly adds a method that creates
+// It supports the folowing sub-attributes:
+// * `interface`: The interface name. If this is given than all the methods will be prefixed
+//   with the interface name. This is useful when the service only offers a single interface.
 #[varlink::service]
-pub mod my_service {
-    // The attribute adds a:
-    // * A `Listener` generic.
-    // * `new` method that takes a connection.
-    // * `<field-name>` and `set_<field-name>` methods for each field.
-    #[varlink(interface))]
-    struct Ftl {
-        drive_condition: DriveCondition,
-        coordinates:
+impl Ftl {
+    // Special args:
+    //
+    // * `connection`: Reference to the connection which received the call.
+    #[zarlink(interface = "org.varlink.service.ftl")]
+    async fn monitor(&mut self) -> Result<DriveCondition> {
+        Ok(self.drive_condition)
     }
+}
 
-    #[varlink(interface(name = "org.example.ftl"))]
-    impl Ftl {
-        // Special args:
-        //
-        // * `connection`: Reference to the connection which received the call.
-        async fn monitor(&mut self) -> Result<DriveCondition> {
-            Ok(self.drive_condition)
-        }
-    }
+#[derive(Debug, Serialize, Deserialize)]
+struct DriveCondition {
+    state: DriveState,
+    tylium_level: i64,
+}
 
-    #[derive(Debug, Serialize, Deserialize)]
-    struct DriveCondition {
-        state: DriveState,
-        tylium_level: i64,
-    }
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake-case")]
+pub enum DriveState {
+    Idle,
+    Spooling,
+    Busy,
+}
 
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "snake-case")]
-    pub enum DriveState {
-        Idle,
-        Spooling,
-        Busy,
-    }
+#[derive(Debug, Serialize, Deserialize)]
+struct DriveConfiguration {
+    speed: i64,
+    trajectory: i64,
+    duration: i64,
+}
 
-    #[derive(Debug, Serialize, Deserialize)]
-    struct DriveConfiguration {
-        speed: i64,
-        trajectory: i64,
-        duration: i64,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct Coordinate {
-        longitude: f32,
-        latitude: f32,
-        distance: i64,
-    }
+#[derive(Debug, Serialize, Deserialize)]
+struct Coordinate {
+    longitude: f32,
+    latitude: f32,
+    distance: i64,
 }
 ```
