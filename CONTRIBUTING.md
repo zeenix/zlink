@@ -9,10 +9,10 @@ you contribute.
 
 ## Submitting bug reports and feature requests
 
-You can create issues [here](https://github.com/zeenix/zarlink/issues/new). When
-reporting a bug or asking for help, please include enough details so that the people helping you
-can reproduce the behavior you are seeing. For some tips on how to approach this, read about how to
-produce a [Minimal, Complete, and Verifiable Example](https://stackoverflow.com/help/mcve).
+You can create issues [here](https://github.com/zeenix/zlink/issues/new). When reporting a bug or
+asking for help, please include enough details so that the people helping you can reproduce the
+behavior you are seeing. For some tips on how to approach this, read about how to produce a
+[Minimal, Complete, and Verifiable Example](https://stackoverflow.com/help/mcve).
 
 When making a feature request, please make it clear what problem you intend to solve with the
 feature, any ideas for how the crate in question could support solving that problem, any possible

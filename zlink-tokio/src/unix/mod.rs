@@ -4,10 +4,10 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
 };
-use zarlink::{connection::Socket, Result};
+use zlink::{connection::Socket, Result};
 
 /// The connection type that uses Unix Domain Sockets for transport.
-pub type Connection = zarlink::Connection<Stream>;
+pub type Connection = zlink::Connection<Stream>;
 
 /// Connect to Unix Domain Socket at the given path.
 pub async fn connect<P>(path: P) -> Result<Connection, &'static str>

@@ -7,7 +7,7 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../../README.md")]
 
-pub use zarlink::*;
+pub use zlink::*;
 pub mod unix;
 
 #[cfg(test)]

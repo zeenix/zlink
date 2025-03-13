@@ -1,7 +1,7 @@
 # TODO
 
-* zarlink: Provides all the API but leaves actual transport to external crates.
-  * Basic e2e test for zarlink_tokio::Connection (Use the Ftl example from varlink docs)
+* zlink: Provides all the API but leaves actual transport to external crates.
+  * Basic e2e test for zlink_tokio::Connection (Use the Ftl example from varlink docs)
   * Connection::call_method
   * Listener trait
   * Service (code snippet below)
@@ -10,10 +10,10 @@
     * handle multiple replies
     * tests
   * FDs
-* zarlink-tokio
+* zlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
   * tests (start with `add-tests` branch)
-* zarlink-macros
+* zlink-macros
   * service attribute macro (takes a mod, see below)
     * keeps Interface trait objects
       * Similar to zbus but no async-trait use (Use Box directly: hint: heapless also has a Box)
@@ -21,16 +21,16 @@
     * user drives it
     * introspection <https://varlink.org/Service>
   * tests
-* zarlink-smol
-* zarlink-usb
+* zlink-smol
+* zlink-usb
   * USB (using nusb) transport
-* zarlink-micro
+* zlink-micro
   * embassy_usb-based transport
   * Will need to create a connection concept through multiplexing
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
-* zarlink-codegen (generates code from IDL)
+* zlink-codegen (generates code from IDL)
 
-* zarlink
+* zlink
   * Update README if we end up never using alloc directly.
   * More efficient parsing of messages in Connection using winnow
     * <https://github.com/winnow-rs/winnow/tree/main/examples/json>
@@ -95,7 +95,7 @@ impl Ftl {
     // Special args:
     //
     // * `connection`: Reference to the connection which received the call.
-    #[zarlink(interface = "org.varlink.service.ftl")]
+    #[zlink(interface = "org.varlink.service.ftl")]
     async fn monitor(&mut self) -> Result<DriveCondition> {
         Ok(self.drive_condition)
     }

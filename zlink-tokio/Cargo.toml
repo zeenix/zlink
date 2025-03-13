@@ -1,5 +1,5 @@
 [package]
-name = "zarlink-tokio"
+name = "zlink-tokio"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-zarlink = { path = "../zarlink" }
+zlink = { path = "../zlink" }
 tokio = { version = "1.44.0", features = ["net", "io-util"] }
 
 [dev-dependencies]

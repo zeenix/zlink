@@ -1,4 +1,4 @@
-/// The Error type for the zarlink crate.
+/// The Error type for the zlink crate.
 #[derive(Debug)]
 pub enum Error<ReplyError = &'static str> {
     /// An error from the service.
@@ -23,7 +23,7 @@ pub enum Error<ReplyError = &'static str> {
     Io(std::io::Error),
 }
 
-/// The Result type for the zarlink crate.
+/// The Result type for the zlink crate.
 pub type Result<T, ReplyError> = core::result::Result<T, Error<ReplyError>>;
 
 impl<T> core::error::Error for Error<T>

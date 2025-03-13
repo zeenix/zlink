@@ -5,12 +5,12 @@
 use std::{env::args, fmt::Display, net::IpAddr};
 
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use zarlink_tokio::unix::Connection;
+use zlink_tokio::unix::Connection;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut connection =
-        zarlink_tokio::unix::connect("/run/systemd/resolve/io.systemd.Resolve").await?;
+        zlink_tokio::unix::connect("/run/systemd/resolve/io.systemd.Resolve").await?;
 
     let args: Vec<_> = args().skip(1).collect();
 
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn resolve<'c>(
     connection: &'c mut Connection,
     name: &str,
-) -> Result<Vec<ResolvedAddress>, zarlink::Error<ReplyError<'c>>> {
+) -> Result<Vec<ResolvedAddress>, zlink::Error<ReplyError<'c>>> {
     // Send out the method call.
     let resolve = Method::ResolveHostName { name: &name };
     connection.send_call(resolve, None, None, None).await?;

@@ -1,12 +1,12 @@
 [workspace]
-members = ["zarlink", "zarlink-tokio"]
+members = ["zlink", "zlink-tokio"]
 resolver = "2"
 
 [workspace.package]
 edition = "2021"
 rust-version = "1.81"
 license = "MIT"
-repository = "https://github.com/zeenix/zarlink/"
+repository = "https://github.com/zeenix/zlink/"
 
 [profile.bench]
 debug = true
