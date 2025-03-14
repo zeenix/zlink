@@ -1,24 +1,21 @@
 # TODO
 
 * zlink: Provides all the API but leaves actual transport to external crates.
-  * Basic e2e test for zlink_tokio::Connection (Use the Ftl example from varlink docs)
   * Connection::call_method
-  * Listener trait
-  * Service (code snippet below)
+  * Listener trait (code snippet below)
+  * Service trait and Server struct (code snippet below)
     * generic over Listener
     * new(listener)
-    * handle multiple replies
+    * run(service)
+    * handle multiple replies (not covered in the snippet yet)
     * tests
   * FDs
 * zlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
-  * tests (start with `add-tests` branch)
 * zlink-macros
-  * service attribute macro (takes a mod, see below)
-    * keeps Interface trait objects
-      * Similar to zbus but no async-trait use (Use Box directly: hint: heapless also has a Box)
-    * takes a Connection instance
-    * user drives it
+  * service attribute macro (see below)
+    * implements `Service` trait
+    * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
   * tests
 * zlink-smol
@@ -45,35 +42,90 @@
 ### Service
 
 ```rust
-struct Service<L> {
+pub struct Server<L> {
     listener: L,
 }
 
-impl<L> Service<L>
+impl<L> Server<L>
 where
     L: Listener,
 {
-      async fn run<'h, Handler, MethodCall, Reply>(
-        &'h mut self,
-        mut handler: Handler,
-    ) -> Result<(), Error>
+    async fn run<Srv>(&mut self, mut service_impl: Srv)
     where
-        Handler: MethodHandler<'h, MethodCall, Reply>,
-        MethodCall: Deserialize<'h>,
-        Reply: Serialize,
+        for<'de, 'ser> Srv: Service<'de, 'ser>,
     {
+        let mut connection = self.listener.accept().await;
         loop {
-            // Receive the next message from the connection.
-            let call: MethodCall = serde_json::from_str("{ \"x\": 32 }").unwrap();
-            let _: Reply = handler(self, call).await;
-            // Send reply on the connection.
+            // Safety: TODO:
+            let service_impl = unsafe { &mut *(&mut service_impl as *mut Srv) };
+            if let Err(_) = service_impl.handle_next(&mut connection).await {
+                break;
+            }
         }
-
-        Ok(())
     }
 }
 
-pub type MethodHandler<'h, MethodCall, Reply> = AsyncFnMut(&'h mut Service, MethodCall) -> Reply;
+pub trait Service<'de, 'ser> {
+    type MethodCall: Deserialize<'de>;
+    type Reply: Serialize + 'ser;
+
+    fn handle(&'ser mut self, method: Self::MethodCall) -> impl Future<Output = Self::Reply>;
+
+    fn handle_next<Sock>(
+        &'ser mut self,
+        connection: &'de mut Connection<Sock>,
+    ) -> impl Future<Output = Result<(), ()>>
+    where
+        Sock: Socket,
+    {
+        async {
+            let json = connection.read_json_from_socket().await?;
+            let call: Self::MethodCall = serde_json::from_str(json).unwrap();
+            let _: Self::Reply = self.handle(call).await;
+
+            Ok(())
+        }
+    }
+}
+
+pub trait Listener {
+    type Socket: Socket;
+
+    fn accept(&mut self) -> impl Future<Output = Connection<Self::Socket>>;
+}
+
+// Thsi would be a `tokio::net::UnixListener`.
+impl Listener for () {
+    type Socket = SocketNext;
+
+    async fn accept(&mut self) -> Connection<Self::Socket> {
+        Connection {
+            socket: SocketNext::GetName,
+            buf: [0; 1024],
+        }
+    }
+}
+
+pub trait Socket {
+    fn read(&mut self, buf: &mut [u8]) -> impl Future<Output = Result<usize, ()>>;
+    fn write(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, ()>>;
+}
+
+pub struct Connection<Socket> {
+    socket: Socket,
+    buf: [u8; 1024],
+}
+
+impl<Sock> Connection<Sock>
+where
+    Sock: Socket,
+{
+    async fn read_json_from_socket(&mut self) -> Result<&str, ()> {
+        let len = self.socket.read(&mut self.buf).await?;
+        let json = std::str::from_utf8(&self.buf[..len]).unwrap();
+        Ok(json)
+    }
+}
 ```
 
 ### service macro
@@ -84,17 +136,13 @@ struct Ftl {
     coordinates: Coordinate,
 }
 
-// This attribute macro defines a varlink service.
+// This attribute macro defines a varlink service that can be passed to `Server::run`.
 //
-// It mainly adds a method that creates
 // It supports the folowing sub-attributes:
 // * `interface`: The interface name. If this is given than all the methods will be prefixed
 //   with the interface name. This is useful when the service only offers a single interface.
 #[varlink::service]
 impl Ftl {
-    // Special args:
-    //
-    // * `connection`: Reference to the connection which received the call.
     #[zlink(interface = "org.varlink.service.ftl")]
     async fn monitor(&mut self) -> Result<DriveCondition> {
         Ok(self.drive_condition)
