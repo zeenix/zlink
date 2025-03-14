@@ -67,7 +67,7 @@ where
 
 pub trait Service<'de, 'ser> {
     type MethodCall: Deserialize<'de>;
-    type Reply: Serialize + 'ser;
+    type Reply: Serialize;
 
     fn handle(&'ser mut self, method: Self::MethodCall) -> impl Future<Output = Self::Reply>;
 
