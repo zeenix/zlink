@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 // Resolve a given hostname to an IP address using `systemd-resolved`'s Varlink service.
 // We use the low-level API to send a method call and receive a reply.
 use std::{env::args, fmt::Display, net::IpAddr};
@@ -51,8 +49,8 @@ enum Method<'m> {
 #[derive(Debug, serde::Deserialize)]
 struct ReplyParams<'r> {
     addresses: Vec<ResolvedAddress>,
-    name: &'r str,
-    flags: i32,
+    #[serde(rename = "name")]
+    _name: &'r str,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -109,11 +107,12 @@ enum ReplyError<'e> {
     QueryAborted,
     #[serde(rename = "io.systemd.Resolve.DNSSECValidationFailed")]
     DNSSECValidationFailed {
-        result: &'e str,
+        #[serde(rename = "result")]
+        _result: &'e str,
         #[serde(rename = "extendedDNSErrorCode")]
-        extended_dns_error_code: Option<i32>,
+        _extended_dns_error_code: Option<i32>,
         #[serde(rename = "extendedDNSErrorMessage")]
-        extended_dns_error_message: Option<&'e str>,
+        _extended_dns_error_message: Option<&'e str>,
     },
     #[serde(rename = "io.systemd.Resolve.NoTrustAnchor")]
     NoTrustAnchor,
@@ -127,11 +126,12 @@ enum ReplyError<'e> {
     StubLoop,
     #[serde(rename = "io.systemd.Resolve.DNSError")]
     DNSError {
-        rcode: i32,
+        #[serde(rename = "rcode")]
+        _rcode: i32,
         #[serde(rename = "extendedDNSErrorCode")]
-        extended_dns_error_code: Option<i32>,
+        _extended_dns_error_code: Option<i32>,
         #[serde(rename = "extendedDNSErrorMessage")]
-        extended_dns_error_message: Option<&'e str>,
+        _extended_dns_error_message: Option<&'e str>,
     },
     #[serde(rename = "io.systemd.Resolve.CNAMELoop")]
     CNAMELoop,
