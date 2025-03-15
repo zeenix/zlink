@@ -248,6 +248,7 @@ impl<S: Socket> Connection<S> {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Reply<Params> {
     parameters: Params,
+    #[serde(skip_serializing_if = "Option::is_none")]
     continues: Option<bool>,
 }
 
