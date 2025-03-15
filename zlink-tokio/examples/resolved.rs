@@ -5,7 +5,6 @@
 use std::{env::args, fmt::Display, net::IpAddr};
 
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use zlink_tokio::unix::Connection;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,22 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-}
-
-async fn resolve<'c>(
-    connection: &'c mut Connection,
-    name: &str,
-) -> Result<Vec<ResolvedAddress>, zlink::Error<ReplyError<'c>>> {
-    // Send out the method call.
-    let resolve = Method::ResolveHostName { name: &name };
-    connection.send_call(resolve, None, None, None).await?;
-
-    // Receive the reply.
-    connection
-        .receive_reply::<ReplyParams, ReplyError>()
-        .await
-        .map(|r| r.into_parameters().addresses)
-        .map_err(Into::into)
 }
 
 #[derive(Debug, serde::Serialize)]
