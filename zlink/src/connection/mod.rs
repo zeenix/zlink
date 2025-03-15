@@ -143,7 +143,7 @@ impl<S: Socket> Connection<S> {
     /// that can serialize itself as the `parameters` field of the reply.
     pub async fn send_reply<Params, ReplyError>(
         &mut self,
-        parameters: Params,
+        parameters: Option<Params>,
         continues: Option<bool>,
     ) -> crate::Result<(), ReplyError>
     where
@@ -247,19 +247,20 @@ impl<S: Socket> Connection<S> {
 /// A successful method call reply.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Reply<Params> {
-    parameters: Params,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parameters: Option<Params>,
     #[serde(skip_serializing_if = "Option::is_none")]
     continues: Option<bool>,
 }
 
 impl<Params> Reply<Params> {
     /// The parameters of the reply.
-    pub fn parameters(&self) -> &Params {
-        &self.parameters
+    pub fn parameters(&self) -> Option<&Params> {
+        self.parameters.as_ref()
     }
 
     /// Convert the reply into its parameters.
-    pub fn into_parameters(self) -> Params {
+    pub fn into_parameters(self) -> Option<Params> {
         self.parameters
     }
 

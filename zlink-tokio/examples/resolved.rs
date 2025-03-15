@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match connection
             .receive_reply::<ReplyParams, ReplyError>()
             .await
-            .map(|r| r.into_parameters().addresses)
+            .map(|r| r.into_parameters().unwrap().addresses)
         {
             Ok(addresses) => {
                 println!("Results for '{}':", name);
