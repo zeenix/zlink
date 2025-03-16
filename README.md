@@ -17,4 +17,6 @@ enum representations in `serde` require `alloc`][meris].
 
 Still, we make every effort to minimize allocations as much as possible. In fact, we don't do any allocations in `zlink` itself unless `std` feature is enabled.
 
+Moreover, we plan to add no_alloc in the near future.
+
 [meris]: https://github.com/serde-rs/serde-rs.github.io/pull/179
