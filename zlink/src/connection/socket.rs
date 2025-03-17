@@ -3,7 +3,7 @@ use core::future::Future;
 /// The socket trait.
 ///
 /// This is the trait that needs to be implemented for a type to be used as a socket/transport.
-pub trait Socket {
+pub trait Socket: core::fmt::Debug {
     /// Read from a socket.
     ///
     /// On completion, the number of bytes read is returned.
