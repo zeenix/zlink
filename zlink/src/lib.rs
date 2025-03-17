@@ -16,4 +16,7 @@ pub use connection::Connection;
 mod error;
 pub use error::{Error, Result};
 mod server;
-pub use server::Listener;
+pub use server::{
+    service::{self, Service},
+    Listener,
+};
