@@ -51,10 +51,10 @@ where
     >;
 
     /// Read the next method call from the connection and handle it.
-    fn handle_next<'ser, Sock>(
-        &'ser mut self,
+    fn handle_next<Sock>(
+        &mut self,
         connection: &mut Connection<Sock>,
-    ) -> impl Future<Output = crate::Result<Option<Self::ReplyStream>, Self::ReplyError<'ser>>>
+    ) -> impl Future<Output = crate::Result<Option<Self::ReplyStream>>>
     where
         Sock: Socket,
     {
