@@ -119,6 +119,26 @@ impl<S: Socket> Connection<S> {
         }
     }
 
+    /// Call a method and receive a reply.
+    ///
+    /// This is a convenience method that combines [`Connection::send_call`] and
+    /// [`Connection::receive_reply`].
+    pub async fn call_method<'r, Method, ReplyError, Params>(
+        &'r mut self,
+        method: Method,
+        oneway: Option<bool>,
+        more: Option<bool>,
+        upgrade: Option<bool>,
+    ) -> crate::Result<Reply<Params>, ReplyError>
+    where
+        Method: Serialize + Debug,
+        Params: Deserialize<'r>,
+        ReplyError: Deserialize<'r>,
+    {
+        self.send_call(method, oneway, more, upgrade).await?;
+        self.receive_reply().await
+    }
+
     /// Receive a method call over the socket.
     ///
     /// The generic `Method` is the type of the method name and its input parameters. This should be
