@@ -6,12 +6,15 @@
     * generic over Listener
     * new(listener)
     * run(service)
+      * Need to make reading from multiple connections working
+        * Maybe create a stream from the reader: <https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=bd788e052f78422a9c95f098e7d27797>
     * tests
   * FDs
 * zlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
 * zlink-macros
   * service attribute macro (see below)
+    * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
     * implements `Service` trait
     * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
@@ -21,14 +24,17 @@
       * Drop alloc feature of serde
       * Update README
   * tests
-* zlink-smol
+  * Update Service docs: Prefer using `service` macro over a manual implementation.
 * zlink-usb
   * USB (using nusb) transport
 * zlink-micro
   * embassy_usb-based transport
+    * Driver impl needs to be provided by the user (e.g `embassy-usb-synopsys-otg` for STM32).
   * Will need to create a connection concept through multiplexing
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
+  * Ensure cancelation safety (if needed by Server/Service) is satisfied
 * zlink-codegen (generates code from IDL)
+* zlink-smol
 
 * zlink
   * Update README if we end up never using alloc directly.
