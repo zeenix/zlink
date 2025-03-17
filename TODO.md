@@ -1,7 +1,6 @@
 # TODO
 
 * zlink: Provides all the API but leaves actual transport to external crates.
-  * Connection::call_method
   * Listener trait (code snippet below)
   * Service trait and Server struct (See: <https://github.com/zeenix/zlink-experiments/blob/main/src/main.rs>)
     * generic over Listener
