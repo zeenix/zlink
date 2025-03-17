@@ -35,3 +35,7 @@ mayheap = { git = "https://github.com/zeenix/mayheap", version = "0.1.0", featur
     "serde",
 ], default-features = false }
 memchr = { version = "2.7.4", default-features = false }
+futures-util = { version = "0.3.31", default-features = false, features = [
+    "async-await",
+    "alloc",
+] }
