@@ -10,7 +10,7 @@ use zlink::{connection::Socket, Result};
 pub type Connection = zlink::Connection<Stream>;
 
 /// Connect to Unix Domain Socket at the given path.
-pub async fn connect<P>(path: P) -> Result<Connection, &'static str>
+pub async fn connect<P>(path: P) -> Result<Connection>
 where
     P: AsRef<std::path::Path>,
 {
@@ -26,11 +26,11 @@ where
 pub struct Stream(UnixStream);
 
 impl Socket for Stream {
-    async fn read<ReplyError>(&mut self, buf: &mut [u8]) -> Result<usize, ReplyError> {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.0.read(buf).await.map_err(Into::into)
     }
 
-    async fn write<ReplyError>(&mut self, buf: &[u8]) -> Result<(), ReplyError> {
+    async fn write(&mut self, buf: &[u8]) -> Result<()> {
         let mut pos = 0;
 
         while pos < buf.len() {

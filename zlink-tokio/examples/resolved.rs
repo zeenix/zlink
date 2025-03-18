@@ -14,9 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First send out all the method calls (let's make use of pipelinning feature of Varlink!).
     for name in args.clone() {
         let resolve = Method::ResolveHostName { name: &name };
-        connection
-            .send_call::<_, &'static str>(resolve, None, None, None)
-            .await?;
+        connection.send_call::<_>(resolve, None, None, None).await?;
     }
 
     // Then fetch the results and print them.
@@ -24,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match connection
             .receive_reply::<ReplyParams, ReplyError>()
             .await
-            .map(|r| r.into_parameters().unwrap().addresses)
+            .map(|r| r.map(|r| r.into_parameters().unwrap().addresses))?
         {
             Ok(addresses) => {
                 println!("Results for '{}':", name);
