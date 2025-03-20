@@ -1,0 +1,170 @@
+//! Contains connection related API.
+
+use core::fmt::Debug;
+
+use super::{socket::ReadHalf, Call, Reply, BUFFER_SIZE, MAX_BUFFER_SIZE};
+use mayheap::Vec;
+use memchr::memchr;
+use serde::Deserialize;
+
+/// A connection that can only be used for reading.
+///
+/// The low-level API to receive messages.
+#[derive(Debug)]
+pub struct ReadConnection<Read: ReadHalf> {
+    socket: Read,
+    read_pos: usize,
+    buffer: Vec<u8, BUFFER_SIZE>,
+}
+
+impl<Read: ReadHalf> ReadConnection<Read> {
+    /// Create a new connection.
+    pub fn new(socket: Read) -> Self {
+        Self {
+            socket,
+            read_pos: 0,
+            buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
+        }
+    }
+
+    /// Receives a method call reply.
+    ///
+    /// The generic parameters needs some explanation:
+    ///
+    /// * `Params` is the type of the successful reply. This should be a type that can deserialize
+    ///   itself from the `parameters` field of the reply.
+    /// * `ReplyError` is the type of the error reply. This should be a type that can deserialize
+    ///   itself from the whole reply object itself and must fail when there is no `error` field in
+    ///   the object. This can be easily achieved using the `serde::Deserialize` derive:
+    ///
+    /// ```rust
+    /// use serde::{Deserialize, Serialize};
+    ///
+    /// #[derive(Debug, Deserialize, Serialize)]
+    /// #[serde(tag = "error", content = "parameters")]
+    /// enum MyError {
+    ///    // The name needs to be the fully-qualified name of the error.
+    ///    #[serde(rename = "org.example.ftl.Alpha")]
+    ///    Alpha { param1: u32, param2: String },
+    ///    #[serde(rename = "org.example.ftl.Bravo")]
+    ///    Bravo,
+    ///    #[serde(rename = "org.example.ftl.Charlie")]
+    ///    Charlie { param1: String },
+    /// }
+    /// ```
+    pub async fn receive_reply<'r, Params, ReplyError>(
+        &'r mut self,
+    ) -> crate::Result<Result<Reply<Params>, ReplyError>>
+    where
+        Params: Deserialize<'r>,
+        ReplyError: Deserialize<'r>,
+    {
+        let buffer = self.read_message_bytes().await?;
+
+        // First try to parse it as an error.
+        // FIXME: This will mean the document will be parsed twice. We should instead try to
+        // quickly check if `error` field is present and then parse to the appropriate type based on
+        // that information. Perhaps a simple parser using `winnow`?
+        match from_slice::<ReplyError>(buffer) {
+            Ok(e) => Ok(Err(e)),
+            Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
+        }
+    }
+
+    /// Receive a method call over the socket.
+    ///
+    /// The generic `Method` is the type of the method name and its input parameters. This should be
+    /// a type that can deserialize itself from a complete method call message, i-e an object
+    /// containing `method` and `parameter` fields. This can be easily achieved using the
+    /// `serde::Deserialize` derive (See the code snippet in [`super::WriteConnection::send_call`]
+    /// documentation for an example).
+    pub async fn receive_call<'m, Method>(&'m mut self) -> crate::Result<Call<Method>>
+    where
+        Method: Deserialize<'m>,
+    {
+        let buffer = self.read_message_bytes().await?;
+
+        from_slice::<Call<Method>>(buffer)
+    }
+
+    // Reads at least one full message from the socket and return a single message bytes.
+    async fn read_message_bytes(&mut self) -> crate::Result<&'_ [u8]> {
+        self.read_from_socket().await?;
+
+        // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
+        // the buffer.
+        let null_index = memchr(b'\0', &self.buffer[self.read_pos..]).unwrap() + self.read_pos;
+        let buffer = &self.buffer[self.read_pos..null_index];
+        if self.buffer[null_index + 1] == b'\0' {
+            // This means we're reading the last message and can now reset the index.
+            self.read_pos = 0;
+        } else {
+            self.read_pos = null_index + 1;
+        }
+
+        Ok(buffer)
+    }
+
+    // Reads at least one full message from the socket.
+    async fn read_from_socket(&mut self) -> crate::Result<()> {
+        if self.read_pos > 0 {
+            // This means we already have at least one message in the buffer so no need to read.
+            return Ok(());
+        }
+
+        let mut pos = self.read_pos;
+        loop {
+            let bytes_read = self.socket.read(&mut self.buffer[pos..]).await?;
+            if bytes_read == 0 {
+                #[cfg(not(feature = "std"))]
+                return Err(crate::Error::SocketRead);
+                #[cfg(feature = "std")]
+                return Err(crate::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "unexpected EOF",
+                )));
+            }
+            let total_read = pos + bytes_read;
+
+            // This marks end of all messages. After this loop is finished, we'll have 2 consecutive
+            // null bytes at the end. This is then used by the callers to determine that they've
+            // read all messages and can now reset the `read_pos`.
+            self.buffer[total_read] = b'\0';
+
+            if self.buffer[total_read - 1] == b'\0' {
+                // One or more full messages were read.
+                break;
+            }
+
+            #[cfg(feature = "std")]
+            if total_read >= self.buffer.len() {
+                if total_read >= MAX_BUFFER_SIZE {
+                    return Err(crate::Error::BufferOverflow);
+                }
+
+                self.buffer.extend(core::iter::repeat(0).take(BUFFER_SIZE));
+            }
+
+            pos += bytes_read;
+        }
+
+        Ok(())
+    }
+}
+
+fn from_slice<'a, T>(buffer: &'a [u8]) -> crate::Result<T>
+where
+    T: Deserialize<'a>,
+{
+    #[cfg(feature = "std")]
+    {
+        serde_json::from_slice::<T>(buffer).map_err(Into::into)
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        serde_json_core::from_slice::<T>(buffer)
+            .map_err(Into::into)
+            .map(|(e, _)| e)
+    }
+}
