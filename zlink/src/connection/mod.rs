@@ -4,7 +4,7 @@ mod read_connection;
 pub use read_connection::ReadConnection;
 pub mod socket;
 mod write_connection;
-use core::fmt::Debug;
+use core::{fmt::Debug, sync::atomic::AtomicUsize};
 pub use write_connection::WriteConnection;
 mod call;
 pub use call::Call;
@@ -17,6 +17,10 @@ pub use socket::Socket;
 /// A connection.
 ///
 /// The low-level API to send and receive messages.
+///
+/// Each connection gets a unique identifier when created that can be queried using
+/// [`Connection::id`]. This ID is shared betwen the read and write halves of the connection. It
+/// can be used to associate the read and write halves of the same connection.
 #[derive(Debug)]
 pub struct Connection<S: Socket> {
     read: ReadConnection<S::ReadHalf>,
@@ -30,9 +34,10 @@ where
     /// Create a new connection.
     pub fn new(socket: S) -> Self {
         let (read, write) = socket.split();
+        let id = NEXT_ID.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
         Self {
-            read: ReadConnection::new(read),
-            write: WriteConnection::new(write),
+            read: ReadConnection::new(read, id),
+            write: WriteConnection::new(write, id),
         }
     }
 
@@ -49,6 +54,11 @@ where
     /// Split the connection into read and write halves.
     pub fn split(self) -> (ReadConnection<S::ReadHalf>, WriteConnection<S::WriteHalf>) {
         (self.read, self.write)
+    }
+
+    /// The unique identifier of the connection.
+    pub fn id(&self) -> usize {
+        self.read.id()
     }
 
     /// Sends a method call.
@@ -148,3 +158,5 @@ pub(crate) const BUFFER_SIZE: usize = 4 * 1024;
 
 #[cfg(feature = "std")]
 const MAX_BUFFER_SIZE: usize = 100 * 1024 * 1024; // Don't allow buffers over 100MB.
+
+static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
