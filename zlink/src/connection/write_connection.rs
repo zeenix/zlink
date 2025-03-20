@@ -14,15 +14,22 @@ use super::{socket::WriteHalf, Call, Reply, BUFFER_SIZE};
 pub struct WriteConnection<Write: WriteHalf> {
     socket: Write,
     buffer: Vec<u8, BUFFER_SIZE>,
+    id: usize,
 }
 
 impl<Write: WriteHalf> WriteConnection<Write> {
     /// Create a new connection.
-    pub fn new(socket: Write) -> Self {
+    pub(super) fn new(socket: Write, id: usize) -> Self {
         Self {
             socket,
+            id,
             buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
         }
+    }
+
+    /// The unique identifier of the connection.
+    pub fn id(&self) -> usize {
+        self.id
     }
 
     /// Sends a method call.
