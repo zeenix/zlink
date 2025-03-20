@@ -8,6 +8,8 @@ use core::fmt::Debug;
 pub use write_connection::WriteConnection;
 mod call;
 pub use call::Call;
+mod reply;
+pub use reply::Reply;
 
 use serde::{Deserialize, Serialize};
 pub use socket::Socket;
@@ -130,32 +132,6 @@ where
         ReplyError: Serialize + Debug,
     {
         self.write.send_error(error).await
-    }
-}
-
-/// A successful method call reply.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Reply<Params> {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    parameters: Option<Params>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    continues: Option<bool>,
-}
-
-impl<Params> Reply<Params> {
-    /// The parameters of the reply.
-    pub fn parameters(&self) -> Option<&Params> {
-        self.parameters.as_ref()
-    }
-
-    /// Convert the reply into its parameters.
-    pub fn into_parameters(self) -> Option<Params> {
-        self.parameters
-    }
-
-    /// If there are more replies to come.
-    pub fn continues(&self) -> Option<bool> {
-        self.continues
     }
 }
 
