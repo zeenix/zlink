@@ -15,16 +15,23 @@ pub struct ReadConnection<Read: ReadHalf> {
     socket: Read,
     read_pos: usize,
     buffer: Vec<u8, BUFFER_SIZE>,
+    id: usize,
 }
 
 impl<Read: ReadHalf> ReadConnection<Read> {
     /// Create a new connection.
-    pub fn new(socket: Read) -> Self {
+    pub(super) fn new(socket: Read, id: usize) -> Self {
         Self {
             socket,
             read_pos: 0,
+            id,
             buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
         }
+    }
+
+    /// The unique identifier of the connection.
+    pub fn id(&self) -> usize {
+        self.id
     }
 
     /// Receives a method call reply.
