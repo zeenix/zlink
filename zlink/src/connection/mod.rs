@@ -58,6 +58,7 @@ where
 
     /// The unique identifier of the connection.
     pub fn id(&self) -> usize {
+        assert_eq!(self.read.id(), self.write.id());
         self.read.id()
     }
 
