@@ -30,6 +30,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     }
 
     /// The unique identifier of the connection.
+    #[inline]
     pub fn id(&self) -> usize {
         self.id
     }

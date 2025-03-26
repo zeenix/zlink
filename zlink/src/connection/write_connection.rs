@@ -28,6 +28,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     }
 
     /// The unique identifier of the connection.
+    #[inline]
     pub fn id(&self) -> usize {
         self.id
     }
