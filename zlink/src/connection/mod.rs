@@ -21,6 +21,11 @@ pub use socket::Socket;
 /// Each connection gets a unique identifier when created that can be queried using
 /// [`Connection::id`]. This ID is shared betwen the read and write halves of the connection. It
 /// can be used to associate the read and write halves of the same connection.
+///
+/// # Cancel safety
+///
+/// All async methods of this type are cancel safe unless explicitly stated otherwise in its
+/// documentation.
 #[derive(Debug)]
 pub struct Connection<S: Socket> {
     read: ReadConnection<S::ReadHalf>,

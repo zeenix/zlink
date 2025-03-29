@@ -9,7 +9,10 @@ use serde::Deserialize;
 
 /// A connection that can only be used for reading.
 ///
-/// The low-level API to receive messages.
+/// # Cancel safety
+///
+/// All async methods of this type are cancel safe unless explicitly stated otherwise in its
+/// documentation.
 #[derive(Debug)]
 pub struct ReadConnection<Read: ReadHalf> {
     socket: Read,

@@ -10,6 +10,11 @@ use super::{socket::WriteHalf, Call, Reply, BUFFER_SIZE};
 /// A connection.
 ///
 /// The low-level API to send messages.
+///
+/// # Cancel safety
+///
+/// All async methods of this type are cancel safe unless explicitly stated otherwise in its
+/// documentation.
 #[derive(Debug)]
 pub struct WriteConnection<Write: WriteHalf> {
     socket: Write,
