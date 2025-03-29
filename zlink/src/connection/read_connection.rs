@@ -14,6 +14,7 @@ use serde::Deserialize;
 pub struct ReadConnection<Read: ReadHalf> {
     socket: Read,
     read_pos: usize,
+    msg_pos: usize,
     buffer: Vec<u8, BUFFER_SIZE>,
     id: usize,
 }
@@ -24,6 +25,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         Self {
             socket,
             read_pos: 0,
+            msg_pos: 0,
             id,
             buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
         }
@@ -101,13 +103,14 @@ impl<Read: ReadHalf> ReadConnection<Read> {
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
         // the buffer.
-        let null_index = memchr(b'\0', &self.buffer[self.read_pos..]).unwrap() + self.read_pos;
-        let buffer = &self.buffer[self.read_pos..null_index];
+        let null_index = memchr(b'\0', &self.buffer[self.msg_pos..]).unwrap() + self.msg_pos;
+        let buffer = &self.buffer[self.msg_pos..null_index];
         if self.buffer[null_index + 1] == b'\0' {
-            // This means we're reading the last message and can now reset the index.
+            // This means we're reading the last message and can now reset the indices.
             self.read_pos = 0;
+            self.msg_pos = 0;
         } else {
-            self.read_pos = null_index + 1;
+            self.msg_pos = null_index + 1;
         }
 
         Ok(buffer)
@@ -115,14 +118,13 @@ impl<Read: ReadHalf> ReadConnection<Read> {
 
     // Reads at least one full message from the socket.
     async fn read_from_socket(&mut self) -> crate::Result<()> {
-        if self.read_pos > 0 {
+        if self.msg_pos > 0 {
             // This means we already have at least one message in the buffer so no need to read.
             return Ok(());
         }
 
-        let mut pos = self.read_pos;
         loop {
-            let bytes_read = self.socket.read(&mut self.buffer[pos..]).await?;
+            let bytes_read = self.socket.read(&mut self.buffer[self.read_pos..]).await?;
             if bytes_read == 0 {
                 #[cfg(not(feature = "std"))]
                 return Err(crate::Error::SocketRead);
@@ -132,28 +134,26 @@ impl<Read: ReadHalf> ReadConnection<Read> {
                     "unexpected EOF",
                 )));
             }
-            let total_read = pos + bytes_read;
+            self.read_pos += bytes_read;
 
             // This marks end of all messages. After this loop is finished, we'll have 2 consecutive
             // null bytes at the end. This is then used by the callers to determine that they've
             // read all messages and can now reset the `read_pos`.
-            self.buffer[total_read] = b'\0';
+            self.buffer[self.read_pos] = b'\0';
 
-            if self.buffer[total_read - 1] == b'\0' {
+            if self.buffer[self.read_pos - 1] == b'\0' {
                 // One or more full messages were read.
                 break;
             }
 
             #[cfg(feature = "std")]
-            if total_read >= self.buffer.len() {
-                if total_read >= MAX_BUFFER_SIZE {
+            if self.read_pos == self.buffer.len() {
+                if self.read_pos >= MAX_BUFFER_SIZE {
                     return Err(crate::Error::BufferOverflow);
                 }
 
                 self.buffer.extend(core::iter::repeat(0).take(BUFFER_SIZE));
             }
-
-            pos += bytes_read;
         }
 
         Ok(())
