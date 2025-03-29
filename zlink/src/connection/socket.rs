@@ -20,11 +20,15 @@ pub trait ReadHalf: core::fmt::Debug {
     /// Read from a socket.
     ///
     /// On completion, the number of bytes read is returned.
+    ///
+    /// Note for implementers: the future returned by this method must be cancellable.
     fn read(&mut self, buf: &mut [u8]) -> impl Future<Output = crate::Result<usize>>;
 }
 
 /// The write half of a socket.
 pub trait WriteHalf: core::fmt::Debug {
     /// Write to the socket.
+    ///
+    /// Note for implementers: the future returned by this method must be cancellable.
     fn write(&mut self, buf: &[u8]) -> impl Future<Output = crate::Result<()>>;
 }
