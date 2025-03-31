@@ -46,13 +46,23 @@ where
         }
     }
 
+    /// The reference to the read half of the connection.
+    pub fn read(&self) -> &ReadConnection<S::ReadHalf> {
+        &self.read
+    }
+
     /// The mutable reference to the read half of the connection.
-    pub fn read(&mut self) -> &mut ReadConnection<S::ReadHalf> {
+    pub fn read_mut(&mut self) -> &mut ReadConnection<S::ReadHalf> {
         &mut self.read
     }
 
+    /// The reference to the write half of the connection.
+    pub fn write(&self) -> &WriteConnection<S::WriteHalf> {
+        &self.write
+    }
+
     /// The mutable reference to the write half of the connection.
-    pub fn write(&mut self) -> &mut WriteConnection<S::WriteHalf> {
+    pub fn write_mut(&mut self) -> &mut WriteConnection<S::WriteHalf> {
         &mut self.write
     }
 
