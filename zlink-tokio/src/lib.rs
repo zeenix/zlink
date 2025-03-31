@@ -9,9 +9,3 @@
 
 pub use zlink::*;
 pub mod unix;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {}
-}
