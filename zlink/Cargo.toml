@@ -29,3 +29,4 @@ futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",
     "alloc",
 ] }
+pin-project-lite = "0.2.16"
