@@ -1,3 +1,5 @@
+use core::str::Utf8Error;
+
 /// The Error type for the zlink crate.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -8,6 +10,8 @@ pub enum Error {
     SocketWrite,
     /// Buffer overflow.
     BufferOverflow,
+    /// Invalid UTF-8 data.
+    InvalidUtf8(Utf8Error),
     /// Error serializing or deserializing to/from JSON.
     #[cfg(feature = "std")]
     Json(serde_json::Error),
@@ -36,6 +40,7 @@ impl core::error::Error for Error {
             Error::JsonDeserialize(e) => Some(e),
             #[cfg(feature = "std")]
             Error::Io(e) => Some(e),
+            Error::InvalidUtf8(e) => Some(e),
             _ => None,
         }
     }
@@ -69,12 +74,22 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<mayheap::Error> for Error {
+    fn from(e: mayheap::Error) -> Self {
+        match e {
+            mayheap::Error::BufferOverflow => Error::BufferOverflow,
+            mayheap::Error::Utf8Error(e) => Error::InvalidUtf8(e),
+        }
+    }
+}
+
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::SocketRead => write!(f, "An error occurred while reading from the socket"),
             Error::SocketWrite => write!(f, "An error occurred while writing to the socket"),
             Error::BufferOverflow => write!(f, "Buffer overflow"),
+            Error::InvalidUtf8(e) => write!(f, "Invalid UTF-8 data: {e}"),
             #[cfg(feature = "std")]
             Error::Json(e) => write!(f, "Error serializing or deserializing to/from JSON: {e}"),
             #[cfg(not(feature = "std"))]
