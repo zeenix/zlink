@@ -1,5 +1,6 @@
 /// The Error type for the zlink crate.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// An error occurred while reading from the socket.
     SocketRead,
