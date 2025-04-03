@@ -5,10 +5,7 @@ use core::{fmt::Debug, future::Future};
 use futures_util::Stream;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    connection::{Call, Socket},
-    Connection,
-};
+use crate::connection::Call;
 
 /// Service trait for handling method calls.
 pub trait Service
@@ -49,38 +46,6 @@ where
     ) -> impl Future<
         Output = Reply<Option<Self::ReplyParams<'ser>>, Self::ReplyStream, Self::ReplyError<'ser>>,
     >;
-
-    /// Read the next method call from the connection and handle it.
-    fn handle_next<Sock>(
-        &mut self,
-        connection: &mut Connection<Sock>,
-    ) -> impl Future<Output = crate::Result<Option<Self::ReplyStream>>>
-    where
-        Sock: Socket,
-    {
-        async {
-            let reply = {
-                // Safety: The compiler doesn't know that we write to different fields
-                //         in `read` and `write` so doesn't like us borrowing it twice.
-                let connection = unsafe { &mut *(connection as *mut Connection<Sock>) };
-                let call: Call<Self::MethodCall<'_>> = connection.receive_call().await?;
-                self.handle(call).await
-            };
-            match reply {
-                Reply::Single(reply) => {
-                    connection.send_reply(reply, Some(false)).await?;
-
-                    Ok(None)
-                }
-                Reply::Error(err) => {
-                    connection.send_error(err).await?;
-
-                    Ok(None)
-                }
-                Reply::Multi(stream) => Ok(Some(stream)),
-            }
-        }
-    }
 }
 
 /// A service method call reply.

@@ -19,4 +19,5 @@ mod server;
 pub use server::{
     listener::Listener,
     service::{self, Service},
+    Server,
 };
