@@ -33,12 +33,12 @@ impl<Fut, Out> core::future::Future for SelectAll<Fut>
 where
     Fut: Future<Output = Out> + Unpin,
 {
-    type Output = Out;
+    type Output = (usize, Out);
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        for fut in (self.futures).iter_mut() {
+        for (i, fut) in (self.futures).iter_mut().enumerate() {
             if let Poll::Ready(item) = Pin::new(fut).poll(cx) {
-                return Poll::Ready(item);
+                return Poll::Ready((i, item));
             }
         }
         Poll::Pending

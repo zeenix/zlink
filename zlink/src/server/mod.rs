@@ -90,24 +90,36 @@ where
                 .push(stream.next())
                 .map_err(|_| crate::Error::BufferOverflow)?;
         }
-        let write = writers.get_mut(0).unwrap();
-        let reply = {
-            let call: Call<Service::MethodCall<'_>> = read_futures.await.unwrap()?;
-            self.service.handle(call).await
-        };
-        match reply {
-            Reply::Single(reply) => {
-                write.send_reply(reply, Some(false)).await?;
 
-                Ok(None)
-            }
-            Reply::Error(err) => {
-                write.send_error(err).await?;
-
-                Ok(None)
-            }
-            Reply::Multi(stream) => Ok(Some(stream)),
+        let (idx, call) = read_futures.await;
+        match call {
+            Some(Ok(call)) => match self.service.handle(call).await {
+                Reply::Single(reply) => {
+                    match writers
+                        .get_mut(idx)
+                        .unwrap()
+                        .send_reply(reply, Some(false))
+                        .await
+                    {
+                        Ok(_) => return Ok(None),
+                        Err(e) => println!("Error writing to connection: {e:?}"),
+                    }
+                }
+                Reply::Error(err) => match writers.get_mut(idx).unwrap().send_error(err).await {
+                    Ok(_) => return Ok(None),
+                    Err(e) => println!("Error writing to connection: {e:?}"),
+                },
+                Reply::Multi(stream) => return Ok(Some(stream)),
+            },
+            Some(Err(e)) => println!("Error reading from socket: {e:?}"),
+            None => println!("Stream closed"),
         }
+
+        // If we reach here, the stream was closed or an error occurred.
+        readers.remove(idx);
+        writers.remove(idx);
+
+        Ok(None)
     }
 }
 
