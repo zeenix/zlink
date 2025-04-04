@@ -12,6 +12,8 @@
     * Logging system (abstraction over tracing & defmt?)
       * Replace all `println!` with logging macros.
     * tests
+    * Reply stream doesn't set continue=false on the last reply
+      * stream should yield continue value
     * Ensure all TODO comments are resolved.
   * FDs
 * zlink-tokio
