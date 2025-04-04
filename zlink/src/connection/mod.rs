@@ -161,6 +161,15 @@ where
     }
 }
 
+impl<S> From<S> for Connection<S>
+where
+    S: Socket,
+{
+    fn from(socket: S) -> Self {
+        Self::new(socket)
+    }
+}
+
 #[cfg(feature = "io-buffer-1mb")]
 pub(crate) const BUFFER_SIZE: usize = 1024 * 1024;
 #[cfg(all(not(feature = "io-buffer-1mb"), feature = "io-buffer-16kb"))]
