@@ -5,7 +5,7 @@ pub mod service;
 
 use core::{future::Future, pin::Pin};
 
-use futures_util::{pin_mut, StreamExt};
+use futures_util::{pin_mut, FutureExt, StreamExt};
 use mayheap::Vec;
 use method_stream::MethodStream;
 use service::Reply;
@@ -17,7 +17,7 @@ use crate::connection::{Call, ReadConnection, Socket, WriteConnection};
 /// The server listens for incoming connections and handles method calls using a service.
 #[derive(Debug)]
 pub struct Server<Listener, Service> {
-    listener: Listener,
+    listener: Option<Listener>,
     service: Service,
 }
 
@@ -28,44 +28,55 @@ where
 {
     /// Create a new server.
     pub fn new(listener: Listener, service: Service) -> Self {
-        Self { listener, service }
+        Self {
+            listener: Some(listener),
+            service,
+        }
     }
 
     /// TODO:
     pub async fn run(mut self) -> crate::Result<()> {
+        let mut listener = self.listener.take().unwrap();
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
-        let mut read_streams = Vec::<_, MAX_CONNECTIONS>::new();
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
 
-        let (read, write) = self.listener.accept().await?.split();
-        readers
-            .push(read)
-            .map_err(|_| crate::Error::BufferOverflow)?;
-        for reader in readers.iter_mut() {
-            let stream = MethodStream::new(
-                reader,
-                ReadConnection::receive_call::<Service::MethodCall<'_>>,
-            );
-            read_streams
-                .push(Box::pin(stream))
-                .map_err(|_| crate::Error::BufferOverflow)?;
-        }
-        writers
-            .push(write)
-            .map_err(|_| crate::Error::BufferOverflow)?;
-
         loop {
-            match self.handle_next(&mut read_streams, &mut writers).await {
-                Ok(Some(stream)) => {
-                    pin_mut!(stream);
-                    while let Some(r) = stream.next().await {
-                        println!("Streamed reply: {:?}", r);
+            futures_util::select_biased! {
+                // Accept a new connection.
+                conn = listener.accept().fuse() => {
+                    let (read, write) = conn?.split();
+                    let stream = MethodStream::new(
+                        read,
+                        ReadConnection::receive_call::<Service::MethodCall<'_>>,
+                    );
+                    readers
+                        .push(Box::pin(stream))
+                        .map_err(|_| crate::Error::BufferOverflow)?;
+                    writers
+                        .push(write)
+                        .map_err(|_| crate::Error::BufferOverflow)?;
+                },
+                res = self.handle_next(
+                    // SAFETY:
+                    //
+                    // The compiler is unable to determine that the mutable borrow of `readers` in
+                    // the other arm is mutually exclusive with the one here.
+                    unsafe { &mut *(&mut readers as *mut _) },
+                    &mut writers,
+                ).fuse() => {
+                    match res {
+                        Ok(Some(stream)) => {
+                            pin_mut!(stream);
+                            while let Some(r) = stream.next().await {
+                                println!("Streamed reply: {:?}", r);
+                            }
+                        }
+                        Ok(None) => (),
+                        Err(e) => {
+                            // TODO:
+                            println!("Error handling call: {e:?}");
+                        }
                     }
-                }
-                Ok(None) => (),
-                Err(e) => {
-                    // TODO:
-                    println!("Error handling call: {e:?}");
                 }
             }
         }
@@ -74,7 +85,7 @@ where
     /// Read the next method call from the connection and handle it.
     async fn handle_next<'r, F, Fut>(
         &mut self,
-        readers: &mut MethodStreams<'r, <Listener::Socket as Socket>::ReadHalf, F, Fut>,
+        readers: &'r mut MethodStreams<<Listener::Socket as Socket>::ReadHalf, F, Fut>,
         writers: &mut Vec<
             WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
             MAX_CONNECTIONS,
@@ -125,5 +136,4 @@ where
 
 const MAX_CONNECTIONS: usize = 16;
 
-type MethodStreams<'r, Read, F, Fut> =
-    Vec<Pin<Box<MethodStream<'r, Read, F, Fut>>>, MAX_CONNECTIONS>;
+type MethodStreams<Read, F, Fut> = Vec<Pin<Box<MethodStream<Read, F, Fut>>>, MAX_CONNECTIONS>;
