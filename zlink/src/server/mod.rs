@@ -36,6 +36,7 @@ where
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut read_streams = Vec::<_, MAX_CONNECTIONS>::new();
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
+
         let (read, write) = self.listener.accept().await?.split();
         readers
             .push(read)
@@ -54,10 +55,7 @@ where
             .map_err(|_| crate::Error::BufferOverflow)?;
 
         loop {
-            match self
-                .handle_next::<Listener::Socket, _, _>(&mut read_streams, &mut writers)
-                .await
-            {
+            match self.handle_next(&mut read_streams, &mut writers).await {
                 Ok(Some(stream)) => {
                     pin_mut!(stream);
                     while let Some(r) = stream.next().await {
@@ -74,14 +72,16 @@ where
     }
 
     /// Read the next method call from the connection and handle it.
-    async fn handle_next<'r, Sock, F, Fut>(
+    async fn handle_next<'r, F, Fut>(
         &mut self,
-        readers: &mut MethodStreams<'r, Sock::ReadHalf, F, Fut>,
-        writers: &mut Vec<WriteConnection<Sock::WriteHalf>, MAX_CONNECTIONS>,
+        readers: &mut MethodStreams<'r, <Listener::Socket as Socket>::ReadHalf, F, Fut>,
+        writers: &mut Vec<
+            WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
+            MAX_CONNECTIONS,
+        >,
     ) -> crate::Result<Option<Service::ReplyStream>>
     where
-        Sock: Socket,
-        F: FnMut(&'r mut ReadConnection<Sock::ReadHalf>) -> Fut,
+        F: FnMut(&'r mut ReadConnection<<Listener::Socket as Socket>::ReadHalf>) -> Fut,
         Fut: Future<Output = crate::Result<Call<Service::MethodCall<'r>>>>,
     {
         let mut read_futures = select_all::SelectAll::new();
