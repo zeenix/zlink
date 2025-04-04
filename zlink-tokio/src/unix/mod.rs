@@ -2,3 +2,5 @@
 
 mod stream;
 pub use stream::{connect, Connection, Stream};
+mod listener;
+pub use listener::Listener;
