@@ -27,6 +27,7 @@ mayheap = { git = "https://github.com/zeenix/mayheap", version = "0.2.0", featur
 memchr = { version = "2.7.4", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",
+    "async-await-macro",
     "alloc",
 ] }
 pin-project-lite = "0.2.16"
