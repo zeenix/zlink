@@ -12,6 +12,7 @@
     * Logging system (abstraction over tracing & defmt?)
       * Replace all `println!` with logging macros.
     * tests
+    * Ensure all TODO comments are resolved.
   * FDs
 * zlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
