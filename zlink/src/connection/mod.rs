@@ -71,6 +71,11 @@ where
         (self.read, self.write)
     }
 
+    /// Join the read and write halves into a connection (the opposite of [`Connection::split`]).
+    pub fn join(read: ReadConnection<S::ReadHalf>, write: WriteConnection<S::WriteHalf>) -> Self {
+        Self { read, write }
+    }
+
     /// The unique identifier of the connection.
     pub fn id(&self) -> usize {
         assert_eq!(self.read.id(), self.write.id());
