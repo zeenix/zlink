@@ -155,7 +155,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
                     return Err(crate::Error::BufferOverflow);
                 }
 
-                self.buffer.extend(core::iter::repeat(0).take(BUFFER_SIZE));
+                self.buffer.extend(core::iter::repeat_n(0, BUFFER_SIZE));
             }
         }
 
