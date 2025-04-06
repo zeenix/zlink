@@ -5,12 +5,14 @@ pub mod service;
 
 use core::{future::Future, pin::Pin};
 
-use futures_util::{pin_mut, FutureExt, StreamExt};
+use futures_util::{FutureExt, Stream, StreamExt};
 use mayheap::Vec;
 use method_stream::MethodStream;
+use select_all::SelectAll;
+use serde::Serialize;
 use service::Reply;
 
-use crate::connection::{Call, ReadConnection, Socket, WriteConnection};
+use crate::connection::{socket::WriteHalf, Call, ReadConnection, Socket, WriteConnection};
 
 /// A server.
 ///
@@ -39,8 +41,19 @@ where
         let mut listener = self.listener.take().unwrap();
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
+        let mut reply_streams = Vec::<
+            ReplyStream<Service::ReplyStream, <Listener::Socket as Socket>::WriteHalf>,
+            MAX_CONNECTIONS,
+        >::new();
 
         loop {
+            let mut reply_futures = SelectAll::new();
+            for stream in reply_streams.iter_mut() {
+                reply_futures
+                    .push(stream.stream.next())
+                    .map_err(|_| crate::Error::BufferOverflow)?;
+            }
+
             futures_util::select_biased! {
                 // Accept a new connection.
                 conn = listener.accept().fuse() => {
@@ -63,21 +76,30 @@ where
                     // the other arm is mutually exclusive with the one here.
                     unsafe { &mut *(&mut readers as *mut _) },
                     &mut writers,
-                ).fuse() => {
-                    match res {
-                        Ok(Some(stream)) => {
-                            pin_mut!(stream);
-                            while let Some(r) = stream.next().await {
-                                println!("Streamed reply: {:?}", r);
+                ).fuse() => if let Some(stream) = res? {
+                    reply_streams
+                        .push(stream)
+                        .map_err(|_| crate::Error::BufferOverflow)?
+                },
+                reply = reply_futures.fuse() => {
+                    let (idx, reply) = reply;
+                    match reply {
+                        Some(reply) => {
+                            if let Err(e) = reply_streams
+                            .get_mut(idx)
+                            .unwrap()
+                            .conn
+                            .send_reply(Some(reply), Some(true)).await {
+                                println!("Error writing to connection: {e:?}");
+                                reply_streams.remove(idx);
                             }
                         }
-                        Ok(None) => (),
-                        Err(e) => {
-                            // TODO:
-                            println!("Error handling call: {e:?}");
+                        None => {
+                            println!("Stream closed");
+                            reply_streams.remove(idx);
                         }
                     }
-                }
+                },
             }
         }
     }
@@ -90,12 +112,14 @@ where
             WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
             MAX_CONNECTIONS,
         >,
-    ) -> crate::Result<Option<Service::ReplyStream>>
+    ) -> crate::Result<
+        Option<ReplyStream<Service::ReplyStream, <Listener::Socket as Socket>::WriteHalf>>,
+    >
     where
         F: FnMut(&'r mut ReadConnection<<Listener::Socket as Socket>::ReadHalf>) -> Fut,
         Fut: Future<Output = crate::Result<Call<Service::MethodCall<'r>>>>,
     {
-        let mut read_futures = select_all::SelectAll::new();
+        let mut read_futures = SelectAll::new();
         for stream in readers.iter_mut() {
             read_futures
                 .push(stream.next())
@@ -103,6 +127,7 @@ where
         }
 
         let (idx, call) = read_futures.await;
+        let mut stream = None;
         match call {
             Some(Ok(call)) => match self.service.handle(call).await {
                 Reply::Single(reply) => {
@@ -120,20 +145,43 @@ where
                     Ok(_) => return Ok(None),
                     Err(e) => println!("Error writing to connection: {e:?}"),
                 },
-                Reply::Multi(stream) => return Ok(Some(stream)),
+                Reply::Multi(s) => stream = Some(s),
             },
             Some(Err(e)) => println!("Error reading from socket: {e:?}"),
             None => println!("Stream closed"),
         }
 
-        // If we reach here, the stream was closed or an error occurred.
+        // If we reach here, the stream was closed or an error occurred or we're going to stream the
+        // reply, in which case the connection now only exists for the stream.
         readers.remove(idx);
-        writers.remove(idx);
+        let writer = writers.remove(idx);
 
-        Ok(None)
+        Ok(stream.map(|s| ReplyStream::new(s, writer)))
     }
 }
 
 const MAX_CONNECTIONS: usize = 16;
 
-type MethodStreams<Read, F, Fut> = Vec<Pin<Box<MethodStream<Read, F, Fut>>>, MAX_CONNECTIONS>;
+type MethodStreams<'c, Read, F, Fut> =
+    Vec<Pin<Box<MethodStream<'c, Read, F, Fut>>>, MAX_CONNECTIONS>;
+
+/// Method reply stream and connection pair.
+#[derive(Debug)]
+struct ReplyStream<St, Write: WriteHalf> {
+    stream: Pin<Box<St>>,
+    conn: WriteConnection<Write>,
+}
+
+impl<St, Write> ReplyStream<St, Write>
+where
+    St: Stream,
+    <St as Stream>::Item: Serialize + core::fmt::Debug,
+    Write: WriteHalf,
+{
+    fn new(stream: St, conn: WriteConnection<Write>) -> Self {
+        Self {
+            stream: Box::pin(stream),
+            conn,
+        }
+    }
+}
