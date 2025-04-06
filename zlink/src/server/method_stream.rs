@@ -16,22 +16,22 @@ pin_project! {
     /// [`ReadConnection::receive_call`] gives us anonymous futures so we have to keep the future
     /// type generic here. This can be solved with Boxing but we want to avoid all allocations in
     /// the core library.
-    pub(super) struct MethodStream<Read: ReadHalf, F, Fut> {
+    pub(super) struct MethodStream<'c, Read: ReadHalf, F, Fut> {
         #[pin]
         state: MethodStreamState<Fut>,
-        conn: ReadConnection<Read>,
+        conn: &'c mut ReadConnection<Read>,
         func: F,
     }
 }
 
-impl<'c, Read, F, Fut, Method> MethodStream<Read, F, Fut>
+impl<'c, Read, F, Fut, Method> MethodStream<'c, Read, F, Fut>
 where
-    Read: ReadHalf + 'c,
+    Read: ReadHalf,
     F: FnMut(&'c mut ReadConnection<Read>) -> Fut,
     Fut: Future<Output = crate::Result<Call<Method>>> + 'c,
     Method: Deserialize<'c>,
 {
-    pub(super) fn new(conn: ReadConnection<Read>, func: F) -> Self {
+    pub(super) fn new(conn: &'c mut ReadConnection<Read>, func: F) -> Self {
         MethodStream {
             state: MethodStreamState::Init,
             conn,
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<'c, Read, F, Fut, Method> futures_util::stream::Stream for MethodStream<Read, F, Fut>
+impl<'c, Read, F, Fut, Method> futures_util::stream::Stream for MethodStream<'c, Read, F, Fut>
 where
     Read: ReadHalf + 'c,
     F: FnMut(&'c mut ReadConnection<Read>) -> Fut,
@@ -53,7 +53,7 @@ where
         let mut this = self.project();
 
         if this.state.as_mut().check_init() {
-            let conn = unsafe { &mut *(this.conn as *mut _) };
+            let conn = unsafe { &mut *(*this.conn as *mut _) };
             this.state.set(MethodStreamState::Future {
                 future: (this.func)(conn),
             });

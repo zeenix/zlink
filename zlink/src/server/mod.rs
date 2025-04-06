@@ -40,6 +40,7 @@ where
     pub async fn run(mut self) -> crate::Result<()> {
         let mut listener = self.listener.take().unwrap();
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
+        let mut method_streams = Vec::<_, MAX_CONNECTIONS>::new();
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut reply_streams = Vec::<
             ReplyStream<Service::ReplyStream, <Listener::Socket as Socket>::WriteHalf>,
@@ -58,11 +59,15 @@ where
                 // Accept a new connection.
                 conn = listener.accept().fuse() => {
                     let (read, write) = conn?.split();
+                    let readers = unsafe { &mut *(&mut readers as *mut Vec<_, MAX_CONNECTIONS>) };
+                    readers
+                        .push(read)
+                        .map_err(|_| crate::Error::BufferOverflow)?;
                     let stream = MethodStream::new(
-                        read,
+                        readers.last_mut().unwrap(),
                         ReadConnection::receive_call::<Service::MethodCall<'_>>,
                     );
-                    readers
+                    method_streams
                         .push(Box::pin(stream))
                         .map_err(|_| crate::Error::BufferOverflow)?;
                     writers
@@ -72,8 +77,9 @@ where
                 res = self.handle_next(
                     // SAFETY:
                     //
-                    // The compiler is unable to determine that the mutable borrow of `readers` in
-                    // the other arm is mutually exclusive with the one here.
+                    // The compiler is unable to determine that the mutable borrow of
+                    // `method_streams` in the other arm is mutually exclusive with the one here.
+                    unsafe { &mut *(&mut method_streams as *mut _) },
                     unsafe { &mut *(&mut readers as *mut _) },
                     &mut writers,
                 ).fuse() => if let Some(stream) = res? {
@@ -107,7 +113,11 @@ where
     /// Read the next method call from the connection and handle it.
     async fn handle_next<'r, F, Fut>(
         &mut self,
-        readers: &'r mut MethodStreams<<Listener::Socket as Socket>::ReadHalf, F, Fut>,
+        method_streams: &mut MethodStreams<'r, <Listener::Socket as Socket>::ReadHalf, F, Fut>,
+        readers: &'r mut Vec<
+            ReadConnection<<Listener::Socket as Socket>::ReadHalf>,
+            MAX_CONNECTIONS,
+        >,
         writers: &mut Vec<
             WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
             MAX_CONNECTIONS,
@@ -120,7 +130,7 @@ where
         Fut: Future<Output = crate::Result<Call<Service::MethodCall<'r>>>>,
     {
         let mut read_futures = SelectAll::new();
-        for stream in readers.iter_mut() {
+        for stream in method_streams.iter_mut() {
             read_futures
                 .push(stream.next())
                 .map_err(|_| crate::Error::BufferOverflow)?;
@@ -130,18 +140,11 @@ where
         let mut stream = None;
         match call {
             Some(Ok(call)) => match self.service.handle(call).await {
-                Reply::Single(reply) => {
-                    match writers
-                        .get_mut(idx)
-                        .unwrap()
-                        .send_reply(reply, Some(false))
-                        .await
-                    {
-                        Ok(_) => return Ok(None),
-                        Err(e) => println!("Error writing to connection: {e:?}"),
-                    }
-                }
-                Reply::Error(err) => match writers.get_mut(idx).unwrap().send_error(err).await {
+                Reply::Single(reply) => match writers[idx].send_reply(reply, Some(false)).await {
+                    Ok(_) => return Ok(None),
+                    Err(e) => println!("Error writing to connection: {e:?}"),
+                },
+                Reply::Error(err) => match writers[idx].send_error(err).await {
                     Ok(_) => return Ok(None),
                     Err(e) => println!("Error writing to connection: {e:?}"),
                 },
@@ -153,6 +156,7 @@ where
 
         // If we reach here, the stream was closed or an error occurred or we're going to stream the
         // reply, in which case the connection now only exists for the stream.
+        method_streams.remove(idx);
         readers.remove(idx);
         let writer = writers.remove(idx);
 
