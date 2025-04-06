@@ -16,8 +16,6 @@ pub trait Socket: core::fmt::Debug {
 }
 
 /// The read half of a socket.
-///
-/// Dropping the read half **must not** close the socket.
 pub trait ReadHalf: core::fmt::Debug {
     /// Read from a socket.
     ///
@@ -28,8 +26,6 @@ pub trait ReadHalf: core::fmt::Debug {
 }
 
 /// The write half of a socket.
-///
-/// Dropping the write half **must** close the socket.
 pub trait WriteHalf: core::fmt::Debug {
     /// Write to the socket.
     ///

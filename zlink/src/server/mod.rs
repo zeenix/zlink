@@ -12,7 +12,10 @@ use select_all::SelectAll;
 use serde::Serialize;
 use service::Reply;
 
-use crate::connection::{socket::WriteHalf, Call, ReadConnection, Socket, WriteConnection};
+use crate::{
+    connection::{Call, ReadConnection, Socket, WriteConnection},
+    Connection,
+};
 
 /// A server.
 ///
@@ -42,10 +45,8 @@ where
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut method_streams = Vec::<_, MAX_CONNECTIONS>::new();
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
-        let mut reply_streams = Vec::<
-            ReplyStream<Service::ReplyStream, <Listener::Socket as Socket>::WriteHalf>,
-            MAX_CONNECTIONS,
-        >::new();
+        let mut reply_streams =
+            Vec::<ReplyStream<Service::ReplyStream, Listener::Socket>, MAX_CONNECTIONS>::new();
 
         loop {
             let mut reply_futures = SelectAll::new();
@@ -55,6 +56,12 @@ where
                     .map_err(|_| crate::Error::BufferOverflow)?;
             }
 
+            // SAFETY:
+            //
+            // The compiler is unable to determine that the mutable borrows of `readers` and
+            // `method_streams` in one arm are mutually exclusive to the other ones. Hence we use
+            // `unsafe` to cast the mutable references to raw pointers and then back to mutable
+            // references.
             futures_util::select_biased! {
                 // Accept a new connection.
                 conn = listener.accept().fuse() => {
@@ -75,10 +82,6 @@ where
                         .map_err(|_| crate::Error::BufferOverflow)?;
                 },
                 res = self.handle_next(
-                    // SAFETY:
-                    //
-                    // The compiler is unable to determine that the mutable borrow of
-                    // `method_streams` in the other arm is mutually exclusive with the one here.
                     unsafe { &mut *(&mut method_streams as *mut _) },
                     unsafe { &mut *(&mut readers as *mut _) },
                     &mut writers,
@@ -95,6 +98,7 @@ where
                             .get_mut(idx)
                             .unwrap()
                             .conn
+                            .write_mut()
                             .send_reply(Some(reply), Some(true)).await {
                                 println!("Error writing to connection: {e:?}");
                                 reply_streams.remove(idx);
@@ -122,9 +126,7 @@ where
             WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
             MAX_CONNECTIONS,
         >,
-    ) -> crate::Result<
-        Option<ReplyStream<Service::ReplyStream, <Listener::Socket as Socket>::WriteHalf>>,
-    >
+    ) -> crate::Result<Option<ReplyStream<Service::ReplyStream, Listener::Socket>>>
     where
         F: FnMut(&'r mut ReadConnection<<Listener::Socket as Socket>::ReadHalf>) -> Fut,
         Fut: Future<Output = crate::Result<Call<Service::MethodCall<'r>>>>,
@@ -157,10 +159,10 @@ where
         // If we reach here, the stream was closed or an error occurred or we're going to stream the
         // reply, in which case the connection now only exists for the stream.
         method_streams.remove(idx);
-        readers.remove(idx);
+        let reader = readers.remove(idx);
         let writer = writers.remove(idx);
 
-        Ok(stream.map(|s| ReplyStream::new(s, writer)))
+        Ok(stream.map(|s| ReplyStream::new(s, reader, writer)))
     }
 }
 
@@ -171,21 +173,25 @@ type MethodStreams<'c, Read, F, Fut> =
 
 /// Method reply stream and connection pair.
 #[derive(Debug)]
-struct ReplyStream<St, Write: WriteHalf> {
+struct ReplyStream<St, Sock: Socket> {
     stream: Pin<Box<St>>,
-    conn: WriteConnection<Write>,
+    conn: Connection<Sock>,
 }
 
-impl<St, Write> ReplyStream<St, Write>
+impl<St, Sock> ReplyStream<St, Sock>
 where
     St: Stream,
     <St as Stream>::Item: Serialize + core::fmt::Debug,
-    Write: WriteHalf,
+    Sock: Socket,
 {
-    fn new(stream: St, conn: WriteConnection<Write>) -> Self {
+    fn new(
+        stream: St,
+        read_conn: ReadConnection<Sock::ReadHalf>,
+        write_conn: WriteConnection<Sock::WriteHalf>,
+    ) -> Self {
         Self {
             stream: Box::pin(stream),
-            conn,
+            conn: Connection::join(read_conn, write_conn),
         }
     }
 }
