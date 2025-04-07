@@ -47,8 +47,26 @@ where
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut reply_streams =
             Vec::<ReplyStream<Service::ReplyStream, Listener::Socket>, MAX_CONNECTIONS>::new();
+        let mut reader_modified = false;
 
         loop {
+            if reader_modified {
+                // If the connection was added or removed from the list, any or all the streams
+                // could have been invalidated since the readers they're pointing to could have
+                // been moved. So we need to reinitialize all the method streams.
+                method_streams.clear();
+                let readers = unsafe { &mut *(&mut readers as *mut Vec<_, MAX_CONNECTIONS>) };
+                for reader in readers.iter_mut() {
+                    let stream = MethodStream::new(
+                        reader,
+                        ReadConnection::receive_call::<Service::MethodCall<'_>>,
+                    );
+                    method_streams
+                        .push(Box::pin(stream))
+                        .map_err(|_| crate::Error::BufferOverflow)?;
+                }
+                reader_modified = false;
+            }
             let mut reply_futures = SelectAll::new();
             for stream in reply_streams.iter_mut() {
                 reply_futures
@@ -70,13 +88,7 @@ where
                     readers
                         .push(read)
                         .map_err(|_| crate::Error::BufferOverflow)?;
-                    let stream = MethodStream::new(
-                        readers.last_mut().unwrap(),
-                        ReadConnection::receive_call::<Service::MethodCall<'_>>,
-                    );
-                    method_streams
-                        .push(Box::pin(stream))
-                        .map_err(|_| crate::Error::BufferOverflow)?;
+                    reader_modified = true;
                     writers
                         .push(write)
                         .map_err(|_| crate::Error::BufferOverflow)?;
@@ -85,10 +97,16 @@ where
                     unsafe { &mut *(&mut method_streams as *mut _) },
                     unsafe { &mut *(&mut readers as *mut _) },
                     &mut writers,
-                ).fuse() => if let Some(stream) = res? {
-                    reply_streams
-                        .push(stream)
-                        .map_err(|_| crate::Error::BufferOverflow)?
+                ).fuse() => {
+                    let (modified, stream) = res?;
+
+                    if let Some(stream) = stream {
+                        reply_streams
+                            .push(stream)
+                            .map_err(|_| crate::Error::BufferOverflow)?;
+                    }
+
+                    reader_modified = modified;
                 },
                 reply = reply_futures.fuse() => {
                     let (idx, reply) = reply;
@@ -115,6 +133,22 @@ where
     }
 
     /// Read the next method call from the connection and handle it.
+    ///
+    /// # Caveats
+    ///
+    /// While this method removes the appropriate elements from all the three vectors on I/O errors
+    /// or if the service method handler returns a streaming reply, it doesn't take into account the
+    /// relationship between the `method_streams` and `readers` and therefore does **not**
+    /// reinitialize the `method_streams` elements that may be invalidated by the removal of
+    /// `readers` elements. The caller is responsible for reinitializing all the `method_streams`
+    /// elements if this method returns `true`.
+    ///
+    /// # Return value
+    ///
+    /// On success, this method returns a tuple containing:
+    ///
+    /// * boolean indicating if the `readers` was modified.
+    /// * an optional reply stream if the method call was a streaming method.
     async fn handle_next<'r, F, Fut>(
         &mut self,
         method_streams: &mut MethodStreams<'r, <Listener::Socket as Socket>::ReadHalf, F, Fut>,
@@ -126,7 +160,10 @@ where
             WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
             MAX_CONNECTIONS,
         >,
-    ) -> crate::Result<Option<ReplyStream<Service::ReplyStream, Listener::Socket>>>
+    ) -> crate::Result<(
+        bool,
+        Option<ReplyStream<Service::ReplyStream, Listener::Socket>>,
+    )>
     where
         F: FnMut(&'r mut ReadConnection<<Listener::Socket as Socket>::ReadHalf>) -> Fut,
         Fut: Future<Output = crate::Result<Call<Service::MethodCall<'r>>>>,
@@ -143,11 +180,11 @@ where
         match call {
             Some(Ok(call)) => match self.service.handle(call).await {
                 Reply::Single(reply) => match writers[idx].send_reply(reply, Some(false)).await {
-                    Ok(_) => return Ok(None),
+                    Ok(_) => return Ok((false, None)),
                     Err(e) => println!("Error writing to connection: {e:?}"),
                 },
                 Reply::Error(err) => match writers[idx].send_error(err).await {
-                    Ok(_) => return Ok(None),
+                    Ok(_) => return Ok((false, None)),
                     Err(e) => println!("Error writing to connection: {e:?}"),
                 },
                 Reply::Multi(s) => stream = Some(s),
@@ -158,11 +195,10 @@ where
 
         // If we reach here, the stream was closed or an error occurred or we're going to stream the
         // reply, in which case the connection now only exists for the stream.
-        method_streams.remove(idx);
         let reader = readers.remove(idx);
         let writer = writers.remove(idx);
 
-        Ok(stream.map(|s| ReplyStream::new(s, reader, writer)))
+        Ok((true, stream.map(|s| ReplyStream::new(s, reader, writer))))
     }
 }
 
