@@ -178,16 +178,10 @@ where
         let (idx, call) = read_futures.await;
         let mut stream = None;
         match call {
-            Some(Ok(call)) => match self.service.handle(call).await {
-                Reply::Single(reply) => match writers[idx].send_reply(reply, Some(false)).await {
-                    Ok(_) => return Ok((false, None)),
-                    Err(e) => println!("Error writing to connection: {e:?}"),
-                },
-                Reply::Error(err) => match writers[idx].send_error(err).await {
-                    Ok(_) => return Ok((false, None)),
-                    Err(e) => println!("Error writing to connection: {e:?}"),
-                },
-                Reply::Multi(s) => stream = Some(s),
+            Some(Ok(call)) => match self.handle_call(call, &mut writers[idx]).await {
+                Ok(None) => return Ok((false, None)),
+                Ok(Some(s)) => stream = Some(s),
+                Err(e) => println!("Error writing to connection: {e:?}"),
             },
             Some(Err(e)) => println!("Error reading from socket: {e:?}"),
             None => println!("Stream closed"),
@@ -199,6 +193,21 @@ where
         let writer = writers.remove(idx);
 
         Ok((true, stream.map(|s| ReplyStream::new(s, reader, writer))))
+    }
+
+    async fn handle_call(
+        &mut self,
+        call: Call<Service::MethodCall<'_>>,
+        writer: &mut WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
+    ) -> crate::Result<Option<Service::ReplyStream>> {
+        let mut stream = None;
+        match self.service.handle(call).await {
+            Reply::Single(reply) => writer.send_reply(reply, Some(false)).await?,
+            Reply::Error(err) => writer.send_error(err).await?,
+            Reply::Multi(s) => stream = Some(s),
+        }
+
+        Ok(stream)
     }
 }
 
