@@ -81,7 +81,7 @@ struct DriveCondition {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake-case")]
+#[serde(rename_all = "snake_case")]
 pub enum DriveState {
     Idle,
     Spooling,
