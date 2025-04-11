@@ -29,7 +29,7 @@ where
     ///
     /// If the client asks for multiple replies, this stream will be used to send them. The stream
     /// must yield items that can be serialized as the `parameters` field of the reply.
-    type ReplyStream: Stream + Debug;
+    type ReplyStream: Stream + Unpin + Debug;
     /// The type of the error reply.
     ///
     /// This should be a type that can serialize itself to the whole reply object, containing

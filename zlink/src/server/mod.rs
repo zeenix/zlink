@@ -2,8 +2,6 @@ pub(crate) mod listener;
 mod select_all;
 pub mod service;
 
-use core::pin::Pin;
-
 use futures_util::{FutureExt, Stream, StreamExt};
 use mayheap::Vec;
 use select_all::SelectAll;
@@ -200,13 +198,13 @@ const MAX_CONNECTIONS: usize = 16;
 /// Method reply stream and connection pair.
 #[derive(Debug)]
 struct ReplyStream<St, Sock: Socket> {
-    stream: Pin<Box<St>>,
+    stream: St,
     conn: Connection<Sock>,
 }
 
 impl<St, Sock> ReplyStream<St, Sock>
 where
-    St: Stream,
+    St: Stream + Unpin + core::fmt::Debug,
     <St as Stream>::Item: Serialize + core::fmt::Debug,
     Sock: Socket,
 {
@@ -216,7 +214,7 @@ where
         write_conn: WriteConnection<Sock::WriteHalf>,
     ) -> Self {
         Self {
-            stream: Box::pin(stream),
+            stream,
             conn: Connection::join(read_conn, write_conn),
         }
     }
