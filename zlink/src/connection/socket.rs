@@ -21,7 +21,14 @@ pub trait ReadHalf: core::fmt::Debug {
     ///
     /// On completion, the number of bytes read is returned.
     ///
-    /// Note for implementers: the future returned by this method must be cancellable.
+    /// Notes for implementers:
+    ///
+    /// * The future returned by this method must be cancel safe.
+    /// * While there is no explicit `Unpin` bound on the future returned by this method, it is
+    ///   expected that it provides the same guarentees as `Unpin` would require. The reason `Unpin`
+    ///   is not explicitly requied is that it would force boxing (and therefore allocation) on the
+    ///   implemention that use `async fn`, which is undesirable for embedded use cases. See [this
+    ///   issue](https://github.com/rust-lang/rust/issues/82187) for details.
     fn read(&mut self, buf: &mut [u8]) -> impl Future<Output = crate::Result<usize>>;
 }
 
@@ -29,6 +36,6 @@ pub trait ReadHalf: core::fmt::Debug {
 pub trait WriteHalf: core::fmt::Debug {
     /// Write to the socket.
     ///
-    /// Note for implementers: the future returned by this method must be cancellable.
+    /// The returned future has the same requirements as that of [`ReadHalf::read`].
     fn write(&mut self, buf: &[u8]) -> impl Future<Output = crate::Result<()>>;
 }
