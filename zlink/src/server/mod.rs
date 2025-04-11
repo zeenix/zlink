@@ -1,13 +1,11 @@
 pub(crate) mod listener;
-mod method_stream;
 mod select_all;
 pub mod service;
 
-use core::{future::Future, pin::Pin};
+use core::pin::Pin;
 
 use futures_util::{FutureExt, Stream, StreamExt};
 use mayheap::Vec;
-use method_stream::MethodStream;
 use select_all::SelectAll;
 use serde::Serialize;
 use service::Reply;
@@ -43,43 +41,11 @@ where
     pub async fn run(mut self) -> crate::Result<()> {
         let mut listener = self.listener.take().unwrap();
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
-        let mut method_streams = Vec::<_, MAX_CONNECTIONS>::new();
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut reply_streams =
             Vec::<ReplyStream<Service::ReplyStream, Listener::Socket>, MAX_CONNECTIONS>::new();
-        let mut reader_modified = false;
 
         loop {
-            if reader_modified {
-                // If the connection was added or removed from the list, any or all the streams
-                // could have been invalidated since the readers they're pointing to could have
-                // been moved. So we need to reinitialize all the method streams.
-                method_streams.clear();
-                // SAFETY:
-                //
-                // The compiler is unable to determine that the mutable borrows of `readers` and
-                // `method_streams` here is mutually exclusive to the other ones below. Hence we use
-                // `unsafe` to cast the mutable references to raw pointers and then back to mutable
-                // references.
-                let readers = unsafe { &mut *(&mut readers as *mut Vec<_, MAX_CONNECTIONS>) };
-                for reader in readers.iter_mut() {
-                    let stream = MethodStream::new(
-                        reader,
-                        ReadConnection::receive_call::<Service::MethodCall<'_>>,
-                    );
-                    method_streams
-                        .push(Box::pin(stream))
-                        .map_err(|_| crate::Error::BufferOverflow)?;
-                }
-                reader_modified = false;
-            }
-            let mut reply_futures = SelectAll::new();
-            for stream in reply_streams.iter_mut() {
-                reply_futures
-                    .push(stream.stream.next())
-                    .map_err(|_| crate::Error::BufferOverflow)?;
-            }
-
             #[derive(Debug)]
             enum Either<Sock: Socket, MethodCall, ReplyStreamItem> {
                 NewConnection {
@@ -87,7 +53,7 @@ where
                 },
                 Call {
                     idx: usize,
-                    call: Option<crate::Result<Call<MethodCall>>>,
+                    call: crate::Result<Call<MethodCall>>,
                 },
                 ReplyStreamReply {
                     idx: usize,
@@ -95,21 +61,36 @@ where
                 },
             }
 
-            let either = futures_util::select_biased! {
-                // 1. Accept a new connection.
-                conn = listener.accept().fuse() => Either::NewConnection { conn: conn? },
-                // 2. Read method calls from the existing connections..
-                res = self.get_next_call(&mut method_streams).fuse() => {
-                    let res = res?;
-
-                    Either::Call { idx: res.0, call: res.1 }
+            let either = {
+                let mut reply_stream_futures: Vec<_, MAX_CONNECTIONS> =
+                    reply_streams.iter_mut().map(|s| s.stream.next()).collect();
+                let mut reply_stream_select_all = SelectAll::new();
+                for future in reply_stream_futures.iter_mut() {
+                    reply_stream_select_all
+                        .push(future)
+                        .map_err(|_| crate::Error::BufferOverflow)?;
                 }
-                // 3. Read replies from the reply streams.
-                reply = reply_futures.fuse() => {
-                    let (idx, reply) = reply;
 
-                    Either::ReplyStreamReply { idx, reply }
-                },
+                futures_util::select_biased! {
+                    // 1. Accept a new connection.
+                    conn = listener.accept().fuse() => Either::NewConnection { conn: conn? },
+                    // 2. Read method calls from the existing connections..
+                    res = self.get_next_call(
+                        // SAFETY: `readers` is not invalidated or dropped until the output of this
+                        // future is dropped.
+                        unsafe { &mut *(&mut readers as *mut _) },
+                    ).fuse() => {
+                        let res = res?;
+
+                        Either::Call { idx: res.0, call: res.1 }
+                    }
+                    // 3. Read replies from the reply streams.
+                    reply = reply_stream_select_all.fuse() => {
+                        let (idx, reply) = reply;
+
+                        Either::ReplyStreamReply { idx, reply }
+                    },
+                }
             };
 
             match either {
@@ -118,7 +99,6 @@ where
                     readers
                         .push(read)
                         .map_err(|_| crate::Error::BufferOverflow)?;
-                    reader_modified = true;
                     writers
                         .push(write)
                         .map_err(|_| crate::Error::BufferOverflow)?;
@@ -146,19 +126,17 @@ where
                     let mut stream = None;
                     let mut remove = true;
                     match call {
-                        Some(Ok(call)) => match self.handle_call(call, &mut writers[idx]).await {
+                        Ok(call) => match self.handle_call(call, &mut writers[idx]).await {
                             Ok(None) => remove = false,
                             Ok(Some(s)) => stream = Some(s),
                             Err(e) => println!("Error writing to connection: {e:?}"),
                         },
-                        Some(Err(e)) => println!("Error reading from socket: {e:?}"),
-                        None => println!("Stream closed"),
+                        Err(e) => println!("Error reading from socket: {e:?}"),
                     }
 
                     if stream.is_some() || remove {
                         let reader = readers.remove(idx);
                         let writer = writers.remove(idx);
-                        reader_modified = true;
 
                         if let Some(stream) = stream.map(|s| ReplyStream::new(s, reader, writer)) {
                             reply_streams
@@ -180,22 +158,25 @@ where
     ///
     /// * boolean indicating if the `readers` was modified.
     /// * an optional reply stream if the method call was a streaming method.
-    async fn get_next_call<'r, F, Fut>(
+    async fn get_next_call<'r>(
         &mut self,
-        method_streams: &mut MethodStreams<'r, <Listener::Socket as Socket>::ReadHalf, F, Fut>,
-    ) -> crate::Result<(usize, Option<crate::Result<Call<Service::MethodCall<'r>>>>)>
-    where
-        F: FnMut(&'r mut ReadConnection<<Listener::Socket as Socket>::ReadHalf>) -> Fut,
-        Fut: Future<Output = crate::Result<Call<Service::MethodCall<'r>>>>,
-    {
-        let mut read_futures = SelectAll::new();
-        for stream in method_streams.iter_mut() {
-            read_futures
-                .push(stream.next())
-                .map_err(|_| crate::Error::BufferOverflow)?;
+        readers: &'r mut Vec<
+            ReadConnection<<<Listener as crate::Listener>::Socket as Socket>::ReadHalf>,
+            16,
+        >,
+    ) -> crate::Result<(usize, crate::Result<Call<Service::MethodCall<'r>>>)> {
+        let mut read_futures: Vec<_, 16> = readers.iter_mut().map(|r| r.receive_call()).collect();
+        let mut select_all = SelectAll::new();
+        for future in &mut read_futures {
+            // Safety: `future` is in fact `Unpin` but the compiler doesn't know that.
+            unsafe {
+                select_all
+                    .push_unchecked(future)
+                    .map_err(|_| crate::Error::BufferOverflow)?;
+            }
         }
 
-        Ok(read_futures.await)
+        Ok(select_all.await)
     }
 
     async fn handle_call(
@@ -215,9 +196,6 @@ where
 }
 
 const MAX_CONNECTIONS: usize = 16;
-
-type MethodStreams<'c, Read, F, Fut> =
-    Vec<Pin<Box<MethodStream<'c, Read, F, Fut>>>, MAX_CONNECTIONS>;
 
 /// Method reply stream and connection pair.
 #[derive(Debug)]
