@@ -125,13 +125,12 @@ where
 
     /// Read the next method call from the connection.
     ///
-    ///
     /// # Return value
     ///
     /// On success, this method returns a tuple containing:
     ///
-    /// * boolean indicating if the `readers` was modified.
-    /// * an optional reply stream if the method call was a streaming method.
+    /// * The index of the reader that yielded a call.
+    /// * A Result, containing a method call if reading was successful.
     async fn get_next_call<'r>(
         &mut self,
         readers: &'r mut Vec<
