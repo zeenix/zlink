@@ -2,11 +2,10 @@ pub(crate) mod listener;
 mod select_all;
 pub mod service;
 
-use futures_util::{FutureExt, Stream, StreamExt};
+use futures_util::{FutureExt, StreamExt};
 use mayheap::Vec;
 use select_all::SelectAll;
-use serde::Serialize;
-use service::Reply;
+use service::MethodReply;
 
 use crate::{
     connection::{Call, ReadConnection, Socket, WriteConnection},
@@ -106,7 +105,7 @@ where
                                 .unwrap()
                                 .conn
                                 .write_mut()
-                                .send_reply(Some(reply), Some(true))
+                                .send_reply(reply.parameters(), reply.continues())
                                 .await
                             {
                                 println!("Error writing to connection: {e:?}");
@@ -115,7 +114,15 @@ where
                         }
                         None => {
                             println!("Stream closed");
-                            reply_streams.remove(idx);
+                            let stream = reply_streams.remove(idx);
+
+                            let (read, write) = stream.conn.split();
+                            readers
+                                .push(read)
+                                .map_err(|_| crate::Error::BufferOverflow)?;
+                            writers
+                                .push(write)
+                                .map_err(|_| crate::Error::BufferOverflow)?;
                         }
                     }
                 }
@@ -159,9 +166,9 @@ where
     ) -> crate::Result<Option<Service::ReplyStream>> {
         let mut stream = None;
         match self.service.handle(call) {
-            Reply::Single(reply) => writer.send_reply(reply, Some(false)).await?,
-            Reply::Error(err) => writer.send_error(err).await?,
-            Reply::Multi(s) => stream = Some(s),
+            MethodReply::Single(reply) => writer.send_reply(reply, Some(false)).await?,
+            MethodReply::Error(err) => writer.send_error(err).await?,
+            MethodReply::Multi(s) => stream = Some(s),
         }
 
         Ok(stream)
@@ -179,8 +186,6 @@ struct ReplyStream<St, Sock: Socket> {
 
 impl<St, Sock> ReplyStream<St, Sock>
 where
-    St: Stream + Unpin + core::fmt::Debug,
-    <St as Stream>::Item: Serialize + core::fmt::Debug,
     Sock: Socket,
 {
     fn new(

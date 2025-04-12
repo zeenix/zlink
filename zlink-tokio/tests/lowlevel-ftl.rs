@@ -2,8 +2,8 @@ use futures_util::stream::Empty;
 use serde::{Deserialize, Serialize};
 use tokio::spawn;
 use zlink_tokio::{
-    connection::Call,
-    service::Reply,
+    connection::{Call, Reply},
+    service::MethodReply,
     unix::{bind, connect},
     Service,
 };
@@ -87,22 +87,25 @@ struct Ftl {
 impl Service for Ftl {
     type MethodCall<'de> = Methods;
     type ReplyParams<'ser> = Replies;
-    type ReplyStream = Empty<()>;
+    type ReplyStream = Empty<Reply<()>>;
+    type ReplyStreamParams = ();
     type ReplyError<'ser> = Errors;
 
     fn handle<'ser>(
         &'ser mut self,
         call: Call<Self::MethodCall<'_>>,
-    ) -> Reply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
+    ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
             Methods::GetDriveCondition => {
-                Reply::Single(Some(Replies::DriveCondition(self.drive_condition)))
+                MethodReply::Single(Some(Replies::DriveCondition(self.drive_condition)))
             }
             Methods::SetDriveCondition { condition } => {
                 self.drive_condition = *condition;
-                Reply::Single(Some(Replies::DriveCondition(self.drive_condition)))
+                MethodReply::Single(Some(Replies::DriveCondition(self.drive_condition)))
             }
-            Methods::GetCoordinates => Reply::Single(Some(Replies::Coordinates(self.coordinates))),
+            Methods::GetCoordinates => {
+                MethodReply::Single(Some(Replies::Coordinates(self.coordinates)))
+            }
         }
     }
 }
