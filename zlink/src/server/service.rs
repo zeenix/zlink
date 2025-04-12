@@ -1,6 +1,6 @@
 //! Serice-related API.
 
-use core::{fmt::Debug, future::Future};
+use core::fmt::Debug;
 
 use futures_util::Stream;
 use serde::{Deserialize, Serialize};
@@ -40,12 +40,14 @@ where
         Self: 'ser;
 
     /// Handle a method call.
+    ///
+    /// While this methos is no async, it can return a reply stream that can be used to
+    /// ascynchronously send out replies. The main use case for allowing to return a stream is
+    /// multiple replies but it can be used for single reply as well.
     fn handle<'ser>(
         &'ser mut self,
         method: Call<Self::MethodCall<'_>>,
-    ) -> impl Future<
-        Output = Reply<Option<Self::ReplyParams<'ser>>, Self::ReplyStream, Self::ReplyError<'ser>>,
-    >;
+    ) -> Reply<Option<Self::ReplyParams<'ser>>, Self::ReplyStream, Self::ReplyError<'ser>>;
 }
 
 /// A service method call reply.

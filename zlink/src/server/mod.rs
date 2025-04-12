@@ -158,7 +158,7 @@ where
         writer: &mut WriteConnection<<Listener::Socket as Socket>::WriteHalf>,
     ) -> crate::Result<Option<Service::ReplyStream>> {
         let mut stream = None;
-        match self.service.handle(call).await {
+        match self.service.handle(call) {
             Reply::Single(reply) => writer.send_reply(reply, Some(false)).await?,
             Reply::Error(err) => writer.send_error(err).await?,
             Reply::Multi(s) => stream = Some(s),
