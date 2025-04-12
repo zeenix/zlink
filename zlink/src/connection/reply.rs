@@ -10,6 +10,20 @@ pub struct Reply<Params> {
 }
 
 impl<Params> Reply<Params> {
+    /// Create a new reply.
+    pub fn new(parameters: Option<Params>) -> Self {
+        Self {
+            parameters,
+            continues: None,
+        }
+    }
+
+    /// Set the continues flag.
+    pub fn set_continues(mut self, continues: Option<bool>) -> Self {
+        self.continues = continues;
+        self
+    }
+
     /// The parameters of the reply.
     pub fn parameters(&self) -> Option<&Params> {
         self.parameters.as_ref()
@@ -23,5 +37,11 @@ impl<Params> Reply<Params> {
     /// If there are more replies to come.
     pub fn continues(&self) -> Option<bool> {
         self.continues
+    }
+}
+
+impl<Params> From<Params> for Reply<Params> {
+    fn from(parameters: Params) -> Self {
+        Self::new(Some(parameters))
     }
 }
