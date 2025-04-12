@@ -14,7 +14,7 @@ jobs:
         target: [x86_64-unknown-linux-gnu, x86_64-apple-darwin, x86_64-unknown-freebsd, x86_64-unknown-netbsd]
     env:
       RUSTFLAGS: -D warnings
-      MSRV: 1.81.0
+      MSRV: 1.82.0
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
