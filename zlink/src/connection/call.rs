@@ -16,6 +16,34 @@ pub struct Call<M> {
 }
 
 impl<M> Call<M> {
+    /// Create a new method call.
+    pub fn new(method: M) -> Self {
+        Self {
+            method,
+            oneway: None,
+            more: None,
+            upgrade: None,
+        }
+    }
+
+    /// Set the oneway flag.
+    pub fn set_oneway(mut self, oneway: Option<bool>) -> Self {
+        self.oneway = oneway;
+        self
+    }
+
+    /// Set the more flag.
+    pub fn set_more(mut self, more: Option<bool>) -> Self {
+        self.more = more;
+        self
+    }
+
+    /// Set the upgrade flag.
+    pub fn set_upgrade(mut self, upgrade: Option<bool>) -> Self {
+        self.upgrade = upgrade;
+        self
+    }
+
     /// The method call name and parameters.
     pub fn method(&self) -> &M {
         &self.method
@@ -34,5 +62,11 @@ impl<M> Call<M> {
     /// If the method call is requesting an upgrade to a different protocol.
     pub fn upgrade(&self) -> Option<bool> {
         self.upgrade
+    }
+}
+
+impl<M> From<M> for Call<M> {
+    fn from(method: M) -> Self {
+        Self::new(method)
     }
 }
