@@ -8,7 +8,7 @@ use select_all::SelectAll;
 use service::MethodReply;
 
 use crate::{
-    connection::{Call, ReadConnection, Socket, WriteConnection},
+    connection::{Call, ReadConnection, Reply, Socket, WriteConnection},
     Connection,
 };
 
@@ -105,7 +105,7 @@ where
                                 .unwrap()
                                 .conn
                                 .write_mut()
-                                .send_reply(reply.parameters(), reply.continues())
+                                .send_reply(reply)
                                 .await
                             {
                                 println!("Error writing to connection: {e:?}");
@@ -166,7 +166,11 @@ where
     ) -> crate::Result<Option<Service::ReplyStream>> {
         let mut stream = None;
         match self.service.handle(call) {
-            MethodReply::Single(reply) => writer.send_reply(reply, Some(false)).await?,
+            MethodReply::Single(params) => {
+                writer
+                    .send_reply(Reply::new(params).set_continues(Some(false)))
+                    .await?
+            }
             MethodReply::Error(err) => writer.send_error(err).await?,
             MethodReply::Multi(s) => stream = Some(s),
         }

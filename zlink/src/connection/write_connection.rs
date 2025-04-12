@@ -60,22 +60,10 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     ///    Charlie { param1: &'m str },
     /// }
     /// ```
-    pub async fn send_call<Method>(
-        &mut self,
-        method: Method,
-        oneway: Option<bool>,
-        more: Option<bool>,
-        upgrade: Option<bool>,
-    ) -> crate::Result<()>
+    pub async fn send_call<Method>(&mut self, call: Call<Method>) -> crate::Result<()>
     where
         Method: Serialize + Debug,
     {
-        let call = Call {
-            method,
-            oneway,
-            more,
-            upgrade,
-        };
         let len = to_slice(&call, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 
@@ -86,18 +74,10 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     ///
     /// The generic parameter `Params` is the type of the successful reply. This should be a type
     /// that can serialize itself as the `parameters` field of the reply.
-    pub async fn send_reply<Params>(
-        &mut self,
-        parameters: Option<Params>,
-        continues: Option<bool>,
-    ) -> crate::Result<()>
+    pub async fn send_reply<Params>(&mut self, reply: Reply<Params>) -> crate::Result<()>
     where
         Params: Serialize + Debug,
     {
-        let reply = Reply {
-            parameters,
-            continues,
-        };
         let len = to_slice(&reply, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 

@@ -46,19 +46,15 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = connect(SOCKET_PATH).await?;
 
     // Ask for the drive condition, then set them and then ask again.
-    conn.send_call(Methods::GetDriveCondition, None, None, None)
-        .await?;
+    conn.send_call(Methods::GetDriveCondition.into()).await?;
     conn.send_call(
         Methods::SetDriveCondition {
             condition: conditions[1],
-        },
-        None,
-        None,
-        None,
+        }
+        .into(),
     )
     .await?;
-    conn.send_call(Methods::GetDriveCondition, None, None, None)
-        .await?;
+    conn.send_call(Methods::GetDriveCondition.into()).await?;
 
     // Now we should be able to get all the replies.
     for i in 0..3 {
