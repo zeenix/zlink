@@ -93,7 +93,7 @@ impl Service for Ftl {
     fn handle<'ser>(
         &'ser mut self,
         call: Call<Self::MethodCall<'_>>,
-    ) -> Reply<Option<Self::ReplyParams<'ser>>, Self::ReplyStream, Self::ReplyError<'ser>> {
+    ) -> Reply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
             Methods::GetDriveCondition => {
                 Reply::Single(Some(Replies::DriveCondition(self.drive_condition)))

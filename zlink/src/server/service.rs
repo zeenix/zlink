@@ -47,14 +47,14 @@ where
     fn handle<'ser>(
         &'ser mut self,
         method: Call<Self::MethodCall<'_>>,
-    ) -> Reply<Option<Self::ReplyParams<'ser>>, Self::ReplyStream, Self::ReplyError<'ser>>;
+    ) -> Reply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>>;
 }
 
 /// A service method call reply.
 #[derive(Debug)]
 pub enum Reply<Params, ReplyStream, ReplyError> {
     /// A single reply.
-    Single(Params),
+    Single(Option<Params>),
     /// An error reply.
     Error(ReplyError),
     /// A multi-reply stream.
