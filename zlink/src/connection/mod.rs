@@ -254,7 +254,7 @@ impl<S: Socket> Connection<S> {
                 }
 
                 self.read_buffer
-                    .extend(core::iter::repeat(0).take(BUFFER_SIZE));
+                    .extend(core::iter::repeat_n(0, BUFFER_SIZE));
             }
 
             pos += bytes_read;
