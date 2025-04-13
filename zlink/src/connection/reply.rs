@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A successful method call reply.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Reply<Params> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) parameters: Option<Params>,

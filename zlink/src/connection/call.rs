@@ -3,7 +3,7 @@ use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 /// A method call.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Call<M> {
     #[serde(flatten)]
     pub(super) method: M,
