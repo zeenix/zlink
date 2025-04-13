@@ -15,6 +15,7 @@
     * Reply stream doesn't set continue=false on the last reply
       * stream should yield continue value
     * Ensure all TODO comments are resolved.
+    * Reply stream should also **optionally** (since the value might not be ready) return a reply.
   * FDs
   * Ensure fairness in handling method calls from multiple connections
 * zlink-tokio
