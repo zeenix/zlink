@@ -9,10 +9,12 @@ repository.workspace = true
 [dependencies]
 zlink = { path = "../zlink" }
 tokio = { version = "1.44.0", features = ["net", "io-util"] }
-async-broadcast = "0.7.2"
 futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",
     "alloc",
+] }
+tokio-stream = { version = "0.1.17", default-features = false, features = [
+    "sync",
 ] }
 
 [dev-dependencies]
