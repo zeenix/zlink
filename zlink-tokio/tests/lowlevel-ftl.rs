@@ -134,7 +134,7 @@ struct Coordinate {
     distance: i64,
 }
 
-// The FTL service methods.
+/// The FTL service methods.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "error", content = "parameters")]
 enum Methods {
@@ -146,7 +146,7 @@ enum Methods {
     GetCoordinates,
 }
 
-// The FTL service replies.
+/// The FTL service replies.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Replies {
@@ -154,7 +154,7 @@ enum Replies {
     Coordinates(Coordinate),
 }
 
-// The FTL service error replies.
+/// The FTL service error replies.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "error", content = "parameters")]
 enum Errors {
