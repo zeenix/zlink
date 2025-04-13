@@ -18,3 +18,4 @@ futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",
     "alloc",
 ] }
+async-broadcast = "0.7.2"
