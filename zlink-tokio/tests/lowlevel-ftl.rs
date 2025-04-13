@@ -1,8 +1,8 @@
-use async_broadcast::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use tokio::spawn;
 use zlink_tokio::{
-    connection::{Call, Reply},
+    connection::Call,
+    notified,
     service::MethodReply,
     unix::{bind, connect},
     Service,
@@ -85,18 +85,14 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 
 // The FTL service.
 struct Ftl {
-    drive_condition: DriveCondition,
-    drive_condition_channel: (Sender<Reply<Replies>>, Receiver<Reply<Replies>>),
+    drive_condition: notified::State<DriveCondition, Replies>,
     coordinates: Coordinate,
 }
 
 impl Ftl {
     fn new(init_conditions: DriveCondition) -> Self {
-        let (mut tx, rx) = async_broadcast::broadcast(1);
-        tx.set_overflow(true);
         Self {
-            drive_condition: init_conditions,
-            drive_condition_channel: (tx, rx),
+            drive_condition: notified::State::new(init_conditions),
             coordinates: Coordinate {
                 longitude: 0.0,
                 latitude: 0.0,
@@ -104,21 +100,12 @@ impl Ftl {
             },
         }
     }
-
-    fn set_drive_condition(&mut self, drive_condition: DriveCondition) {
-        self.drive_condition = drive_condition;
-        self.drive_condition_channel
-            .0
-            .broadcast_blocking(Replies::DriveCondition(drive_condition).into())
-            // We enabled overflow so this can't fail.
-            .unwrap();
-    }
 }
 
 impl Service for Ftl {
     type MethodCall<'de> = Methods;
     type ReplyParams<'ser> = Replies;
-    type ReplyStream = Receiver<Reply<Self::ReplyStreamParams>>;
+    type ReplyStream = notified::Stream<Self::ReplyStreamParams>;
     type ReplyStreamParams = Replies;
     type ReplyError<'ser> = Errors;
 
@@ -128,14 +115,14 @@ impl Service for Ftl {
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
             Methods::GetDriveCondition if call.more().unwrap_or_default() => {
-                MethodReply::Multi(self.drive_condition_channel.1.clone())
+                MethodReply::Multi(self.drive_condition.stream())
             }
             Methods::GetDriveCondition => {
-                MethodReply::Single(Some(Replies::DriveCondition(self.drive_condition)))
+                MethodReply::Single(Some(self.drive_condition.get().into()))
             }
             Methods::SetDriveCondition { condition } => {
-                self.set_drive_condition(*condition);
-                MethodReply::Single(Some(Replies::DriveCondition(self.drive_condition)))
+                self.drive_condition.set(*condition);
+                MethodReply::Single(Some(self.drive_condition.get().into()))
             }
             Methods::GetCoordinates => {
                 MethodReply::Single(Some(Replies::Coordinates(self.coordinates)))
@@ -148,6 +135,12 @@ impl Service for Ftl {
 struct DriveCondition {
     state: DriveState,
     tylium_level: i64,
+}
+
+impl From<DriveCondition> for Replies {
+    fn from(drive_condition: DriveCondition) -> Self {
+        Replies::DriveCondition(drive_condition)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]

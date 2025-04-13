@@ -8,4 +8,5 @@
 #![doc = include_str!("../../README.md")]
 
 pub use zlink::*;
+pub mod notified;
 pub mod unix;
