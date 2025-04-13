@@ -1,4 +1,4 @@
-use futures_util::stream::Empty;
+use async_broadcast::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use tokio::spawn;
 use zlink_tokio::{
@@ -31,45 +31,54 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup the server and run it in a separate task.
     let listener = bind(SOCKET_PATH).unwrap();
-    let service = Ftl {
-        drive_condition: conditions[0],
-        coordinates: Coordinate {
-            longitude: 0.0,
-            latitude: 0.0,
-            distance: 0,
-        },
-    };
+    let service = Ftl::new(conditions[0]);
     let server = zlink_tokio::Server::new(listener, service);
     spawn(server.run());
 
-    // Now create a client connection.
-    let mut conn = connect(SOCKET_PATH).await?;
+    // Now create a client connection that monitor changes in the drive condition.
+    let mut drive_monitor_conn = connect(SOCKET_PATH).await?;
+    drive_monitor_conn
+        .send_call(Call::new(Some(Methods::GetDriveCondition)).set_more(Some(true)))
+        .await?;
 
-    // Ask for the drive condition, then set them and then ask again.
-    conn.send_call(Methods::GetDriveCondition.into()).await?;
-    conn.send_call(
-        Methods::SetDriveCondition {
-            condition: conditions[1],
-        }
-        .into(),
-    )
-    .await?;
-    conn.send_call(Methods::GetDriveCondition.into()).await?;
+    // And a client that only calls methods.
+    {
+        let mut conn = connect(SOCKET_PATH).await?;
 
-    // Now we should be able to get all the replies.
-    for i in 0..3 {
-        match conn
-            .receive_reply::<Replies, Errors>()
-            .await??
-            .into_parameters()
-            .unwrap()
-        {
-            Replies::DriveCondition(drive_condition) => {
-                assert_eq!(drive_condition, conditions[i]);
+        // Ask for the drive condition, then set them and then ask again.
+        conn.send_call(Methods::GetDriveCondition.into()).await?;
+        conn.send_call(
+            Methods::SetDriveCondition {
+                condition: conditions[1],
             }
-            _ => panic!("Unexpected reply"),
+            .into(),
+        )
+        .await?;
+        conn.send_call(Methods::GetDriveCondition.into()).await?;
+
+        // Now we should be able to get all the replies.
+        for i in 0..3 {
+            match conn
+                .receive_reply::<Replies, Errors>()
+                .await??
+                .into_parameters()
+                .unwrap()
+            {
+                Replies::DriveCondition(drive_condition) => {
+                    assert_eq!(drive_condition, conditions[i]);
+                }
+                _ => panic!("Unexpected reply"),
+            }
         }
     }
+
+    // `monitor_conn` should received the drive condition changes.
+    let drive_cond = drive_monitor_conn
+        .receive_reply::<DriveCondition, Errors>()
+        .await??
+        .into_parameters()
+        .unwrap();
+    assert_eq!(drive_cond, conditions[1]);
 
     Ok(())
 }
@@ -77,14 +86,40 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 // The FTL service.
 struct Ftl {
     drive_condition: DriveCondition,
+    drive_condition_channel: (Sender<Reply<Replies>>, Receiver<Reply<Replies>>),
     coordinates: Coordinate,
+}
+
+impl Ftl {
+    fn new(init_conditions: DriveCondition) -> Self {
+        let (mut tx, rx) = async_broadcast::broadcast(1);
+        tx.set_overflow(true);
+        Self {
+            drive_condition: init_conditions,
+            drive_condition_channel: (tx, rx),
+            coordinates: Coordinate {
+                longitude: 0.0,
+                latitude: 0.0,
+                distance: 0,
+            },
+        }
+    }
+
+    fn set_drive_condition(&mut self, drive_condition: DriveCondition) {
+        self.drive_condition = drive_condition;
+        self.drive_condition_channel
+            .0
+            .broadcast_blocking(Replies::DriveCondition(drive_condition).into())
+            // We enabled overflow so this can't fail.
+            .unwrap();
+    }
 }
 
 impl Service for Ftl {
     type MethodCall<'de> = Methods;
     type ReplyParams<'ser> = Replies;
-    type ReplyStream = Empty<Reply<()>>;
-    type ReplyStreamParams = ();
+    type ReplyStream = Receiver<Reply<Self::ReplyStreamParams>>;
+    type ReplyStreamParams = Replies;
     type ReplyError<'ser> = Errors;
 
     fn handle<'ser>(
@@ -92,11 +127,14 @@ impl Service for Ftl {
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
+            Methods::GetDriveCondition if call.more().unwrap_or_default() => {
+                MethodReply::Multi(self.drive_condition_channel.1.clone())
+            }
             Methods::GetDriveCondition => {
                 MethodReply::Single(Some(Replies::DriveCondition(self.drive_condition)))
             }
             Methods::SetDriveCondition { condition } => {
-                self.drive_condition = *condition;
+                self.set_drive_condition(*condition);
                 MethodReply::Single(Some(Replies::DriveCondition(self.drive_condition)))
             }
             Methods::GetCoordinates => {
@@ -147,7 +185,7 @@ enum Methods {
 }
 
 /// The FTL service replies.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Replies {
     DriveCondition(DriveCondition),
