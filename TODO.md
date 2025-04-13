@@ -16,6 +16,7 @@
       * stream should yield continue value
     * Ensure all TODO comments are resolved.
   * FDs
+  * Ensure fairness in handling method calls from multiple connections
 * zlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
 * zlink-macros
