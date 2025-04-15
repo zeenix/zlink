@@ -72,7 +72,7 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // `monitor_conn` should received the drive condition changes.
+    // `drive_monitor_conn` should have received the drive condition changes.
     let drive_cond = drive_monitor_conn
         .receive_reply::<DriveCondition, Errors>()
         .await??
