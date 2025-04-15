@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
-use tokio::spawn;
+use tokio::{spawn, time::sleep};
+use zlink::connection::Reply;
 use zlink_tokio::{
     connection::Call,
     notified,
@@ -70,6 +73,48 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
                 _ => panic!("Unexpected reply"),
             }
         }
+
+        // Let's try to jump to a new coordinate but first requiring more tylium than we have.
+        let duration = 10;
+        let impossible_speed = conditions[1].tylium_level / duration + 1;
+        // This should fail because we don't have enough energy.
+        let e = conn
+            .call_method::<_, Errors, Coordinate>(
+                Methods::Jump {
+                    config: DriveConfiguration {
+                        speed: impossible_speed,
+                        trajectory: 1,
+                        duration: 10,
+                    },
+                }
+                .into(),
+            )
+            .await?
+            .unwrap_err();
+        assert_eq!(e, Errors::NotEnoughEnergy);
+
+        // Now let's try to jump with a valid speed.
+        let possible_speed = impossible_speed - 1;
+        let reply: Reply<Coordinate> = conn
+            .call_method::<_, Errors, Coordinate>(
+                Methods::Jump {
+                    config: DriveConfiguration {
+                        speed: possible_speed,
+                        trajectory: 1,
+                        duration: 10,
+                    },
+                }
+                .into(),
+            )
+            .await??;
+        assert_eq!(
+            reply.parameters(),
+            Some(&Coordinate {
+                longitude: 1.0,
+                latitude: 0.0,
+                distance: 10,
+            })
+        );
     }
 
     // `drive_monitor_conn` should have received the drive condition changes.
@@ -121,11 +166,45 @@ impl Service for Ftl {
                 MethodReply::Single(Some(self.drive_condition.get().into()))
             }
             Methods::SetDriveCondition { condition } => {
+                if call.more().unwrap_or_default() {
+                    return MethodReply::Error(Errors::ParameterOutOfRange);
+                }
                 self.drive_condition.set(*condition);
                 MethodReply::Single(Some(self.drive_condition.get().into()))
             }
             Methods::GetCoordinates => {
                 MethodReply::Single(Some(Replies::Coordinates(self.coordinates)))
+            }
+            Methods::Jump { config } => {
+                if call.more().unwrap_or_default() {
+                    return MethodReply::Error(Errors::ParameterOutOfRange);
+                }
+                let tylium_required = config.speed * config.duration;
+                let mut condition = self.drive_condition.get();
+                if tylium_required > condition.tylium_level {
+                    return MethodReply::Error(Errors::NotEnoughEnergy);
+                }
+                let current_coords = self.coordinates;
+                let config = *config;
+                let (notifier, stream) = notified::Once::new();
+                spawn(async move {
+                    // Simulate the spooling process.
+                    sleep(Duration::from_millis(1)).await;
+                    notifier.notify(Coordinate {
+                        longitude: current_coords.longitude + config.trajectory as f32,
+                        latitude: current_coords.latitude,
+                        distance: current_coords.distance + config.duration,
+                    });
+                    // FIXME: Use interior mutability to update the drive condition from here.
+                    /*self.drive_condition.set(DriveCondition {
+                        state: DriveState::Idle,
+                        tylium_level: current_coords.tylium_level - tylium_required,
+                    });*/
+                });
+                condition.state = DriveState::Spooling;
+                self.drive_condition.set(condition);
+
+                MethodReply::Multi(stream)
             }
         }
     }
@@ -151,18 +230,24 @@ pub enum DriveState {
     Busy,
 }
 
-/*#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
 struct DriveConfiguration {
     speed: i64,
     trajectory: i64,
     duration: i64,
-}*/
+}
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
 struct Coordinate {
     longitude: f32,
     latitude: f32,
     distance: i64,
+}
+
+impl From<Coordinate> for Replies {
+    fn from(coordinate: Coordinate) -> Self {
+        Replies::Coordinates(coordinate)
+    }
 }
 
 /// The FTL service methods.
@@ -175,6 +260,8 @@ enum Methods {
     SetDriveCondition { condition: DriveCondition },
     #[serde(rename = "org.example.ftl.GetCoordinates")]
     GetCoordinates,
+    #[serde(rename = "org.example.ftl.Jump")]
+    Jump { config: DriveConfiguration },
 }
 
 /// The FTL service replies.
@@ -186,7 +273,7 @@ enum Replies {
 }
 
 /// The FTL service error replies.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "error", content = "parameters")]
 enum Errors {
     #[serde(rename = "org.example.ftl.NotEnoughEnergy")]
