@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tokio::{select, spawn, time::sleep};
+use tokio::{select, time::sleep};
 use zlink::connection::Reply;
 use zlink_tokio::{
     connection::Call,
@@ -193,25 +193,19 @@ impl Service for Ftl {
                 }
                 let current_coords = self.coordinates;
                 let config = *config;
-                let (notifier, stream) = notified::Once::new();
-                spawn(async move {
-                    // Simulate the spooling process.
-                    sleep(Duration::from_millis(1)).await;
-                    notifier.notify(Coordinate {
-                        longitude: current_coords.longitude + config.trajectory as f32,
-                        latitude: current_coords.latitude,
-                        distance: current_coords.distance + config.duration,
-                    });
-                    // FIXME: Use interior mutability to update the drive condition from here.
-                    /*self.drive_condition.set(DriveCondition {
-                        state: DriveState::Idle,
-                        tylium_level: current_coords.tylium_level - tylium_required,
-                    });*/
-                });
-                condition.state = DriveState::Spooling;
+
+                sleep(Duration::from_millis(1)).await; // Simulate spooling time.
+
+                let coords = Coordinate {
+                    longitude: current_coords.longitude + config.trajectory as f32,
+                    latitude: current_coords.latitude,
+                    distance: current_coords.distance + config.duration,
+                };
+                condition.state = DriveState::Idle;
+                condition.tylium_level = condition.tylium_level - tylium_required;
                 self.drive_condition.set(condition);
 
-                MethodReply::Multi(stream)
+                MethodReply::Single(Some(Replies::Coordinates(coords)))
             }
         }
     }
