@@ -13,8 +13,8 @@ pub trait Service {
     ///
     /// This should be a type that can deserialize itself from a complete method call message: i-e
     /// an object containing `method` and `parameter` fields. This can be easily achieved using the
-    /// `serde::Deserialize` derive (See the code snippet in [`Connection::send_call`] documentation
-    /// for an example).
+    /// `serde::Deserialize` derive (See the code snippet in
+    /// [`crate::connection::WriteConnection::send_call`] documentation for an example).
     type MethodCall<'de>: Deserialize<'de> + Debug;
     /// The type of the successful reply.
     ///
@@ -34,7 +34,8 @@ pub trait Service {
     ///
     /// This should be a type that can serialize itself to the whole reply object, containing
     /// `error` and `parameter` fields. This can be easily achieved using the `serde::Serialize`
-    /// derive (See the code snippet in [`Connection::receive_reply`] documentation for an example).
+    /// derive (See the code snippet in [`crate::connection::ReadConnection::receive_reply`]
+    /// documentation for an example).
     type ReplyError<'ser>: Serialize + Debug
     where
         Self: 'ser;
