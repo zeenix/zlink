@@ -1,24 +1,17 @@
 # TODO
 
 * zlink: Provides all the API but leaves actual transport to external crates.
-  * Listener trait (code snippet below)
-  * Service trait and Server struct (See: <https://github.com/zeenix/zlink-experiments/blob/main/src/main.rs>)
-    * generic over Listener
-    * new(listener)
-    * run(service)
-      * Need to make reading from multiple connections working
-        * Maybe create a stream from the reader: <https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=bd788e052f78422a9c95f098e7d27797>
-        * Remove `alloc` feature from `futures-utils` & update README, if SelectAll from futures is not used.
-        * Document implications of <https://github.com/rust-lang/rust/issues/100013>
-    * Logging system (abstraction over tracing & defmt?)
-      * Replace all `println!` with logging macros.
-    * tests
-    * Reply stream doesn't set continue=false on the last reply
-      * stream should yield continue value
-    * Ensure all TODO comments are resolved.
+  * Service trait and Server struct
+    * Document run method
+      * incl. implications of <https://github.com/rust-lang/rust/issues/100013>
     * Reply stream should also **optionally** (since the value might not be ready) return a reply.
-  * FDs
+    * Ensure all TODO comments are resolved.
+    * Merge `service-api` branch
+  * Logging system (abstraction over tracing & defmt?)
+    * Replace all `println!` with logging macros.
+  * Rename to `zlink-core`
   * Ensure fairness in handling method calls from multiple connections
+  * FDs
 * zlink-tokio
   * Use <https://docs.rs/async-compat/latest/async_compat/>
 * zlink-macros
