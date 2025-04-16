@@ -2,10 +2,7 @@
 
 * zlink: Provides all the API but leaves actual transport to external crates.
   * Service trait and Server struct
-    * Document run method
-      * incl. implications of <https://github.com/rust-lang/rust/issues/100013>
     * Reply stream should also **optionally** (since the value might not be ready) return a reply.
-    * Ensure all TODO comments are resolved.
     * Merge `service-api` branch
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
