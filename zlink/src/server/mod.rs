@@ -26,7 +26,7 @@ where
     Listener: listener::Listener,
     Service: service::Service,
 {
-    /// Create a new server.
+    /// Create a new server that serves `service` to incomming connections from `listener`.
     pub fn new(listener: Listener, service: Service) -> Self {
         Self {
             listener: Some(listener),
@@ -34,7 +34,29 @@ where
         }
     }
 
-    /// TODO:
+    /// Run the server.
+    ///
+    /// # Caveats
+    ///
+    /// Due to [a bug in the rust compiler][abrc], the future returned by this method can not be
+    /// treated as `Send`, even if all the specific types involved are `Send`. A major consequence
+    /// of this fact unfortunately, is that it can not be spawned in a task of a multi-threaded
+    /// runtime. For example, you can not currently do `tokio::spawn(server.run())`.
+    ///
+    /// Fortunately, there are easy workarounds for this. You can either:
+    ///
+    /// * Use a thread-local runtime (for example [`tokio::runtime::LocalRuntime`] or
+    ///   [`tokio::task::LocalSet`]) to run the server in a local task, perhaps in a seprate thread.
+    /// * Use some common API to run multiple futures at once, such as [`futures::select!`] or
+    ///   [`tokio::select!`].
+    ///
+    /// Most importantly, this is most likely a temporary issue and will be fixed in the future. 😊
+    ///
+    /// [abrc]: https://github.com/rust-lang/rust/issues/100013
+    /// [`tokio::runtime::LocalRuntime`]: https://docs.rs/tokio/latest/tokio/runtime/struct.LocalRuntime.html
+    /// [`tokio::task::LocalSet`]: https://docs.rs/tokio/latest/tokio/task/struct.LocalSet.html
+    /// [`futures::select!`]: https://docs.rs/futures/latest/futures/macro.select.html
+    /// [`tokio::select!`]: https://docs.rs/tokio/latest/tokio/macro.select.html
     pub async fn run(mut self) -> crate::Result<()> {
         let mut listener = self.listener.take().unwrap();
         let mut readers = Vec::<_, MAX_CONNECTIONS>::new();
