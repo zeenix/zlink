@@ -50,7 +50,7 @@ where
 
 /// A one-shot notified state of a service implementation.
 ///
-/// This is useful for handling method calls asynchronously.
+/// This is useful for handling method calls in a separate task/thread.
 #[derive(Debug)]
 pub struct Once<ReplyParams> {
     tx: oneshot::Sender<ReplyParams>,
@@ -79,7 +79,7 @@ where
 }
 
 /// The stream to use as the [`crate::Service::ReplyStream`] in service implementation when using
-/// [`State`].
+/// [`State`] or [`Once`].
 #[derive(Debug)]
 pub struct Stream<ReplyParams>(StreamInner<ReplyParams>);
 
