@@ -9,6 +9,7 @@
       * Need to make reading from multiple connections working
         * Maybe create a stream from the reader: <https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=bd788e052f78422a9c95f098e7d27797>
         * Remove `alloc` feature from `futures-utils` & update README, if SelectAll from futures is not used.
+        * Document implications of <https://github.com/rust-lang/rust/issues/100013>
     * Logging system (abstraction over tracing & defmt?)
       * Replace all `println!` with logging macros.
     * tests
