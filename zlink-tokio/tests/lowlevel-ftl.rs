@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tokio::{spawn, time::sleep};
+use tokio::{select, spawn, time::sleep};
 use zlink::connection::Reply;
 use zlink_tokio::{
     connection::Call,
@@ -36,8 +36,15 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
     let listener = bind(SOCKET_PATH).unwrap();
     let service = Ftl::new(conditions[0]);
     let server = zlink_tokio::Server::new(listener, service);
-    spawn(server.run());
+    select! {
+        _ = server.run() => {},
+        _ = run_client(&conditions) => {}
+    }
 
+    Ok(())
+}
+
+async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
     let mut drive_monitor_conn = connect(SOCKET_PATH).await?;
     drive_monitor_conn
@@ -154,7 +161,7 @@ impl Service for Ftl {
     type ReplyStreamParams = Replies;
     type ReplyError<'ser> = Errors;
 
-    fn handle<'ser>(
+    async fn handle<'ser>(
         &'ser mut self,
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
