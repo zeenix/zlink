@@ -2,7 +2,9 @@
 
 * zlink: Provides all the API but leaves actual transport to external crates.
   * Service trait and Server struct
-    * Reply stream should also **optionally** (since the value might not be ready) return a reply.
+    * Server caches last item from the reply stream
+      * Reply stream doesn't need to yield `Reply` wrapper
+      * Yielding `None` sends the last item with `continues=false`
     * Merge `service-api` branch
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
@@ -13,6 +15,7 @@
   * Rename to `zlink-core`
   * Document it shouldn't be used directly
   * Ensure fairness in handling method calls from multiple connections
+  * Move connection::{Call, Reply} to crate root
 * zlink-macros
   * service attribute macro (see below)
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
