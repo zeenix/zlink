@@ -85,7 +85,7 @@ where
     /// Sends a method call.
     ///
     /// Convenience wrapper around [`WriteConnection::send_call`].
-    pub async fn send_call<Method>(&mut self, call: Call<Method>) -> crate::Result<()>
+    pub async fn send_call<Method>(&mut self, call: &Call<Method>) -> crate::Result<()>
     where
         Method: Serialize + Debug,
     {
@@ -111,7 +111,7 @@ where
     /// [`Connection::receive_reply`].
     pub async fn call_method<'r, Method, ReplyError, Params>(
         &'r mut self,
-        call: Call<Method>,
+        call: &Call<Method>,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
     where
         Method: Serialize + Debug,
@@ -135,7 +135,7 @@ where
     /// Send a reply over the socket.
     ///
     /// Convenience wrapper around [`WriteConnection::send_reply`].
-    pub async fn send_reply<Params>(&mut self, reply: Reply<Params>) -> crate::Result<()>
+    pub async fn send_reply<Params>(&mut self, reply: &Reply<Params>) -> crate::Result<()>
     where
         Params: Serialize + Debug,
     {
@@ -145,7 +145,7 @@ where
     /// Send an error reply over the socket.
     ///
     /// Convenience wrapper around [`WriteConnection::send_error`].
-    pub async fn send_error<ReplyError>(&mut self, error: ReplyError) -> crate::Result<()>
+    pub async fn send_error<ReplyError>(&mut self, error: &ReplyError) -> crate::Result<()>
     where
         ReplyError: Serialize + Debug,
     {

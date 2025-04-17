@@ -48,7 +48,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
     // Now create a client connection that monitor changes in the drive condition.
     let mut drive_monitor_conn = connect(SOCKET_PATH).await?;
     drive_monitor_conn
-        .send_call(Call::new(Some(Methods::GetDriveCondition)).set_more(Some(true)))
+        .send_call(&Call::new(Some(Methods::GetDriveCondition)).set_more(Some(true)))
         .await?;
 
     // And a client that only calls methods.
@@ -56,15 +56,15 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let mut conn = connect(SOCKET_PATH).await?;
 
         // Ask for the drive condition, then set them and then ask again.
-        conn.send_call(Methods::GetDriveCondition.into()).await?;
+        conn.send_call(&Methods::GetDriveCondition.into()).await?;
         conn.send_call(
-            Methods::SetDriveCondition {
+            &Methods::SetDriveCondition {
                 condition: conditions[1],
             }
             .into(),
         )
         .await?;
-        conn.send_call(Methods::GetDriveCondition.into()).await?;
+        conn.send_call(&Methods::GetDriveCondition.into()).await?;
 
         // Now we should be able to get all the replies.
         for i in 0..3 {
@@ -87,7 +87,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         // This should fail because we don't have enough energy.
         let e = conn
             .call_method::<_, Errors, Coordinate>(
-                Methods::Jump {
+                &Methods::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed,
                         trajectory: 1,
@@ -104,7 +104,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let possible_speed = impossible_speed - 1;
         let reply: Reply<Coordinate> = conn
             .call_method::<_, Errors, Coordinate>(
-                Methods::Jump {
+                &Methods::Jump {
                     config: DriveConfiguration {
                         speed: possible_speed,
                         trajectory: 1,

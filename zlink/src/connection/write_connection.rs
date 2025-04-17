@@ -60,11 +60,11 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     ///    Charlie { param1: &'m str },
     /// }
     /// ```
-    pub async fn send_call<Method>(&mut self, call: Call<Method>) -> crate::Result<()>
+    pub async fn send_call<Method>(&mut self, call: &Call<Method>) -> crate::Result<()>
     where
         Method: Serialize + Debug,
     {
-        let len = to_slice(&call, &mut self.buffer)?;
+        let len = to_slice(call, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 
         self.socket.write(&self.buffer[..=len]).await
@@ -74,11 +74,11 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     ///
     /// The generic parameter `Params` is the type of the successful reply. This should be a type
     /// that can serialize itself as the `parameters` field of the reply.
-    pub async fn send_reply<Params>(&mut self, reply: Reply<Params>) -> crate::Result<()>
+    pub async fn send_reply<Params>(&mut self, reply: &Reply<Params>) -> crate::Result<()>
     where
         Params: Serialize + Debug,
     {
-        let len = to_slice(&reply, &mut self.buffer)?;
+        let len = to_slice(reply, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 
         self.socket.write(&self.buffer[..=len]).await
@@ -90,11 +90,11 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     /// that can serialize itself to the whole reply object, containing `error` and `parameter`
     /// fields. This can be easily achieved using the `serde::Serialize` derive (See the code
     /// snippet in [`super::ReadConnection::receive_reply`] documentation for an example).
-    pub async fn send_error<ReplyError>(&mut self, error: ReplyError) -> crate::Result<()>
+    pub async fn send_error<ReplyError>(&mut self, error: &ReplyError) -> crate::Result<()>
     where
         ReplyError: Serialize + Debug,
     {
-        let len = to_slice(&error, &mut self.buffer)?;
+        let len = to_slice(error, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 
         self.socket.write(&self.buffer[..=len]).await

@@ -127,7 +127,7 @@ where
                                 .unwrap()
                                 .conn
                                 .write_mut()
-                                .send_reply(reply)
+                                .send_reply(&reply)
                                 .await
                             {
                                 println!("Error writing to connection: {e:?}");
@@ -190,10 +190,10 @@ where
         match self.service.handle(call).await {
             MethodReply::Single(params) => {
                 writer
-                    .send_reply(Reply::new(params).set_continues(Some(false)))
+                    .send_reply(&Reply::new(params).set_continues(Some(false)))
                     .await?
             }
-            MethodReply::Error(err) => writer.send_error(err).await?,
+            MethodReply::Error(err) => writer.send_error(&err).await?,
             MethodReply::Multi(s) => stream = Some(s),
         }
 
