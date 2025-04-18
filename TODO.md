@@ -7,7 +7,6 @@
     * except for `serde` but only as dev-dep
     * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
     * Update README
-  * Document it shouldn't be used directly
   * Ensure fairness in handling method calls from multiple connections
 * zlink-macros
   * service attribute macro (see below)
