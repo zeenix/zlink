@@ -1,41 +1,51 @@
 # TODO
 
 * zlink: Provides all the API but leaves actual transport to external crates.
-  * Listener trait (code snippet below)
-  * Service trait and Server struct (See: <https://github.com/zeenix/zlink-experiments/blob/main/src/main.rs>)
-    * generic over Listener
-    * new(listener)
-    * run(service)
-    * tests
-  * FDs
-* zlink-tokio
-  * Use <https://docs.rs/async-compat/latest/async_compat/>
+  * Rename to `zlink-core`
+  * Move connection::{Call, Reply} to crate root
+  * Logging system (abstraction over tracing & defmt?)
+    * Replace all `println!` with logging macros.
+  * Don't enable `alloc` feature in any dep
+    * except for `serde` but only as dev-dep
+    * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
+    * Update README
+  * Document it shouldn't be used directly
+  * Ensure fairness in handling method calls from multiple connections
 * zlink-macros
   * service attribute macro (see below)
+    * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
     * implements `Service` trait
     * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
+      * Add required API to `Service` trait first
+    * alloc/std feature (default)
     * embedded feature
       * Manual Deserialize impl
       * assume fields in a specific order
       * Drop alloc feature of serde
-      * Update README
   * tests
-* zlink-smol
+  * Update Service docs: Prefer using `service` macro over a manual implementation.
+  * `proxy` attribute macro
+* zlink-core
+  * re-export zlink-macros
+* zlink-codegen (generates code from IDL)
 * zlink-usb
   * USB (using nusb) transport
 * zlink-micro
   * embassy_usb-based transport
+    * Driver impl needs to be provided by the user (e.g `embassy-usb-synopsys-otg` for STM32).
   * Will need to create a connection concept through multiplexing
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
-* zlink-codegen (generates code from IDL)
+  * Ensure cancelation safety (if needed by Server/Service) is satisfied
 
 * zlink
-  * Update README if we end up never using alloc directly.
+  * FDs
+  * Graceful shutdown
   * More efficient parsing of messages in Connection using winnow
     * <https://github.com/winnow-rs/winnow/tree/main/examples/json>
     * Remove the FIXMEs
   * enums support in serde-json-core: <https://github.com/rust-embedded-community/serde-json-core/issues/94>
+* zlink-smol
 
 ---------------------------------------
 
@@ -69,7 +79,7 @@ struct DriveCondition {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake-case")]
+#[serde(rename_all = "snake_case")]
 pub enum DriveState {
     Idle,
     Spooling,

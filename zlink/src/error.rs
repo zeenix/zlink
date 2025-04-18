@@ -1,14 +1,17 @@
+use core::str::Utf8Error;
+
 /// The Error type for the zlink crate.
 #[derive(Debug)]
-pub enum Error<ReplyError = &'static str> {
-    /// An error from the service.
-    Reply(ReplyError),
+#[non_exhaustive]
+pub enum Error {
     /// An error occurred while reading from the socket.
     SocketRead,
     /// An error occurred while writing to the socket.
     SocketWrite,
     /// Buffer overflow.
     BufferOverflow,
+    /// Invalid UTF-8 data.
+    InvalidUtf8(Utf8Error),
     /// Error serializing or deserializing to/from JSON.
     #[cfg(feature = "std")]
     Json(serde_json::Error),
@@ -24,12 +27,9 @@ pub enum Error<ReplyError = &'static str> {
 }
 
 /// The Result type for the zlink crate.
-pub type Result<T, ReplyError> = core::result::Result<T, Error<ReplyError>>;
+pub type Result<T> = core::result::Result<T, Error>;
 
-impl<T> core::error::Error for Error<T>
-where
-    T: core::fmt::Display + core::fmt::Debug,
-{
+impl core::error::Error for Error {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             #[cfg(feature = "std")]
@@ -40,49 +40,56 @@ where
             Error::JsonDeserialize(e) => Some(e),
             #[cfg(feature = "std")]
             Error::Io(e) => Some(e),
+            Error::InvalidUtf8(e) => Some(e),
             _ => None,
         }
     }
 }
 
 #[cfg(feature = "std")]
-impl<T> From<serde_json::Error> for Error<T> {
+impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error::Json(e)
     }
 }
 
 #[cfg(not(feature = "std"))]
-impl<T> From<serde_json_core::ser::Error> for Error<T> {
+impl From<serde_json_core::ser::Error> for Error {
     fn from(e: serde_json_core::ser::Error) -> Self {
         Error::JsonSerialize(e)
     }
 }
 
 #[cfg(not(feature = "std"))]
-impl<T> From<serde_json_core::de::Error> for Error<T> {
+impl From<serde_json_core::de::Error> for Error {
     fn from(e: serde_json_core::de::Error) -> Self {
         Error::JsonDeserialize(e)
     }
 }
 
 #[cfg(feature = "std")]
-impl<T> From<std::io::Error> for Error<T> {
+impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
     }
 }
 
-impl<T> core::fmt::Display for Error<T>
-where
-    T: core::fmt::Display,
-{
+impl From<mayheap::Error> for Error {
+    fn from(e: mayheap::Error) -> Self {
+        match e {
+            mayheap::Error::BufferOverflow => Error::BufferOverflow,
+            mayheap::Error::Utf8Error(e) => Error::InvalidUtf8(e),
+        }
+    }
+}
+
+impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Error::Reply(e) => write!(f, "server error: {e}"),
             Error::SocketRead => write!(f, "An error occurred while reading from the socket"),
             Error::SocketWrite => write!(f, "An error occurred while writing to the socket"),
             Error::BufferOverflow => write!(f, "Buffer overflow"),
+            Error::InvalidUtf8(e) => write!(f, "Invalid UTF-8 data: {e}"),
             #[cfg(feature = "std")]
             Error::Json(e) => write!(f, "Error serializing or deserializing to/from JSON: {e}"),
             #[cfg(not(feature = "std"))]
