@@ -9,6 +9,7 @@
     * Update README
   * Ensure fairness in handling method calls from multiple connections
 * zlink-macros
+  * `proxy` attribute macro
   * service attribute macro (see below)
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
     * implements `Service` trait
@@ -22,7 +23,6 @@
       * Drop alloc feature of serde
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
-  * `proxy` attribute macro
 * zlink-core
   * re-export zlink-macros
 * zlink-codegen (generates code from IDL)
