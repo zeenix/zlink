@@ -1,18 +1,16 @@
 # TODO
 
 * zlink: Provides all the API but leaves actual transport to external crates.
-  * Service trait and Server struct
-    * Merge `service-api` branch
+  * Rename to `zlink-core`
+  * Move connection::{Call, Reply} to crate root
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
   * Don't enable `alloc` feature in any dep
     * except for `serde` but only as dev-dep
     * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
     * Update README
-  * Rename to `zlink-core`
   * Document it shouldn't be used directly
   * Ensure fairness in handling method calls from multiple connections
-  * Move connection::{Call, Reply} to crate root
 * zlink-macros
   * service attribute macro (see below)
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
