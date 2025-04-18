@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-zlink = { path = "../zlink" }
+zlink-core = { path = "../zlink-core" }
 tokio = { version = "1.44.0", features = ["net", "io-util"] }
 futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",

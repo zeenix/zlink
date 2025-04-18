@@ -1,7 +1,6 @@
 # TODO
 
-* zlink: Provides all the API but leaves actual transport to external crates.
-  * Rename to `zlink-core`
+* zlink-core: Provides all the API but leaves actual transport to external crates.
   * Move connection::{Call, Reply} to crate root
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
@@ -38,7 +37,7 @@
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
   * Ensure cancelation safety (if needed by Server/Service) is satisfied
 
-* zlink
+* zlink-core
   * FDs
   * Graceful shutdown
   * More efficient parsing of messages in Connection using winnow
@@ -64,7 +63,7 @@ struct Ftl {
 // It supports the folowing sub-attributes:
 // * `interface`: The interface name. If this is given than all the methods will be prefixed
 //   with the interface name. This is useful when the service only offers a single interface.
-#[varlink::service]
+#[zlink_tokio::service]
 impl Ftl {
     #[zlink(interface = "org.varlink.service.ftl")]
     async fn monitor(&mut self) -> Result<DriveCondition> {
