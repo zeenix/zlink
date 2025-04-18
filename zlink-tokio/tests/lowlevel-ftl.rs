@@ -2,9 +2,8 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::{select, time::sleep};
-use zlink::connection::Reply;
 use zlink_tokio::{
-    connection::Call,
+    connection::{Call, Reply},
     notified,
     service::MethodReply,
     unix::{bind, connect},

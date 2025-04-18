@@ -1,14 +1,14 @@
+use crate::{
+    connection::socket::{self, Socket},
+    Result,
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{unix, UnixStream},
 };
-use zlink::{
-    connection::socket::{self, Socket},
-    Result,
-};
 
 /// The connection type that uses Unix Domain Sockets for transport.
-pub type Connection = zlink::Connection<Stream>;
+pub type Connection = crate::Connection<Stream>;
 
 /// Connect to Unix Domain Socket at the given path.
 pub async fn connect<P>(path: P) -> Result<Connection>
