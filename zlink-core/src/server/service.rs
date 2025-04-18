@@ -5,7 +5,7 @@ use core::{fmt::Debug, future::Future};
 use futures_util::Stream;
 use serde::{Deserialize, Serialize};
 
-use crate::connection::{Call, Reply};
+use crate::{Call, Reply};
 
 /// Service trait for handling method calls.
 pub trait Service {

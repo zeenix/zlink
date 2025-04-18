@@ -1,15 +1,12 @@
 # TODO
 
-* zlink: Provides all the API but leaves actual transport to external crates.
-  * Rename to `zlink-core`
-  * Move connection::{Call, Reply} to crate root
+* zlink-core: Provides all the API but leaves actual transport to external crates.
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
   * Don't enable `alloc` feature in any dep
     * except for `serde` but only as dev-dep
     * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
     * Update README
-  * Document it shouldn't be used directly
   * Ensure fairness in handling method calls from multiple connections
 * zlink-macros
   * service attribute macro (see below)
@@ -38,7 +35,7 @@
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
   * Ensure cancelation safety (if needed by Server/Service) is satisfied
 
-* zlink
+* zlink-core
   * FDs
   * Graceful shutdown
   * More efficient parsing of messages in Connection using winnow
@@ -64,7 +61,7 @@ struct Ftl {
 // It supports the folowing sub-attributes:
 // * `interface`: The interface name. If this is given than all the methods will be prefixed
 //   with the interface name. This is useful when the service only offers a single interface.
-#[varlink::service]
+#[zlink_tokio::service]
 impl Ftl {
     #[zlink(interface = "org.varlink.service.ftl")]
     async fn monitor(&mut self) -> Result<DriveCondition> {

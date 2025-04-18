@@ -7,6 +7,6 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../../README.md")]
 
-pub use zlink::*;
+pub use zlink_core::*;
 pub mod notified;
 pub mod unix;

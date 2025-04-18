@@ -7,7 +7,7 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use crate::connection::Reply;
+use crate::Reply;
 use tokio::sync::{broadcast, oneshot};
 use tokio_stream::wrappers::BroadcastStream;
 

@@ -8,8 +8,8 @@ use select_all::SelectAll;
 use service::MethodReply;
 
 use crate::{
-    connection::{Call, ReadConnection, Reply, Socket, WriteConnection},
-    Connection,
+    connection::{ReadConnection, Socket, WriteConnection},
+    Call, Connection, Reply,
 };
 
 /// A server.
