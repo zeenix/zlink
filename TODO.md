@@ -1,7 +1,6 @@
 # TODO
 
 * zlink-core: Provides all the API but leaves actual transport to external crates.
-  * Move connection::{Call, Reply} to crate root
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
   * Don't enable `alloc` feature in any dep

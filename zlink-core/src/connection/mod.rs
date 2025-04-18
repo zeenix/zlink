@@ -4,12 +4,9 @@ mod read_connection;
 pub use read_connection::ReadConnection;
 pub mod socket;
 mod write_connection;
+use crate::{Call, Reply};
 use core::{fmt::Debug, sync::atomic::AtomicUsize};
 pub use write_connection::WriteConnection;
-mod call;
-pub use call::Call;
-mod reply;
-pub use reply::Reply;
 
 use serde::{Deserialize, Serialize};
 pub use socket::Socket;
