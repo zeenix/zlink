@@ -2,9 +2,6 @@
 
 * zlink: Provides all the API but leaves actual transport to external crates.
   * Service trait and Server struct
-    * Server caches last item from the reply stream
-      * Reply stream doesn't need to yield `Reply` wrapper
-      * Yielding `None` sends the last item with `continues=false`
     * Merge `service-api` branch
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
