@@ -1,6 +1,10 @@
 # TODO
 
 * zlink-core: Provides all the API but leaves actual transport to external crates.
+  * Service -> Interface
+    * Add `Map` to `mayheap`
+    * server descrializes method calls with only the `method` field to dispatch the call
+    * Update the rest of the plan if this works out
   * Logging system (abstraction over tracing & defmt?)
     * Replace all `println!` with logging macros.
   * Don't enable `alloc` feature in any dep
@@ -8,9 +12,21 @@
     * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
     * Update README
   * Ensure fairness in handling method calls from multiple connections
+    * Idea: SelectAll takes the index of the last future that won & polls that one the last
+  * introspection <https://varlink.org/Service>
+    * Type that describes a type: Method, Type, Error
+    * Trait that gives introspection given an interface name
+    * `Service`
+      * `Info` type with fields of `GetInfo` method
+      * impl `GetInfo` method for test case
+* zlink-macros
+  * Provide introspection derives
+  * Update `Service` example/test to make use of these
 * zlink-macros
   * `proxy` attribute macro
-  * service attribute macro (see below)
+    * gated behind (default)`proxy` feature
+  * `service` attribute macro (see below)
+    * gated behind `service` feature
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
     * implements `Service` trait
     * handle multiple replies (not covered in the snippet yet)
