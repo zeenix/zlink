@@ -14,7 +14,12 @@ use zlink_tokio::{
 #[tokio::test]
 async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
     // Remove the socket file if it exists (from a previous run of this test).
-    tokio::fs::remove_file(SOCKET_PATH).await?;
+    if let Err(e) = tokio::fs::remove_file(SOCKET_PATH).await {
+        // It's OK if the file doesn't exist.
+        if e.kind() != std::io::ErrorKind::NotFound {
+            return Err(e.into());
+        }
+    }
 
     // The transitions between the drive conditions.
     let conditions = [
