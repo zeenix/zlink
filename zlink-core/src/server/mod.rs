@@ -100,9 +100,9 @@ where
                             Ok(call) => match self.handle_call(call, &mut writers[idx]).await {
                                 Ok(None) => remove = false,
                                 Ok(Some(s)) => stream = Some(s),
-                                Err(e) => println!("Error writing to connection: {e:?}"),
+                                Err(e) => warn!("Error writing to connection: {:?}", e),
                             },
-                            Err(e) => println!("Error reading from socket: {e:?}"),
+                            Err(e) => warn!("Error reading from socket: {:?}", e),
                         }
 
                         if stream.is_some() || remove {
@@ -130,12 +130,12 @@ where
                                 .send_reply(&reply)
                                 .await
                             {
-                                println!("Error writing to connection: {e:?}");
+                                warn!("Error writing to connection: {:?}", e);
                                 reply_streams.remove(idx);
                             }
                         }
                         None => {
-                            println!("Stream closed");
+                            trace!("Stream closed");
                             let stream = reply_streams.remove(idx);
 
                             let (read, write) = stream.conn.split();
