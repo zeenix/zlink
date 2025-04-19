@@ -173,7 +173,6 @@ pub(crate) const BUFFER_SIZE: usize = 4 * 1024;
     not(feature = "io-buffer-1mb"),
     not(feature = "io-buffer-16kb"),
     not(feature = "io-buffer-4kb"),
-    feature = "io-buffer-2kb"
 ))]
 pub(crate) const BUFFER_SIZE: usize = 4 * 1024;
 
