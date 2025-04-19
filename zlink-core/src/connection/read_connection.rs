@@ -2,7 +2,9 @@
 
 use core::fmt::Debug;
 
-use super::{socket::ReadHalf, Call, Reply, BUFFER_SIZE, MAX_BUFFER_SIZE};
+#[cfg(feature = "std")]
+use super::MAX_BUFFER_SIZE;
+use super::{socket::ReadHalf, Call, Reply, BUFFER_SIZE};
 use mayheap::Vec;
 use memchr::memchr;
 use serde::Deserialize;
