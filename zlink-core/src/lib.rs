@@ -11,6 +11,9 @@
 #[cfg(all(not(feature = "std"), not(feature = "embedded")))]
 compile_error!("Either 'std' or 'embedded' feature must be enabled.");
 
+#[macro_use]
+mod log;
+
 pub mod connection;
 pub use connection::Connection;
 mod error;
