@@ -71,8 +71,8 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         &'r mut self,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
     where
-        Params: Deserialize<'r>,
-        ReplyError: Deserialize<'r>,
+        Params: Deserialize<'r> + Debug,
+        ReplyError: Deserialize<'r> + Debug,
     {
         let buffer = self.read_message_bytes().await?;
 
@@ -95,7 +95,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     /// documentation for an example).
     pub async fn receive_call<'m, Method>(&'m mut self) -> crate::Result<Call<Method>>
     where
-        Method: Deserialize<'m>,
+        Method: Deserialize<'m> + Debug,
     {
         let buffer = self.read_message_bytes().await?;
 

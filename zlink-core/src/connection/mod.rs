@@ -96,8 +96,8 @@ where
         &'r mut self,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
     where
-        Params: Deserialize<'r>,
-        ReplyError: Deserialize<'r>,
+        Params: Deserialize<'r> + Debug,
+        ReplyError: Deserialize<'r> + Debug,
     {
         self.read.receive_reply().await
     }
@@ -112,8 +112,8 @@ where
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
     where
         Method: Serialize + Debug,
-        Params: Deserialize<'r>,
-        ReplyError: Deserialize<'r>,
+        Params: Deserialize<'r> + Debug,
+        ReplyError: Deserialize<'r> + Debug,
     {
         self.send_call(call).await?;
         self.receive_reply().await
@@ -124,7 +124,7 @@ where
     /// Convenience wrapper around [`ReadConnection::receive_call`].
     pub async fn receive_call<'m, Method>(&'m mut self) -> crate::Result<Call<Method>>
     where
-        Method: Deserialize<'m>,
+        Method: Deserialize<'m> + Debug,
     {
         self.read.receive_call().await
     }
