@@ -93,6 +93,7 @@ where
                     unsafe { &mut *(&mut readers as *mut _) },
                 ).fuse() => {
                         let (idx, call) = res?;
+                        trace!("Received a call from client {}: {:?}", readers[idx].id(), call);
 
                         let mut stream = None;
                         let mut remove = true;
@@ -123,6 +124,7 @@ where
                     #[cfg(feature = "embedded")]
                     drop(reply_stream_futures);
                     let (idx, reply) = reply;
+                    let id = reply_streams.get(idx).unwrap().conn.id();
 
                     match reply {
                         Some(reply) => {
@@ -134,12 +136,13 @@ where
                                 .send_reply(&reply)
                                 .await
                             {
-                                warn!("Error writing to connection: {:?}", e);
+                                warn!("Error writing to client {}: {:?}", id, e);
                                 reply_streams.remove(idx);
                             }
+                            trace!("Sent reply to client {}: {:?}", id, reply);
                         }
                         None => {
-                            trace!("Stream closed");
+                            trace!("Stream closed for client {}", id);
                             let stream = reply_streams.remove(idx);
 
                             let (read, write) = stream.conn.split();
@@ -193,12 +196,18 @@ where
         let mut stream = None;
         match self.service.handle(call).await {
             MethodReply::Single(params) => {
-                writer
-                    .send_reply(&Reply::new(params).set_continues(Some(false)))
-                    .await?
+                let reply = Reply::new(params).set_continues(Some(false));
+                trace!("Sending reply to client {}: {:?}", writer.id(), reply);
+                writer.send_reply(&reply).await?
             }
-            MethodReply::Error(err) => writer.send_error(&err).await?,
-            MethodReply::Multi(s) => stream = Some(s),
+            MethodReply::Error(err) => {
+                trace!("Sending error to client {}: {:?}", writer.id(), err);
+                writer.send_error(&err).await?
+            }
+            MethodReply::Multi(s) => {
+                trace!("Client {} now turning into a reply stream", writer.id());
+                stream = Some(s)
+            }
         }
 
         Ok(stream)
