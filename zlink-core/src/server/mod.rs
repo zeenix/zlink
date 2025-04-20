@@ -93,7 +93,6 @@ where
                     unsafe { &mut *(&mut readers as *mut _) },
                 ).fuse() => {
                         let (idx, call) = res?;
-                        trace!("Received a call from client {}: {:?}", readers[idx].id(), call);
 
                         let mut stream = None;
                         let mut remove = true;
@@ -139,7 +138,6 @@ where
                                 warn!("Error writing to client {}: {:?}", id, e);
                                 reply_streams.remove(idx);
                             }
-                            trace!("Sent reply to client {}: {:?}", id, reply);
                         }
                         None => {
                             trace!("Stream closed for client {}", id);
@@ -197,13 +195,9 @@ where
         match self.service.handle(call).await {
             MethodReply::Single(params) => {
                 let reply = Reply::new(params).set_continues(Some(false));
-                trace!("Sending reply to client {}: {:?}", writer.id(), reply);
                 writer.send_reply(&reply).await?
             }
-            MethodReply::Error(err) => {
-                trace!("Sending error to client {}: {:?}", writer.id(), err);
-                writer.send_error(&err).await?
-            }
+            MethodReply::Error(err) => writer.send_error(&err).await?,
             MethodReply::Multi(s) => {
                 trace!("Client {} now turning into a reply stream", writer.id());
                 stream = Some(s)
