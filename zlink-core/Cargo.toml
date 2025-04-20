@@ -5,8 +5,8 @@ edition = "2021"
 
 [features]
 default = ["std", "io-buffer-2kb"]
-std = ["dep:serde_json", "memchr/std", "mayheap/alloc", "serde/std"]
-embedded = ["dep:serde-json-core", "mayheap/heapless", "serde/alloc"]
+std = ["dep:serde_json", "memchr/std", "mayheap/alloc", "serde/std", "tracing"]
+embedded = ["dep:serde-json-core", "mayheap/heapless", "serde/alloc", "defmt"]
 # I/O buffer sizes: 2kb (default), 4kb, 16kb, 64kb, 1mb (highest selected if multiple enabled).
 io-buffer-2kb = []
 io-buffer-4kb = []
@@ -29,3 +29,5 @@ futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",
     "async-await-macro",
 ] }
+tracing = { version = "0.1.41", default-features = false, optional = true }
+defmt = { version = "1.0.1", default-features = false, optional = true }

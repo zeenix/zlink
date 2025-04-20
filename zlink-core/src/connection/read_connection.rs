@@ -2,7 +2,9 @@
 
 use core::fmt::Debug;
 
-use super::{socket::ReadHalf, Call, Reply, BUFFER_SIZE, MAX_BUFFER_SIZE};
+#[cfg(feature = "std")]
+use super::MAX_BUFFER_SIZE;
+use super::{socket::ReadHalf, Call, Reply, BUFFER_SIZE};
 use mayheap::Vec;
 use memchr::memchr;
 use serde::Deserialize;
@@ -69,19 +71,23 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         &'r mut self,
     ) -> crate::Result<Result<Reply<Params>, ReplyError>>
     where
-        Params: Deserialize<'r>,
-        ReplyError: Deserialize<'r>,
+        Params: Deserialize<'r> + Debug,
+        ReplyError: Deserialize<'r> + Debug,
     {
+        let id = self.id;
         let buffer = self.read_message_bytes().await?;
 
         // First try to parse it as an error.
         // FIXME: This will mean the document will be parsed twice. We should instead try to
         // quickly check if `error` field is present and then parse to the appropriate type based on
         // that information. Perhaps a simple parser using `winnow`?
-        match from_slice::<ReplyError>(buffer) {
+        let ret = match from_slice::<ReplyError>(buffer) {
             Ok(e) => Ok(Err(e)),
             Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
-        }
+        };
+        trace!("connection {}: received reply: {:?}", id, ret);
+
+        ret
     }
 
     /// Receive a method call over the socket.
@@ -93,11 +99,15 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     /// documentation for an example).
     pub async fn receive_call<'m, Method>(&'m mut self) -> crate::Result<Call<Method>>
     where
-        Method: Deserialize<'m>,
+        Method: Deserialize<'m> + Debug,
     {
+        let id = self.id;
         let buffer = self.read_message_bytes().await?;
 
-        from_slice::<Call<Method>>(buffer)
+        let call = from_slice::<Call<Method>>(buffer)?;
+        trace!("connection {}: received a call: {:?}", id, call);
+
+        Ok(call)
     }
 
     // Reads at least one full message from the socket and return a single message bytes.

@@ -100,15 +100,17 @@ where
                             Ok(call) => match self.handle_call(call, &mut writers[idx]).await {
                                 Ok(None) => remove = false,
                                 Ok(Some(s)) => stream = Some(s),
-                                Err(e) => println!("Error writing to connection: {e:?}"),
+                                Err(e) => warn!("Error writing to connection: {:?}", e),
                             },
-                            Err(e) => println!("Error reading from socket: {e:?}"),
+                            Err(e) => warn!("Error reading from socket: {:?}", e),
                         }
 
                         if stream.is_some() || remove {
                             let reader = readers.remove(idx);
                             let writer = writers.remove(idx);
 
+                            #[cfg(feature = "embedded")]
+                            drop(reply_stream_futures);
                             if let Some(stream) = stream.map(|s| ReplyStream::new(s, reader, writer)) {
                                 reply_streams
                                     .push(stream)
@@ -118,7 +120,10 @@ where
                 }
                 // 3. Read replies from the reply streams and send them off.
                 reply = reply_stream_select_all.fuse() => {
+                    #[cfg(feature = "embedded")]
+                    drop(reply_stream_futures);
                     let (idx, reply) = reply;
+                    let id = reply_streams.get(idx).unwrap().conn.id();
 
                     match reply {
                         Some(reply) => {
@@ -130,12 +135,12 @@ where
                                 .send_reply(&reply)
                                 .await
                             {
-                                println!("Error writing to connection: {e:?}");
+                                warn!("Error writing to client {}: {:?}", id, e);
                                 reply_streams.remove(idx);
                             }
                         }
                         None => {
-                            println!("Stream closed");
+                            trace!("Stream closed for client {}", id);
                             let stream = reply_streams.remove(idx);
 
                             let (read, write) = stream.conn.split();
@@ -189,12 +194,14 @@ where
         let mut stream = None;
         match self.service.handle(call).await {
             MethodReply::Single(params) => {
-                writer
-                    .send_reply(&Reply::new(params).set_continues(Some(false)))
-                    .await?
+                let reply = Reply::new(params).set_continues(Some(false));
+                writer.send_reply(&reply).await?
             }
             MethodReply::Error(err) => writer.send_error(&err).await?,
-            MethodReply::Multi(s) => stream = Some(s),
+            MethodReply::Multi(s) => {
+                trace!("Client {} now turning into a reply stream", writer.id());
+                stream = Some(s)
+            }
         }
 
         Ok(stream)

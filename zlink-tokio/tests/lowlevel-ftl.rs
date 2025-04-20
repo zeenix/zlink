@@ -9,8 +9,13 @@ use zlink_tokio::{
     Call, Reply, Service,
 };
 
-#[tokio::test]
-async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
+#[test_log::test]
+fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(lowlevel_ftl_())
+}
+
+async fn lowlevel_ftl_() -> Result<(), Box<dyn std::error::Error>> {
     // Remove the socket file if it exists (from a previous run of this test).
     if let Err(e) = tokio::fs::remove_file(SOCKET_PATH).await {
         // It's OK if the file doesn't exist.

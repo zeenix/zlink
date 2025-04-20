@@ -101,3 +101,29 @@ impl core::fmt::Display for Error {
         }
     }
 }
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for Error {
+    fn format(&self, fmt: defmt::Formatter<'_>) {
+        match self {
+            Error::SocketRead => {
+                defmt::write!(fmt, "An error occurred while reading from the socket")
+            }
+            Error::SocketWrite => {
+                defmt::write!(fmt, "An error occurred while writing to the socket")
+            }
+            Error::BufferOverflow => defmt::write!(fmt, "Buffer overflow"),
+            Error::InvalidUtf8(_) => defmt::write!(fmt, "Invalid UTF-8 data"),
+            #[cfg(feature = "std")]
+            Error::Json(_) => {
+                defmt::write!(fmt, "Error serializing or deserializing to/from JSON")
+            }
+            #[cfg(not(feature = "std"))]
+            Error::JsonSerialize(_) => defmt::write!(fmt, "Error serializing to JSON"),
+            #[cfg(not(feature = "std"))]
+            Error::JsonDeserialize(_) => defmt::write!(fmt, "Error deserializing from JSON"),
+            #[cfg(feature = "std")]
+            Error::Io(_) => defmt::write!(fmt, "I/O error"),
+        }
+    }
+}

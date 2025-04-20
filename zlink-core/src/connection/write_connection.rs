@@ -64,6 +64,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     where
         Method: Serialize + Debug,
     {
+        trace!("connection {}: sending call: {:?}", self.id, call);
         let len = to_slice(call, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 
@@ -78,6 +79,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     where
         Params: Serialize + Debug,
     {
+        trace!("connection {}: sending reply: {:?}", self.id, reply);
         let len = to_slice(reply, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 
@@ -94,6 +96,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     where
         ReplyError: Serialize + Debug,
     {
+        trace!("connection {}: sending error: {:?}", self.id, error);
         let len = to_slice(error, &mut self.buffer)?;
         self.buffer[len] = b'\0';
 

@@ -81,7 +81,7 @@ jobs:
       - name: Build and Test
         run: |
           cargo test --release
-          cargo test --release --no-default-features --features embedded
+          cargo test -p zlink-core --release --no-default-features --features embedded
 
   doc_build:
     runs-on: ubuntu-latest
