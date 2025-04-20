@@ -1,8 +1,6 @@
 # TODO
 
 * zlink-core: Provides all the API but leaves actual transport to external crates.
-  * Logging system (abstraction over tracing & defmt?)
-    * Replace all `println!` with logging macros.
   * Don't enable `alloc` feature in any dep
     * except for `serde` but only as dev-dep
     * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
