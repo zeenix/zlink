@@ -12,12 +12,15 @@
     * Update README
   * Ensure fairness in handling method calls from multiple connections
     * Idea: SelectAll takes the index of the last future that won & polls that one the last
-  * introspection <https://varlink.org/Service>
+  * IDL <https://varlink.org/Service>
+    * `idl` mod
     * Type that describes a type: Interface, Method, Type, Error
-    * Trait that gives introspection given an interface name
+    * Trait that gives the IDL name of the type
+      * impl for common types
     * `Service`
       * `Info` type with fields of `GetInfo` method
       * impl `GetInfo` method for test case
+    * cargo features to allow use of `idl` only
 * zlink-macros
   * Provide introspection derives
   * Update `Service` example/test to make use of these
@@ -39,6 +42,7 @@
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
 * zlink-codegen (generates code from IDL)
+  * Make use of `zlink_core::idl` module
 * zlink-usb
   * USB (using nusb) transport
 * zlink-micro
