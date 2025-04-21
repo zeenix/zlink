@@ -1,5 +1,10 @@
 # TODO
 
+* zlink-tokio
+  * notified
+    * Send out last message on drop
+      * builder-pattern setter method to disable this.
+    * Split Stream so that we don't require Clone for `Once`
 * zlink-core: Provides all the API but leaves actual transport to external crates.
   * Don't enable `alloc` feature in any dep
     * except for `serde` but only as dev-dep
