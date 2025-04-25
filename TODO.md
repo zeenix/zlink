@@ -1,10 +1,6 @@
 # TODO
 
 * zlink-core
-  * Don't enable `alloc` feature in any dep
-    * except for `serde` but only as dev-dep
-    * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
-    * Update README
   * Proxy
     * new method takes:
       * `Connection`
@@ -24,6 +20,7 @@
       * `Info` type with fields of `GetInfo` method
       * impl `GetInfo` method for test case
     * cargo features to allow use of `idl` only
+    * IntrospectionProxy
 * zlink-macros
   * Provide introspection derives
   * Update `Service` example/test to make use of these
@@ -37,11 +34,6 @@
     * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
       * Add required API to `Service` trait first
-    * alloc/std feature (default)
-    * embedded feature
-      * Manual Deserialize impl
-      * assume fields in a specific order
-      * Drop alloc feature of serde
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
 * zlink-codegen (generates code from IDL)
@@ -54,6 +46,12 @@
   * Will need to create a connection concept through multiplexing
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
   * Ensure cancelation safety (if needed by Server/Service) is satisfied
+* zlink-macros
+  * embedded feature
+    * Manual Deserialize impl
+    * assume fields in a specific order
+  * alloc/std feature (default)
+    * Make alloc feature of serde optional
 
 * zlink-core
   * FDs
