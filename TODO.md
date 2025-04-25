@@ -1,15 +1,18 @@
 # TODO
 
-* zlink-tokio
-  * notified
-    * Send out last message on drop
-      * builder-pattern setter method to disable this.
-    * Split Stream so that we don't require Clone for `Once`
-* zlink-core: Provides all the API but leaves actual transport to external crates.
+* zlink-core
   * Don't enable `alloc` feature in any dep
     * except for `serde` but only as dev-dep
     * Update Connection docs to reflect that snippets need `alloc` feature of serde (dig out from git history)
     * Update README
+  * Proxy
+    * new method takes:
+      * `Connection`
+      * interface name
+    * `call` method (assumes `more=false`)
+    * `call_more` method (assumes `more=true`)
+      * returns a Stream called `ReplyStream`
+        * borrows &mut self
   * Ensure fairness in handling method calls from multiple connections
     * Idea: SelectAll takes the index of the last future that won & polls that one the last
   * IDL <https://varlink.org/Service>
@@ -25,7 +28,7 @@
   * Provide introspection derives
   * Update `Service` example/test to make use of these
 * zlink-macros
-  * `proxy` attribute macro
+  * `proxy` attribute macro (wraps `Proxy`)
     * gated behind (default)`proxy` feature
   * `service` attribute macro (see below)
     * gated behind `service` feature
@@ -60,6 +63,11 @@
     * Remove the FIXMEs
   * enums support in serde-json-core: <https://github.com/rust-embedded-community/serde-json-core/issues/94>
 * zlink-smol
+* zlink-tokio
+  * notified
+    * Send out last message on drop
+      * builder-pattern setter method to disable this.
+    * Split Stream so that we don't require Clone for `Once`
 
 ---------------------------------------
 
