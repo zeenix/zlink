@@ -1,6 +1,7 @@
 [package]
 name = "zlink-tokio"
 version = "0.0.1-alpha.1"
+description = "zlink library for the Tokio runtime"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

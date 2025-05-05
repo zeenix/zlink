@@ -1,6 +1,7 @@
 [package]
 name = "zlink-macros"
 version = "0.0.1-alpha.1"
+description = "Macros providing the high-level zlink API"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
