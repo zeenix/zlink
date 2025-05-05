@@ -830,6 +830,10 @@ name = "zlink-macros"
 version = "0.0.1-alpha.1"
 
 [[package]]
+name = "zlink-micro"
+version = "0.0.1-alpha.1"
+
+[[package]]
 name = "zlink-tokio"
 version = "0.0.1-alpha.1"
 dependencies = [

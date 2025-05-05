@@ -4,6 +4,7 @@ members = [
     "zlink-codegen",
     "zlink-tokio",
     "zlink-macros",
+    "zlink-micro",
     "zlink-usb",
 ]
 resolver = "2"
