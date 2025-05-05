@@ -7,6 +7,7 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../README.md")]
 
-pub use zlink_core::*;
-pub mod notified;
-pub mod unix;
+/// Add two numbers together.
+pub fn add(left: u64, right: u64) -> u64 {
+    left + right
+}

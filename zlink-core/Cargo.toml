@@ -1,7 +1,10 @@
 [package]
 name = "zlink-core"
-version = "0.1.0"
-edition = "2021"
+version = "0.0.1-alpha.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 default = ["std", "io-buffer-2kb"]
