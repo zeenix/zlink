@@ -1,5 +1,5 @@
 [workspace]
-members = ["zlink-core", "zlink-tokio", "zlink-macros"]
+members = ["zlink-core", "zlink-codegen", "zlink-tokio", "zlink-macros"]
 resolver = "2"
 
 [workspace.package]
