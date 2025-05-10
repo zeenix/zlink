@@ -1,5 +1,9 @@
 # TODO
 
+* Rename -tokio to zlink
+  * Drop -micro and -usb too
+  * Update README and this file
+  * Publish dropped/merged subcrates from a branch to notify of rename
 * zlink-core
   * Proxy
     * new method takes:
@@ -52,6 +56,7 @@
     * assume fields in a specific order
   * alloc/std feature (default)
     * Make alloc feature of serde optional
+* More metadata in Cargo.toml files
 
 * zlink-core
   * FDs
