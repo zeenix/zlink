@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "zlink",
     "zlink-core",
     "zlink-codegen",
     "zlink-tokio",

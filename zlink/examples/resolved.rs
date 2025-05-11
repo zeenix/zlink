@@ -6,8 +6,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut connection =
-        zlink_tokio::unix::connect("/run/systemd/resolve/io.systemd.Resolve").await?;
+    let mut connection = zlink::unix::connect("/run/systemd/resolve/io.systemd.Resolve").await?;
 
     let args: Vec<_> = args().skip(1).collect();
 
