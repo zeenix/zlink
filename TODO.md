@@ -1,9 +1,5 @@
 # TODO
 
-* Rename -tokio to zlink
-  * Drop -micro and -usb too
-  * Update README and this file
-  * Publish dropped/merged subcrates from a branch to notify of rename
 * zlink-core
   * Proxy
     * new method takes:
