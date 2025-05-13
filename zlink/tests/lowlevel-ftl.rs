@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::{select, time::sleep};
-use zlink_tokio::{
+use zlink::{
     notified,
     service::MethodReply,
     unix::{bind, connect},
@@ -38,7 +38,7 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
     // Setup the server and run it in a separate task.
     let listener = bind(SOCKET_PATH).unwrap();
     let service = Ftl::new(conditions[0]);
-    let server = zlink_tokio::Server::new(listener, service);
+    let server = zlink::Server::new(listener, service);
     select! {
         _ = server.run() => {},
         _ = run_client(&conditions) => {}
