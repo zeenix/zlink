@@ -55,6 +55,7 @@
 * More metadata in Cargo.toml files
 
 * zlink-core
+  * Pipelining
   * FDs
   * Graceful shutdown
   * More efficient parsing of messages in Connection using winnow
