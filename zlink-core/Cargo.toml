@@ -35,6 +35,7 @@ futures-util = { version = "0.3.31", default-features = false, features = [
 ] }
 tracing = { version = "0.1.41", default-features = false, optional = true }
 defmt = { version = "1.0.1", default-features = false, optional = true }
+pin-project-lite = "0.2.16"
 
 [dev-dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["alloc"] }

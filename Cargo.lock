@@ -830,6 +830,7 @@ dependencies = [
  "futures-util",
  "mayheap",
  "memchr",
+ "pin-project-lite",
  "serde",
  "serde-json-core",
  "serde_json",
