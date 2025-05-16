@@ -1,12 +1,13 @@
-use std::time::Duration;
+use std::{pin::pin, time::Duration};
 
+use futures_util::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use tokio::{select, time::sleep};
 use zlink::{
     notified,
     service::MethodReply,
     unix::{bind, connect},
-    Call, Reply, Service,
+    Call, Proxy, Reply, Service,
 };
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
@@ -49,10 +50,13 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
-    let mut drive_monitor_conn = connect(SOCKET_PATH).await?;
-    drive_monitor_conn
-        .send_call(&Call::new(Some(Methods::GetDriveCondition)).set_more(Some(true)))
-        .await?;
+    let conn = connect(SOCKET_PATH).await?;
+    let mut proxy = Proxy::new(conn, "org.example.ftl");
+    let mut drive_monitor_stream = pin!(
+        proxy
+            .call_more::<(), DriveCondition, Errors>("GetDriveCondition", None)
+            .await?
+    );
 
     // And a client that only calls methods.
     {
@@ -128,12 +132,8 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
     }
 
     // `drive_monitor_conn` should have received the drive condition changes.
-    let drive_cond = drive_monitor_conn
-        .receive_reply::<DriveCondition, Errors>()
-        .await??
-        .into_parameters()
-        .unwrap();
-    assert_eq!(drive_cond, conditions[1]);
+    let drive_cond = drive_monitor_stream.try_next().await?.unwrap()?;
+    assert_eq!(drive_cond.parameters().unwrap(), &conditions[1]);
 
     Ok(())
 }

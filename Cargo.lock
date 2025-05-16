@@ -811,6 +811,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 name = "zlink"
 version = "0.0.1-alpha.1"
 dependencies = [
+ "futures-util",
  "serde",
  "serde_repr",
  "test-log",
@@ -830,6 +831,7 @@ dependencies = [
  "futures-util",
  "mayheap",
  "memchr",
+ "pin-project-lite",
  "serde",
  "serde-json-core",
  "serde_json",

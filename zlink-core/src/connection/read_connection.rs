@@ -2,9 +2,15 @@
 
 use core::fmt::Debug;
 
+use crate::Result;
+
 #[cfg(feature = "std")]
 use super::MAX_BUFFER_SIZE;
-use super::{socket::ReadHalf, Call, Reply, BUFFER_SIZE};
+use super::{
+    reply::{self, Reply},
+    socket::ReadHalf,
+    Call, BUFFER_SIZE,
+};
 use mayheap::Vec;
 use memchr::memchr;
 use serde::Deserialize;
@@ -69,7 +75,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     /// ```
     pub async fn receive_reply<'r, Params, ReplyError>(
         &'r mut self,
-    ) -> crate::Result<Result<Reply<Params>, ReplyError>>
+    ) -> Result<reply::Result<Params, ReplyError>>
     where
         Params: Deserialize<'r> + Debug,
         ReplyError: Deserialize<'r> + Debug,
@@ -97,7 +103,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     /// containing `method` and `parameter` fields. This can be easily achieved using the
     /// `serde::Deserialize` derive (See the code snippet in [`super::WriteConnection::send_call`]
     /// documentation for an example).
-    pub async fn receive_call<'m, Method>(&'m mut self) -> crate::Result<Call<Method>>
+    pub async fn receive_call<'m, Method>(&'m mut self) -> Result<Call<Method>>
     where
         Method: Deserialize<'m> + Debug,
     {
@@ -111,7 +117,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     }
 
     // Reads at least one full message from the socket and return a single message bytes.
-    async fn read_message_bytes(&mut self) -> crate::Result<&'_ [u8]> {
+    async fn read_message_bytes(&mut self) -> Result<&'_ [u8]> {
         self.read_from_socket().await?;
 
         // Unwrap is safe because `read_from_socket` call above ensures at least one null byte in
@@ -130,7 +136,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     }
 
     // Reads at least one full message from the socket.
-    async fn read_from_socket(&mut self) -> crate::Result<()> {
+    async fn read_from_socket(&mut self) -> Result<()> {
         if self.msg_pos > 0 {
             // This means we already have at least one message in the buffer so no need to read.
             return Ok(());
@@ -173,7 +179,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     }
 }
 
-fn from_slice<'a, T>(buffer: &'a [u8]) -> crate::Result<T>
+fn from_slice<'a, T>(buffer: &'a [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
 {
