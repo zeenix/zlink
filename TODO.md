@@ -1,14 +1,6 @@
 # TODO
 
 * zlink-core
-  * Proxy
-    * new method takes:
-      * `Connection`
-      * interface name
-    * `call` method (assumes `more=false`)
-    * `call_more` method (assumes `more=true`)
-      * returns a Stream called `ReplyStream`
-        * borrows &mut self
   * Ensure fairness in handling method calls from multiple connections
     * Idea: SelectAll takes the index of the last future that won & polls that one the last
   * IDL <https://varlink.org/Service>
