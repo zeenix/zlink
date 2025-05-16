@@ -24,6 +24,8 @@ pub use server::{
     service::{self, Service},
     Server,
 };
+pub mod proxy;
+pub use proxy::Proxy;
 mod call;
 pub use call::Call;
 pub mod reply;
