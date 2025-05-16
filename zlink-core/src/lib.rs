@@ -26,5 +26,5 @@ pub use server::{
 };
 mod call;
 pub use call::Call;
-mod reply;
+pub mod reply;
 pub use reply::Reply;

@@ -1,3 +1,5 @@
+//! Method reply API.
+
 use serde::{Deserialize, Serialize};
 
 /// A successful method call reply.
@@ -45,3 +47,6 @@ impl<Params> From<Params> for Reply<Params> {
         Self::new(Some(parameters))
     }
 }
+
+/// A reply result.
+pub type Result<Params, Error> = core::result::Result<Reply<Params>, Error>;
