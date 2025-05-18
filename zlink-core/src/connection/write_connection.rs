@@ -98,8 +98,23 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     where
         T: Serialize + ?Sized + Debug,
     {
-        let len = to_slice(value, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
+        let len = loop {
+            match to_slice(value, &mut self.buffer) {
+                Ok(len) => break len,
+                #[cfg(feature = "std")]
+                Err(crate::Error::Json(e)) if e.is_io() => {
+                    // This can only happens if `serde-json` failed to write all bytes and that
+                    // means we're running out of space or already are out of space.
+                    self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
+                }
+                Err(e) => return Err(e),
+            }
+        };
+        if len == self.buffer.len() {
+            self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
+        } else {
+            self.buffer[len] = b'\0';
+        }
         self.socket.write(&self.buffer[..=len]).await.map(|_| ())
     }
 }
@@ -119,5 +134,52 @@ where
     #[cfg(not(feature = "std"))]
     {
         serde_json_core::to_slice(value, buf).map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestWriteHalf(usize);
+
+    impl WriteHalf for TestWriteHalf {
+        async fn write(&mut self, value: &[u8]) -> crate::Result<()> {
+            assert_eq!(value.len(), self.0);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_write() {
+        const WRITE_LEN: usize =
+            // Every `0u8` is one byte.
+            BUFFER_SIZE +
+            // `,` separators.
+            (BUFFER_SIZE - 1) +
+            // `[` and `]`.
+            2 +
+            // null byte.
+            1;
+        let mut write_conn = WriteConnection::new(TestWriteHalf(WRITE_LEN), 1);
+        // An item that serializes into `> BUFFER_SIZE * 2` bytes.
+        let item: Vec<u8, BUFFER_SIZE> = Vec::from_slice(&[0u8; BUFFER_SIZE]).unwrap();
+        let res = write_conn.write(&item).await;
+        #[cfg(feature = "std")]
+        {
+            res.unwrap();
+            assert_eq!(write_conn.buffer.len(), BUFFER_SIZE * 3);
+        }
+        #[cfg(feature = "embedded")]
+        {
+            assert!(matches!(
+                res,
+                Err(crate::Error::JsonSerialize(
+                    serde_json_core::ser::Error::BufferFull
+                ))
+            ));
+            assert_eq!(write_conn.buffer.len(), BUFFER_SIZE);
+        }
     }
 }
