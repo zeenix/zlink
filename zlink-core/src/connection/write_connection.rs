@@ -65,10 +65,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         Method: Serialize + Debug,
     {
         trace!("connection {}: sending call: {:?}", self.id, call);
-        let len = to_slice(call, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
-
-        self.socket.write(&self.buffer[..=len]).await
+        self.write(call).await
     }
 
     /// Send a reply over the socket.
@@ -80,10 +77,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         Params: Serialize + Debug,
     {
         trace!("connection {}: sending reply: {:?}", self.id, reply);
-        let len = to_slice(reply, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
-
-        self.socket.write(&self.buffer[..=len]).await
+        self.write(reply).await
     }
 
     /// Send an error reply over the socket.
@@ -97,10 +91,16 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         ReplyError: Serialize + Debug,
     {
         trace!("connection {}: sending error: {:?}", self.id, error);
-        let len = to_slice(error, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
+        self.write(error).await
+    }
 
-        self.socket.write(&self.buffer[..=len]).await
+    async fn write<T>(&mut self, value: &T) -> crate::Result<()>
+    where
+        T: Serialize + ?Sized + Debug,
+    {
+        let len = to_slice(value, &mut self.buffer)?;
+        self.buffer[len] = b'\0';
+        self.socket.write(&self.buffer[..=len]).await.map(|_| ())
     }
 }
 
