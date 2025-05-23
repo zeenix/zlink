@@ -151,6 +151,23 @@ where
     {
         self.write.send_error(error).await
     }
+
+    /// Enqueue a call to the server.
+    ///
+    /// Convenience wrapper around [`WriteConnection::enqueue_call`].
+    pub fn enqueue_call<Method>(&mut self, method: &Call<Method>) -> Result<()>
+    where
+        Method: Serialize + Debug,
+    {
+        self.write.enqueue_call(method)
+    }
+
+    /// Flush the connection.
+    ///
+    /// Convenience wrapper around [`WriteConnection::flush`].
+    pub async fn flush(&mut self) -> Result<()> {
+        self.write.flush().await
+    }
 }
 
 impl<S> From<S> for Connection<S>
