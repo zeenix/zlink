@@ -2,12 +2,14 @@
 
 mod read_connection;
 pub use read_connection::ReadConnection;
+pub mod chain;
 pub mod socket;
 mod write_connection;
 use crate::{
     reply::{self, Reply},
     Call, Result,
 };
+pub use chain::Chain;
 use core::{fmt::Debug, sync::atomic::AtomicUsize};
 pub use write_connection::WriteConnection;
 
@@ -167,6 +169,126 @@ where
     /// Convenience wrapper around [`WriteConnection::flush`].
     pub async fn flush(&mut self) -> Result<()> {
         self.write.flush().await
+    }
+
+    /// Start a chain of method calls.
+    ///
+    /// This allows batching multiple calls together and sending them in a single write operation.
+    ///
+    /// # Examples
+    ///
+    /// ## Basic Usage with Sequential Access
+    ///
+    /// ```no_run
+    /// use zlink_core::{Connection, Call, reply};
+    /// use serde::{Serialize, Deserialize};
+    ///
+    /// # async fn example() -> zlink_core::Result<()> {
+    /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
+    ///
+    /// #[derive(Debug, Serialize, Deserialize)]
+    /// #[serde(tag = "method", content = "parameters")]
+    /// enum Methods {
+    ///     #[serde(rename = "org.example.GetUser")]
+    ///     GetUser { id: u32 },
+    ///     #[serde(rename = "org.example.GetProject")]
+    ///     GetProject { id: u32 },
+    /// }
+    ///
+    /// #[derive(Debug, Deserialize)]
+    /// struct User { name: String }
+    ///
+    /// #[derive(Debug, Deserialize)]
+    /// struct Project { title: String }
+    ///
+    /// #[derive(Debug, Deserialize)]
+    /// #[serde(tag = "error", content = "parameters")]
+    /// enum ApiError {
+    ///     #[serde(rename = "org.example.UserNotFound")]
+    ///     UserNotFound { code: i32 },
+    ///     #[serde(rename = "org.example.ProjectNotFound")]
+    ///     ProjectNotFound { code: i32 },
+    /// }
+    ///
+    /// let get_user = Call::new(Methods::GetUser { id: 1 });
+    /// let get_project = Call::new(Methods::GetProject { id: 2 });
+    ///
+    /// // Chain calls and send them in a batch
+    /// let mut replies = conn
+    ///     .chain_call(&get_user)?
+    ///     .append(&get_project)?
+    ///     .send().await?;
+    ///
+    /// // Access replies sequentially with explicit types
+    /// let user_reply: reply::Result<User, ApiError> = replies.next().await?.unwrap();
+    /// let project_reply: reply::Result<Project, ApiError> = replies.next().await?.unwrap();
+    ///
+    /// match user_reply {
+    ///     Ok(user) => println!("User: {}", user.parameters().unwrap().name),
+    ///     Err(error) => println!("User error: {:?}", error),
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ## Arbitrary Number of Calls
+    ///
+    /// ```no_run
+    /// # use zlink_core::{Connection, Call, reply};
+    /// # use serde::{Serialize, Deserialize};
+    /// # async fn example() -> zlink_core::Result<()> {
+    /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
+    /// # #[derive(Debug, Serialize, Deserialize)]
+    /// # #[serde(tag = "method", content = "parameters")]
+    /// # enum Methods {
+    /// #     #[serde(rename = "org.example.GetUser")]
+    /// #     GetUser { id: u32 },
+    /// # }
+    /// # #[derive(Debug, Deserialize)]
+    /// # struct User { name: String }
+    /// # #[derive(Debug, Deserialize)]
+    /// # #[serde(tag = "error", content = "parameters")]
+    /// # enum ApiError {
+    /// #     #[serde(rename = "org.example.UserNotFound")]
+    /// #     UserNotFound { code: i32 },
+    /// #     #[serde(rename = "org.example.ProjectNotFound")]
+    /// #     ProjectNotFound { code: i32 },
+    /// # }
+    /// # let get_user = Call::new(Methods::GetUser { id: 1 });
+    ///
+    /// // Chain many calls (no upper limit)
+    /// let mut chain = conn.chain_call(&get_user)?;
+    /// for i in 2..100 {
+    ///     chain = chain.append(&Call::new(Methods::GetUser { id: i }))?;
+    /// }
+    ///
+    /// let mut replies = chain.send().await?;
+    ///
+    /// // Process all replies sequentially
+    /// while let Some(user_reply) = replies.next::<User, ApiError>().await? {
+    ///     // Handle each reply...
+    ///     match user_reply {
+    ///         Ok(user) => println!("User: {}", user.parameters().unwrap().name),
+    ///         Err(error) => println!("Error: {:?}", error),
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Performance Benefits
+    ///
+    /// Instead of multiple write operations, the chain sends all calls in a single
+    /// write operation, reducing context switching and therefore minimizing latency.
+    pub fn chain_call<Method>(&mut self, call: &Call<Method>) -> Result<Chain<'_, S>>
+    where
+        Method: Serialize + Debug,
+    {
+        self.write.enqueue_call(call)?;
+        Ok(Chain {
+            connection: self,
+            call_count: 1,
+        })
     }
 }
 

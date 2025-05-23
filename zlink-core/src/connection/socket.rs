@@ -39,3 +39,43 @@ pub trait WriteHalf: core::fmt::Debug {
     /// The returned future has the same requirements as that of [`ReadHalf::read`].
     fn write(&mut self, buf: &[u8]) -> impl Future<Output = crate::Result<()>>;
 }
+
+/// Documentation-only socket implementations for doc tests.
+///
+/// These types exist only to make doc tests compile and should never be used in real code.
+#[doc(hidden)]
+pub mod impl_for_doc {
+
+    /// A mock socket for documentation examples.
+    #[derive(Debug)]
+    pub struct Socket;
+
+    impl super::Socket for Socket {
+        type ReadHalf = ReadHalf;
+        type WriteHalf = WriteHalf;
+
+        fn split(self) -> (Self::ReadHalf, Self::WriteHalf) {
+            (ReadHalf, WriteHalf)
+        }
+    }
+
+    /// A mock read half for documentation examples.
+    #[derive(Debug)]
+    pub struct ReadHalf;
+
+    impl super::ReadHalf for ReadHalf {
+        async fn read(&mut self, _buf: &mut [u8]) -> crate::Result<usize> {
+            unreachable!("This is only for doc tests")
+        }
+    }
+
+    /// A mock write half for documentation examples.
+    #[derive(Debug)]
+    pub struct WriteHalf;
+
+    impl super::WriteHalf for WriteHalf {
+        async fn write(&mut self, _buf: &[u8]) -> crate::Result<()> {
+            unreachable!("This is only for doc tests")
+        }
+    }
+}
