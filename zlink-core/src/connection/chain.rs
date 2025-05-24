@@ -33,6 +33,9 @@ where
     ///
     /// The call will be enqueued but not sent until [`Chain::send`] is called. Note that one way
     /// calls (where `Call::oneway() == Some(true)`) do not receive replies.
+    ///
+    /// Calls with `more == Some(true)` will stream multiple replies until a reply with
+    /// `continues != Some(true)` is received.
     pub fn append<Method>(self, call: &Call<Method>) -> Result<Self>
     where
         Method: Serialize + Debug,
@@ -87,7 +90,9 @@ impl<'a, S: Socket> Replies<'a, S> {
 
     /// Get the next reply with explicit type specification.
     ///
-    /// Reads and parses the next reply.
+    /// Reads and parses the next reply. For calls with `more == Some(true)`, this will return
+    /// multiple replies from the same call until a reply with `continues != Some(true)` is
+    /// received.
     pub async fn next<Params, ReplyError>(
         &mut self,
     ) -> Result<Option<reply::Result<Params, ReplyError>>>
@@ -101,13 +106,27 @@ impl<'a, S: Socket> Replies<'a, S> {
 
         // Read the next reply directly from connection buffer
         let buffer = self.connection.read.read_message_bytes().await?;
-        self.current_index += 1;
 
         // Parse directly from connection's read buffer
         let result = match from_slice::<ReplyError>(buffer) {
             Ok(e) => Ok(Err(e)),
             Err(_) => from_slice::<Reply<Params>>(buffer).map(Ok),
         };
+
+        // Only increment current_index if this is the last reply for this call
+        // (i.e., continues is not Some(true))
+        match &result {
+            Ok(Ok(reply)) if reply.continues() != Some(true) => {
+                self.current_index += 1;
+            }
+            Ok(Ok(_)) => {
+                // Streaming reply, don't increment index yet
+            }
+            Ok(Err(_)) | Err(_) => {
+                // For errors, always increment since there won't be more replies
+                self.current_index += 1;
+            }
+        }
 
         result.map(Some)
     }
@@ -542,5 +561,192 @@ mod tests {
         // No replies should be available.
         let no_reply = replies.next::<User, ApiError>().await.unwrap();
         assert!(no_reply.is_none());
+    }
+
+    #[tokio::test]
+    async fn more_calls_with_streaming() {
+        let responses = [
+            r#"{"parameters":{"id":1},"continues":true}"#,
+            r#"{"parameters":{"id":2},"continues":true}"#,
+            r#"{"parameters":{"id":3},"continues":false}"#,
+            r#"{"parameters":{"id":4}}"#,
+        ];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let more_call = Call::new(GetUser { id: 1 }).set_more(Some(true));
+        let regular_call = Call::new(GetUser { id: 2 });
+
+        let mut replies = conn
+            .chain_call(&more_call)
+            .unwrap()
+            .append(&regular_call)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(replies.len(), 2); // 2 calls, even though first call streams multiple replies
+
+        // First call - streaming replies
+        let reply1: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user1 = reply1.unwrap();
+        assert_eq!(user1.parameters().unwrap().id, 1);
+        assert_eq!(user1.continues(), Some(true));
+
+        let reply2: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user2 = reply2.unwrap();
+        assert_eq!(user2.parameters().unwrap().id, 2);
+        assert_eq!(user2.continues(), Some(true));
+
+        let reply3: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user3 = reply3.unwrap();
+        assert_eq!(user3.parameters().unwrap().id, 3);
+        assert_eq!(user3.continues(), Some(false));
+
+        // Second call - single reply
+        let reply4: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user4 = reply4.unwrap();
+        assert_eq!(user4.parameters().unwrap().id, 4);
+        assert_eq!(user4.continues(), None);
+
+        // No more replies should be available.
+        let no_reply = replies.next::<User, ApiError>().await.unwrap();
+        assert!(no_reply.is_none());
+    }
+
+    #[tokio::test]
+    async fn more_calls_with_error_midstream() {
+        let responses = [
+            r#"{"parameters":{"id":1},"continues":true}"#,
+            r#"{"code":-1}"#,
+            r#"{"parameters":{"id":3}}"#,
+        ];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let more_call = Call::new(GetUser { id: 1 }).set_more(Some(true));
+        let regular_call = Call::new(GetUser { id: 2 });
+
+        let mut replies = conn
+            .chain_call(&more_call)
+            .unwrap()
+            .append(&regular_call)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(replies.len(), 2); // 2 calls
+
+        // First streaming reply
+        let reply1: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user1 = reply1.unwrap();
+        assert_eq!(user1.parameters().unwrap().id, 1);
+        assert_eq!(user1.continues(), Some(true));
+
+        // Error reply - should increment current_index since error terminates the stream
+        let error_reply: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let error = error_reply.unwrap_err();
+        assert_eq!(error.code, -1);
+
+        // Second call - single reply
+        let reply3: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user3 = reply3.unwrap();
+        assert_eq!(user3.parameters().unwrap().id, 3);
+        assert_eq!(user3.continues(), None);
+
+        // No more replies should be available.
+        let no_reply = replies.next::<User, ApiError>().await.unwrap();
+        assert!(no_reply.is_none());
+    }
+
+    #[tokio::test]
+    async fn multiple_more_calls_in_sequence() {
+        let responses = [
+            // First more call - 2 streaming replies
+            r#"{"parameters":{"id":1},"continues":true}"#,
+            r#"{"parameters":{"id":2},"continues":false}"#,
+            // Second more call - 3 streaming replies
+            r#"{"parameters":{"id":10},"continues":true}"#,
+            r#"{"parameters":{"id":20},"continues":true}"#,
+            r#"{"parameters":{"id":30}}"#, // No continues field means false
+        ];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let more_call1 = Call::new(GetUser { id: 1 }).set_more(Some(true));
+        let more_call2 = Call::new(GetUser { id: 2 }).set_more(Some(true));
+
+        let mut replies = conn
+            .chain_call(&more_call1)
+            .unwrap()
+            .append(&more_call2)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(replies.len(), 2); // 2 calls
+
+        // First call - streaming replies
+        let reply1: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user1 = reply1.unwrap();
+        assert_eq!(user1.parameters().unwrap().id, 1);
+        assert_eq!(user1.continues(), Some(true));
+
+        let reply2: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user2 = reply2.unwrap();
+        assert_eq!(user2.parameters().unwrap().id, 2);
+        assert_eq!(user2.continues(), Some(false));
+
+        // Second call - streaming replies
+        let reply3: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user3 = reply3.unwrap();
+        assert_eq!(user3.parameters().unwrap().id, 10);
+        assert_eq!(user3.continues(), Some(true));
+
+        let reply4: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user4 = reply4.unwrap();
+        assert_eq!(user4.parameters().unwrap().id, 20);
+        assert_eq!(user4.continues(), Some(true));
+
+        let reply5: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user5 = reply5.unwrap();
+        assert_eq!(user5.parameters().unwrap().id, 30);
+        assert_eq!(user5.continues(), None); // No continues field
+
+        // No more replies should be available.
+        let no_reply = replies.next::<User, ApiError>().await.unwrap();
+        assert!(no_reply.is_none());
+    }
+
+    #[tokio::test]
+    async fn more_false_calls_are_supported() {
+        let responses = [r#"{"parameters":{"id":1}}"#, r#"{"parameters":{"id":2}}"#];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let call1 = Call::new(GetUser { id: 1 }).set_more(Some(false));
+        let call2 = Call::new(GetUser { id: 2 }).set_more(Some(false));
+
+        let mut replies = conn
+            .chain_call(&call1)
+            .unwrap()
+            .append(&call2)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(replies.len(), 2);
+
+        let reply1: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user1 = reply1.unwrap();
+        assert_eq!(user1.parameters().unwrap().id, 1);
+
+        let reply2: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        let user2 = reply2.unwrap();
+        assert_eq!(user2.parameters().unwrap().id, 2);
     }
 }
