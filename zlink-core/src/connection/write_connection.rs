@@ -140,7 +140,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
                 Err(crate::Error::Json(e)) if e.is_io() => {
                     // This can only happens if `serde-json` failed to write all bytes and that
                     // means we're running out of space or already are out of space.
-                    self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
+                    self.grow_buffer()?;
                 }
                 Err(e) => return Err(e),
             }
@@ -150,7 +150,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         if self.pos + len == self.buffer.len() {
             #[cfg(feature = "std")]
             {
-                self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
+                self.grow_buffer()?;
             }
             #[cfg(not(feature = "std"))]
             {
@@ -159,6 +159,12 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         }
         self.buffer[self.pos + len] = b'\0';
         self.pos += len + 1;
+        Ok(())
+    }
+
+    fn grow_buffer(&mut self) -> crate::Result<()> {
+        self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
+
         Ok(())
     }
 }
