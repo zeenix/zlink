@@ -285,9 +285,11 @@ where
         Method: Serialize + Debug,
     {
         self.write.enqueue_call(call)?;
+        let reply_count = if call.oneway() == Some(true) { 0 } else { 1 };
         Ok(Chain {
             connection: self,
             call_count: 1,
+            reply_count,
         })
     }
 }

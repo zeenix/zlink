@@ -16,10 +16,13 @@ use serde::{Deserialize, Serialize};
 ///
 /// With `std` feature enabled, this supports unlimited calls. Otherwise it is limited by how many
 /// calls can fit in our fixed-sized buffer.
+///
+/// Note that one way calls (where `Call::oneway() == Some(true)`) do not receive replies.
 #[derive(Debug)]
 pub struct Chain<'a, S: Socket> {
     pub(super) connection: &'a mut Connection<S>,
     pub(super) call_count: usize,
+    pub(super) reply_count: usize,
 }
 
 impl<'a, S> Chain<'a, S>
@@ -28,15 +31,22 @@ where
 {
     /// Append another method call to the chain.
     ///
-    /// The call will be enqueued but not sent until [`Chain::send`] is called.
+    /// The call will be enqueued but not sent until [`Chain::send`] is called. Note that one way
+    /// calls (where `Call::oneway() == Some(true)`) do not receive replies.
     pub fn append<Method>(self, call: &Call<Method>) -> Result<Self>
     where
         Method: Serialize + Debug,
     {
         self.connection.write.enqueue_call(call)?;
+        let reply_count = if call.oneway() == Some(true) {
+            self.reply_count
+        } else {
+            self.reply_count + 1
+        };
         Ok(Chain {
             connection: self.connection,
             call_count: self.call_count + 1,
+            reply_count,
         })
     }
 
@@ -50,7 +60,7 @@ where
 
         Ok(Replies {
             connection: self.connection,
-            call_count: self.call_count,
+            call_count: self.reply_count,
             current_index: 0,
         })
     }
@@ -429,5 +439,108 @@ mod tests {
             .unwrap();
 
         assert_eq!(count, 3);
+    }
+
+    #[tokio::test]
+    async fn oneway_calls_no_reply() {
+        // Only the first call expects a reply; the second is one way.
+        let responses = [r#"{"parameters":{"id":1}}"#];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let get_user = Call::new(GetUser { id: 1 });
+        let oneway_call = Call::new(GetUser { id: 2 }).set_oneway(Some(true));
+
+        let mut replies = conn
+            .chain_call(&get_user)
+            .unwrap()
+            .append(&oneway_call)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        // Should only expect 1 reply, not 2.
+        assert_eq!(replies.len(), 1);
+
+        let user_reply: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        assert!(user_reply.is_ok());
+        if let Ok(user) = user_reply {
+            assert_eq!(user.parameters().unwrap().id, 1);
+        }
+
+        // No more replies should be available.
+        let no_reply = replies.next::<User, ApiError>().await.unwrap();
+        assert!(no_reply.is_none());
+    }
+
+    #[tokio::test]
+    async fn mixed_oneway_and_regular_calls() {
+        // Three calls: regular, one way, regular - only 2 replies expected.
+        let responses = [r#"{"parameters":{"id":1}}"#, r#"{"parameters":{"id":3}}"#];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let call1 = Call::new(GetUser { id: 1 });
+        let oneway_call = Call::new(GetUser { id: 2 }).set_oneway(Some(true));
+        let call3 = Call::new(GetUser { id: 3 });
+
+        let mut replies = conn
+            .chain_call(&call1)
+            .unwrap()
+            .append(&oneway_call)
+            .unwrap()
+            .append(&call3)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        // Should only expect 2 replies (call1 and call3).
+        assert_eq!(replies.len(), 2);
+
+        let reply1: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        assert!(reply1.is_ok());
+        if let Ok(user) = reply1 {
+            assert_eq!(user.parameters().unwrap().id, 1);
+        }
+
+        let reply3: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
+        assert!(reply3.is_ok());
+        if let Ok(user) = reply3 {
+            assert_eq!(user.parameters().unwrap().id, 3);
+        }
+
+        // No more replies should be available.
+        let no_reply = replies.next::<User, ApiError>().await.unwrap();
+        assert!(no_reply.is_none());
+    }
+
+    #[tokio::test]
+    async fn all_oneway_calls() {
+        // All calls are one way - no replies expected.
+        let responses = [];
+        let socket = MockSocket::new(&responses);
+        let mut conn = Connection::new(socket);
+
+        let oneway1 = Call::new(GetUser { id: 1 }).set_oneway(Some(true));
+        let oneway2 = Call::new(GetUser { id: 2 }).set_oneway(Some(true));
+
+        let mut replies = conn
+            .chain_call(&oneway1)
+            .unwrap()
+            .append(&oneway2)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+
+        // Should expect 0 replies.
+        assert_eq!(replies.len(), 0);
+        assert!(replies.is_empty());
+
+        // No replies should be available.
+        let no_reply = replies.next::<User, ApiError>().await.unwrap();
+        assert!(no_reply.is_none());
     }
 }
