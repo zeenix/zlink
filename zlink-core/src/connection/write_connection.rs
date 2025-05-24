@@ -162,7 +162,12 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         Ok(())
     }
 
+    #[cfg(feature = "std")]
     fn grow_buffer(&mut self) -> crate::Result<()> {
+        if self.buffer.len() >= super::MAX_BUFFER_SIZE {
+            return Err(crate::Error::BufferOverflow);
+        }
+
         self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
 
         Ok(())
