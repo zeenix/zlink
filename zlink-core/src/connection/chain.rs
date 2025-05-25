@@ -332,12 +332,10 @@ mod tests {
         assert!(user_reply.is_ok());
         assert!(project_reply.is_ok());
 
-        if let Ok(user) = user_reply {
-            assert_eq!(user.parameters().unwrap().id, 1);
-        }
-        if let Ok(project) = project_reply {
-            assert_eq!(project.parameters().unwrap().id, 2);
-        }
+        let user = user_reply.unwrap();
+        assert_eq!(user.parameters().unwrap().id, 1);
+        let project = project_reply.unwrap();
+        assert_eq!(project.parameters().unwrap().id, 2);
     }
 
     #[tokio::test]
@@ -371,13 +369,11 @@ mod tests {
         assert!(user_reply.is_ok());
         assert!(project_reply.is_err());
 
-        if let Ok(user) = user_reply {
-            assert_eq!(user.parameters().unwrap().id, 1);
-        }
-        if let Err(error) = project_reply {
-            assert_eq!(error.error, "org.example.ProjectError");
-            assert_eq!(error.parameters.code, -1);
-        }
+        let user = user_reply.unwrap();
+        assert_eq!(user.parameters().unwrap().id, 1);
+        let error = project_reply.unwrap_err();
+        assert_eq!(error.error, "org.example.ProjectError");
+        assert_eq!(error.parameters.code, -1);
     }
 
     #[tokio::test]
@@ -393,10 +389,8 @@ mod tests {
         assert_eq!(replies.len(), 1);
 
         let user_reply: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
-        assert!(user_reply.is_ok());
-        if let Ok(user) = user_reply {
-            assert_eq!(user.parameters().unwrap().id, 1);
-        }
+        let user = user_reply.unwrap();
+        assert_eq!(user.parameters().unwrap().id, 1);
     }
 
     #[tokio::test]
@@ -421,10 +415,8 @@ mod tests {
 
         for i in 1..=5 {
             let user_reply: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
-            assert!(user_reply.is_ok());
-            if let Ok(user) = user_reply {
-                assert_eq!(user.parameters().unwrap().id, i as u32);
-            }
+            let user = user_reply.unwrap();
+            assert_eq!(user.parameters().unwrap().id, i as u32);
         }
     }
 
@@ -448,10 +440,8 @@ mod tests {
         replies
             .for_each::<User, ApiError, _>(|reply| {
                 count += 1;
-                assert!(reply.is_ok());
-                if let Ok(user) = reply {
-                    assert_eq!(user.parameters().unwrap().id, count);
-                }
+                let user = reply.unwrap();
+                assert_eq!(user.parameters().unwrap().id, count);
                 Ok(())
             })
             .await
@@ -483,10 +473,8 @@ mod tests {
         assert_eq!(replies.len(), 1);
 
         let user_reply: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
-        assert!(user_reply.is_ok());
-        if let Ok(user) = user_reply {
-            assert_eq!(user.parameters().unwrap().id, 1);
-        }
+        let user = user_reply.unwrap();
+        assert_eq!(user.parameters().unwrap().id, 1);
 
         // No more replies should be available.
         let no_reply = replies.next::<User, ApiError>().await.unwrap();
@@ -519,16 +507,12 @@ mod tests {
         assert_eq!(replies.len(), 2);
 
         let reply1: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
-        assert!(reply1.is_ok());
-        if let Ok(user) = reply1 {
-            assert_eq!(user.parameters().unwrap().id, 1);
-        }
+        let user1 = reply1.unwrap();
+        assert_eq!(user1.parameters().unwrap().id, 1);
 
         let reply3: reply::Result<User, ApiError> = replies.next().await.unwrap().unwrap();
-        assert!(reply3.is_ok());
-        if let Ok(user) = reply3 {
-            assert_eq!(user.parameters().unwrap().id, 3);
-        }
+        let user3 = reply3.unwrap();
+        assert_eq!(user3.parameters().unwrap().id, 3);
 
         // No more replies should be available.
         let no_reply = replies.next::<User, ApiError>().await.unwrap();
