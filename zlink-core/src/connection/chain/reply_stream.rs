@@ -14,55 +14,64 @@ use crate::{
 };
 
 pin_project! {
-    /// A stream of replies.
-    ///
-    /// This is the type returned by [`Proxy::call_more`].
-    ///
-    /// This would be useful for external use as well but we keep it internal because
-    /// [`ReadConnection::receive_reply`] gives us anonymous futures so we have to keep the future
-    /// type generic here. This can be solved with Boxing but we want to avoid all allocations in
-    /// the core library.
+    /// A stream of replies from a chain of method calls.
     #[derive(Debug)]
-    pub(super) struct ReplyStream<'c, Read: ReadHalf, F, Fut> {
+    pub(super) struct ReplyStream<'c, Read: ReadHalf, F, Fut, Params, ReplyError> {
         #[pin]
         state: ReplyStreamState<Fut>,
-        conn: &'c mut ReadConnection<Read>,
+        connection: &'c mut ReadConnection<Read>,
         func: F,
+        call_count: usize,
+        current_index: usize,
+        done: bool,
+        _phantom: core::marker::PhantomData<(Params, ReplyError)>,
     }
 }
 
-impl<'c, Read, F, Fut, Params, ReplyError> ReplyStream<'c, Read, F, Fut>
+impl<'c, Read, F, Fut, Params, ReplyError> ReplyStream<'c, Read, F, Fut, Params, ReplyError>
 where
     Read: ReadHalf,
     F: FnMut(&'c mut ReadConnection<Read>) -> Fut,
     Fut: Future<Output = Result<reply::Result<Params, ReplyError>>>,
-    Params: Deserialize<'c>,
-    ReplyError: Deserialize<'c>,
+    Params: Deserialize<'c> + Debug,
+    ReplyError: Deserialize<'c> + Debug,
 {
-    pub(super) fn new(conn: &'c mut ReadConnection<Read>, func: F) -> Self {
+    pub(super) fn new(
+        connection: &'c mut ReadConnection<Read>,
+        func: F,
+        call_count: usize,
+    ) -> Self {
         ReplyStream {
             state: ReplyStreamState::Init,
-            conn,
+            connection,
             func,
+            call_count,
+            current_index: 0,
+            done: false,
+            _phantom: core::marker::PhantomData,
         }
     }
 }
 
-impl<'c, Read, F, Fut, Params, ReplyError> Stream for ReplyStream<'c, Read, F, Fut>
+impl<'c, Read, F, Fut, Params, ReplyError> Stream
+    for ReplyStream<'c, Read, F, Fut, Params, ReplyError>
 where
     Read: ReadHalf,
     F: FnMut(&'c mut ReadConnection<Read>) -> Fut,
     Fut: Future<Output = Result<reply::Result<Params, ReplyError>>>,
-    Params: Deserialize<'c>,
-    ReplyError: Deserialize<'c>,
+    Params: Deserialize<'c> + Debug,
+    ReplyError: Deserialize<'c> + Debug,
 {
     type Item = Result<reply::Result<Params, ReplyError>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
+        if *this.done {
+            return Poll::Ready(None);
+        }
 
         if this.state.as_mut().check_init() {
-            let conn = unsafe { &mut *(*this.conn as *mut _) };
+            let conn = unsafe { &mut *(*this.connection as *mut _) };
             this.state.set(ReplyStreamState::Future {
                 future: (this.func)(conn),
             });
@@ -70,10 +79,34 @@ where
 
         let item = match this.state.as_mut().project_future() {
             Some(fut) => ready!(fut.poll(cx)),
-            None => panic!("Unfold must not be polled after it returned `Poll::Ready(None)`"),
+            None => panic!("ReplyStream must not be polled after it returned `Poll::Ready(None)`"),
         };
 
+        // Only increment current_index if this is the last reply for this call.
+        // (i.e., continues is not Some(true))
+        match &item {
+            Ok(Ok(reply)) if reply.continues() != Some(true) => {
+                *this.current_index += 1;
+            }
+            Ok(Ok(_)) => {
+                // Streaming reply, don't increment index yet.
+            }
+            Ok(Err(_)) => {
+                // For method errors, always increment since there won't be more replies.
+                *this.current_index += 1;
+            }
+            Err(_) => {
+                // If there was a general error, mark the stream as done as it's likely not
+                // recoverable.
+                *this.done = true;
+            }
+        }
+        if *this.current_index >= *this.call_count {
+            *this.done = true;
+        }
+
         this.state.set(ReplyStreamState::Init);
+
         Poll::Ready(Some(item))
     }
 }

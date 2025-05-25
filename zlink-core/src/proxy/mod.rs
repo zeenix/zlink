@@ -1,19 +1,14 @@
 //! A client-side proxy to a service interface.
 
 mod method;
-mod reply_stream;
 
 use core::fmt::Debug;
 use futures_util::stream::Stream;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    connection::{ReadConnection, Socket},
-    reply, Call, Connection, Result,
-};
+use crate::{connection::Socket, reply, Call, Connection, Result};
 
 use method::Method;
-use reply_stream::ReplyStream;
 
 /// A client-side proxy to a service interface.
 ///
@@ -82,14 +77,10 @@ where
         let method = Method::new(method_name, params)?;
         let call = Call::new(method).set_more(Some(true));
 
-        self.connection.send_call(&call).await?;
-
-        let read_conn = self.connection.read_mut();
-        let stream = ReplyStream::new(
-            read_conn,
-            ReadConnection::receive_reply::<ReplyParams, ReplyError>,
-        );
-
-        Ok(stream)
+        // Use the chain API with a single call.
+        self.connection
+            .chain_call::<Method<Params>, ReplyParams, ReplyError>(&call)?
+            .send()
+            .await
     }
 }

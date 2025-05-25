@@ -182,6 +182,7 @@ where
     /// ```no_run
     /// use zlink_core::{Connection, Call, reply};
     /// use serde::{Serialize, Deserialize};
+    /// use futures_util::{pin_mut, stream::StreamExt};
     ///
     /// # async fn example() -> zlink_core::Result<()> {
     /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
@@ -214,14 +215,15 @@ where
     /// let get_project = Call::new(Methods::GetProject { id: 2 });
     ///
     /// // Chain calls and send them in a batch
-    /// let mut replies = conn
-    ///     .chain_call(&get_user)?
+    /// let replies = conn
+    ///     .chain_call::<Methods, User, ApiError>(&get_user)?
     ///     .append(&get_project)?
     ///     .send().await?;
+    /// pin_mut!(replies);
     ///
-    /// // Access replies sequentially with explicit types
-    /// let user_reply: reply::Result<User, ApiError> = replies.next().await?.unwrap();
-    /// let project_reply: reply::Result<Project, ApiError> = replies.next().await?.unwrap();
+    /// // Access replies sequentially - types are now fixed by the chain
+    /// let user_reply = replies.next().await.unwrap()?;
+    /// let project_reply = replies.next().await.unwrap()?;
     ///
     /// match user_reply {
     ///     Ok(user) => println!("User: {}", user.parameters().unwrap().name),
@@ -236,6 +238,7 @@ where
     /// ```no_run
     /// # use zlink_core::{Connection, Call, reply};
     /// # use serde::{Serialize, Deserialize};
+    /// # use futures_util::{pin_mut, stream::StreamExt};
     /// # async fn example() -> zlink_core::Result<()> {
     /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
     /// # #[derive(Debug, Serialize, Deserialize)]
@@ -257,15 +260,17 @@ where
     /// # let get_user = Call::new(Methods::GetUser { id: 1 });
     ///
     /// // Chain many calls (no upper limit)
-    /// let mut chain = conn.chain_call(&get_user)?;
+    /// let mut chain = conn.chain_call::<Methods, User, ApiError>(&get_user)?;
     /// for i in 2..100 {
     ///     chain = chain.append(&Call::new(Methods::GetUser { id: i }))?;
     /// }
     ///
-    /// let mut replies = chain.send().await?;
+    /// let replies = chain.send().await?;
+    /// pin_mut!(replies);
     ///
-    /// // Process all replies sequentially
-    /// while let Some(user_reply) = replies.next::<User, ApiError>().await? {
+    /// // Process all replies sequentially - types are fixed by the chain
+    /// while let Some(user_reply) = replies.next().await {
+    ///     let user_reply = user_reply?;
     ///     // Handle each reply...
     ///     match user_reply {
     ///         Ok(user) => println!("User: {}", user.parameters().unwrap().name),
@@ -280,17 +285,16 @@ where
     ///
     /// Instead of multiple write operations, the chain sends all calls in a single
     /// write operation, reducing context switching and therefore minimizing latency.
-    pub fn chain_call<Method>(&mut self, call: &Call<Method>) -> Result<Chain<'_, S>>
+    pub fn chain_call<'c, Method, Params, ReplyError>(
+        &'c mut self,
+        call: &Call<Method>,
+    ) -> Result<Chain<'c, S, Method, Params, ReplyError>>
     where
         Method: Serialize + Debug,
+        Params: Deserialize<'c> + Debug,
+        ReplyError: Deserialize<'c> + Debug,
     {
-        self.write.enqueue_call(call)?;
-        let reply_count = if call.oneway() == Some(true) { 0 } else { 1 };
-        Ok(Chain {
-            connection: self,
-            call_count: 1,
-            reply_count,
-        })
+        Chain::new(self, call)
     }
 }
 
