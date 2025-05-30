@@ -212,6 +212,7 @@ impl Service for Ftl {
                 condition.state = DriveState::Idle;
                 condition.tylium_level = condition.tylium_level - tylium_required;
                 self.drive_condition.set(condition);
+                self.coordinates = coords;
 
                 MethodReply::Single(Some(Replies::Coordinates(coords)))
             }
