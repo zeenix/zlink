@@ -13,8 +13,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First send out all the method calls (let's make use of pipelinning feature of Varlink!).
     for name in args.clone() {
         let resolve = Method::ResolveHostName { name: &name };
-        connection.send_call(&resolve.into()).await?;
+        connection.enqueue_call(&resolve.into())?;
     }
+    connection.flush().await?;
 
     // Then fetch the results and print them.
     for name in args.clone() {

@@ -19,6 +19,7 @@ use super::{socket::WriteHalf, Call, Reply, BUFFER_SIZE};
 pub struct WriteConnection<Write: WriteHalf> {
     socket: Write,
     buffer: Vec<u8, BUFFER_SIZE>,
+    pos: usize,
     id: usize,
 }
 
@@ -29,6 +30,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
             socket,
             id,
             buffer: Vec::from_slice(&[0; BUFFER_SIZE]).unwrap(),
+            pos: 0,
         }
     }
 
@@ -65,10 +67,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         Method: Serialize + Debug,
     {
         trace!("connection {}: sending call: {:?}", self.id, call);
-        let len = to_slice(call, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
-
-        self.socket.write(&self.buffer[..=len]).await
+        self.write(call).await
     }
 
     /// Send a reply over the socket.
@@ -80,10 +79,7 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         Params: Serialize + Debug,
     {
         trace!("connection {}: sending reply: {:?}", self.id, reply);
-        let len = to_slice(reply, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
-
-        self.socket.write(&self.buffer[..=len]).await
+        self.write(reply).await
     }
 
     /// Send an error reply over the socket.
@@ -97,27 +93,376 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         ReplyError: Serialize + Debug,
     {
         trace!("connection {}: sending error: {:?}", self.id, error);
-        let len = to_slice(error, &mut self.buffer)?;
-        self.buffer[len] = b'\0';
+        self.write(error).await
+    }
 
-        self.socket.write(&self.buffer[..=len]).await
+    /// Enqueue a call to be sent over the socket.
+    ///
+    /// Similar to [`WriteConnection::send_call`], except that the call is not sent immediately but
+    /// enqueued for later sending. This is useful when you want to send multiple calls in a
+    /// batch.
+    pub fn enqueue_call<Method>(&mut self, call: &Call<Method>) -> crate::Result<()>
+    where
+        Method: Serialize + Debug,
+    {
+        trace!("connection {}: enqueuing call: {:?}", self.id, call);
+        self.enqueue(call)
+    }
+
+    /// Send out the enqueued calls.
+    pub async fn flush(&mut self) -> crate::Result<()> {
+        if self.pos == 0 {
+            return Ok(());
+        }
+
+        trace!("connection {}: flushing {} bytes", self.id, self.pos);
+        self.socket.write(&self.buffer[..self.pos]).await?;
+        self.pos = 0;
+        Ok(())
+    }
+
+    async fn write<T>(&mut self, value: &T) -> crate::Result<()>
+    where
+        T: Serialize + ?Sized + Debug,
+    {
+        self.enqueue(value)?;
+        self.flush().await
+    }
+
+    fn enqueue<T>(&mut self, value: &T) -> crate::Result<()>
+    where
+        T: Serialize + ?Sized + Debug,
+    {
+        let len = loop {
+            match to_slice_at_pos(value, &mut self.buffer, self.pos) {
+                Ok(len) => break len,
+                #[cfg(feature = "std")]
+                Err(crate::Error::Json(e)) if e.is_io() => {
+                    // This can only happens if `serde-json` failed to write all bytes and that
+                    // means we're running out of space or already are out of space.
+                    self.grow_buffer()?;
+                }
+                Err(e) => return Err(e),
+            }
+        };
+
+        // Add null terminator after this message.
+        if self.pos + len == self.buffer.len() {
+            #[cfg(feature = "std")]
+            {
+                self.grow_buffer()?;
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                return Err(crate::Error::BufferOverflow);
+            }
+        }
+        self.buffer[self.pos + len] = b'\0';
+        self.pos += len + 1;
+        Ok(())
+    }
+
+    #[cfg(feature = "std")]
+    fn grow_buffer(&mut self) -> crate::Result<()> {
+        if self.buffer.len() >= super::MAX_BUFFER_SIZE {
+            return Err(crate::Error::BufferOverflow);
+        }
+
+        self.buffer.extend_from_slice(&[0; BUFFER_SIZE])?;
+
+        Ok(())
     }
 }
 
-fn to_slice<T>(value: &T, buf: &mut [u8]) -> crate::Result<usize>
+fn to_slice_at_pos<T>(value: &T, buf: &mut [u8], pos: usize) -> crate::Result<usize>
 where
     T: Serialize + ?Sized,
 {
     #[cfg(feature = "std")]
     {
-        let mut buf = std::io::Cursor::new(buf);
-        serde_json::to_writer(&mut buf, value)?;
+        let mut cursor = std::io::Cursor::new(&mut buf[pos..]);
+        serde_json::to_writer(&mut cursor, value)?;
 
-        Ok(buf.position() as usize)
+        Ok(cursor.position() as usize)
     }
 
     #[cfg(not(feature = "std"))]
     {
-        serde_json_core::to_slice(value, buf).map_err(Into::into)
+        serde_json_core::to_slice(value, &mut buf[pos..]).map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestWriteHalf(usize);
+
+    impl WriteHalf for TestWriteHalf {
+        async fn write(&mut self, value: &[u8]) -> crate::Result<()> {
+            assert_eq!(value.len(), self.0);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_write() {
+        const WRITE_LEN: usize =
+            // Every `0u8` is one byte.
+            BUFFER_SIZE +
+            // `,` separators.
+            (BUFFER_SIZE - 1) +
+            // `[` and `]`.
+            2 +
+            // null byte from enqueue.
+            1;
+        let mut write_conn = WriteConnection::new(TestWriteHalf(WRITE_LEN), 1);
+        // An item that serializes into `> BUFFER_SIZE * 2` bytes.
+        let item: Vec<u8, BUFFER_SIZE> = Vec::from_slice(&[0u8; BUFFER_SIZE]).unwrap();
+        let res = write_conn.write(&item).await;
+        #[cfg(feature = "std")]
+        {
+            res.unwrap();
+            assert_eq!(write_conn.buffer.len(), BUFFER_SIZE * 3);
+            assert_eq!(write_conn.pos, 0); // Reset after flush.
+        }
+        #[cfg(feature = "embedded")]
+        {
+            assert!(matches!(
+                res,
+                Err(crate::Error::JsonSerialize(
+                    serde_json_core::ser::Error::BufferFull
+                ))
+            ));
+            assert_eq!(write_conn.buffer.len(), BUFFER_SIZE);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_enqueue_and_flush() {
+        // Test enqueuing multiple small items.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(5), 1); // "42\03\0"
+
+        write_conn.enqueue(&42u32).unwrap();
+        write_conn.enqueue(&3u32).unwrap();
+        assert_eq!(write_conn.pos, 5); // "42\03\0"
+
+        write_conn.flush().await.unwrap();
+        assert_eq!(write_conn.pos, 0); // Reset after flush.
+    }
+
+    #[tokio::test]
+    async fn test_enqueue_null_terminators() {
+        // Test that null terminators are properly placed.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(4), 1); // "1\02\0"
+
+        write_conn.enqueue(&1u32).unwrap();
+        assert_eq!(write_conn.buffer[write_conn.pos - 1], b'\0');
+
+        write_conn.enqueue(&2u32).unwrap();
+        assert_eq!(write_conn.buffer[write_conn.pos - 1], b'\0');
+
+        write_conn.flush().await.unwrap();
+    }
+
+    #[cfg(feature = "std")]
+    #[tokio::test]
+    async fn test_enqueue_buffer_extension() {
+        // Test buffer extension when enqueuing large items.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+        let initial_len = write_conn.buffer.len();
+
+        // Fill up the buffer.
+        let large_item: Vec<u8, BUFFER_SIZE> = Vec::from_slice(&[0u8; BUFFER_SIZE]).unwrap();
+        write_conn.enqueue(&large_item).unwrap();
+
+        assert!(write_conn.buffer.len() > initial_len);
+    }
+
+    #[cfg(not(feature = "std"))]
+    #[tokio::test]
+    async fn test_enqueue_buffer_overflow() {
+        // Test buffer overflow error without std feature.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+
+        // Try to enqueue an item that doesn't fit.
+        let large_item: Vec<u8, BUFFER_SIZE> = Vec::from_slice(&[0u8; BUFFER_SIZE]).unwrap();
+        let res = write_conn.enqueue(&large_item);
+
+        assert!(matches!(
+            res,
+            Err(crate::Error::JsonSerialize(
+                serde_json_core::ser::Error::BufferFull
+            ))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_flush_empty_buffer() {
+        // Test that flushing an empty buffer is a no-op.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+
+        // Should not call write since buffer is empty.
+        write_conn.flush().await.unwrap();
+        assert_eq!(write_conn.pos, 0);
+    }
+
+    #[tokio::test]
+    async fn test_multiple_flushes() {
+        // Test multiple flushes in a row.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(2), 1); // "1\0"
+
+        write_conn.enqueue(&1u32).unwrap();
+        write_conn.flush().await.unwrap();
+        assert_eq!(write_conn.pos, 0);
+
+        // Second flush should be a no-op.
+        write_conn.flush().await.unwrap();
+        assert_eq!(write_conn.pos, 0);
+    }
+
+    #[tokio::test]
+    async fn test_enqueue_after_flush() {
+        // Test that enqueuing works properly after a flush.
+        let mut write_conn = WriteConnection::new(TestWriteHalf(2), 1); // "2\0"
+
+        write_conn.enqueue(&1u32).unwrap();
+        write_conn.flush().await.unwrap();
+
+        // Should be able to enqueue again after flush.
+        write_conn.enqueue(&2u32).unwrap();
+        assert_eq!(write_conn.pos, 2); // "2\0"
+
+        write_conn.flush().await.unwrap();
+        assert_eq!(write_conn.pos, 0);
+    }
+
+    #[tokio::test]
+    async fn test_call_pipelining() {
+        use super::super::Call;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct TestMethod {
+            name: &'static str,
+            value: u32,
+        }
+
+        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+
+        // Test pipelining multiple method calls.
+        let call1 = Call::new(TestMethod {
+            name: "method1",
+            value: 1,
+        });
+        write_conn.enqueue_call(&call1).unwrap();
+
+        let call2 = Call::new(TestMethod {
+            name: "method2",
+            value: 2,
+        });
+        write_conn.enqueue_call(&call2).unwrap();
+
+        let call3 = Call::new(TestMethod {
+            name: "method3",
+            value: 3,
+        });
+        write_conn.enqueue_call(&call3).unwrap();
+
+        assert!(write_conn.pos > 0);
+
+        // Verify that all calls are properly queued with null terminators.
+        let buffer = &write_conn.buffer[..write_conn.pos];
+        let mut null_positions = [0usize; 3];
+        let mut null_count = 0;
+
+        for (i, &byte) in buffer.iter().enumerate() {
+            if byte == b'\0' {
+                assert!(null_count < 3, "Found more than 3 null terminators");
+                null_positions[null_count] = i;
+                null_count += 1;
+            }
+        }
+
+        // Should have exactly 3 null terminators for 3 calls.
+        assert_eq!(null_count, 3);
+
+        // Verify each null terminator is at the end of a complete JSON object.
+        for i in 0..null_count {
+            let pos = null_positions[i];
+            assert!(
+                pos > 0,
+                "Null terminator at position {} should not be at start",
+                pos
+            );
+            let preceding_byte = buffer[pos - 1];
+            assert!(
+                preceding_byte == b'}' || preceding_byte == b'"' || preceding_byte.is_ascii_digit(),
+                "Null terminator at position {} should be after valid JSON ending, found byte: {}",
+                pos,
+                preceding_byte
+            );
+        }
+
+        // Verify the last null terminator is at the very end.
+        assert_eq!(null_positions[2], write_conn.pos - 1);
+    }
+
+    #[tokio::test]
+    async fn test_pipelining_vs_individual_sends() {
+        use super::super::Call;
+        use core::cell::Cell;
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct TestMethod {
+            operation: &'static str,
+            id: u32,
+        }
+
+        // Track number of write calls.
+        #[derive(Debug)]
+        struct CountingWriteHalf {
+            write_count: Cell<usize>,
+        }
+
+        impl WriteHalf for CountingWriteHalf {
+            async fn write(&mut self, _value: &[u8]) -> crate::Result<()> {
+                self.write_count.set(self.write_count.get() + 1);
+                Ok(())
+            }
+        }
+
+        // Test individual sends (3 write calls expected).
+        let counting_write = CountingWriteHalf {
+            write_count: Cell::new(0),
+        };
+        let mut write_conn_individual = WriteConnection::new(counting_write, 1);
+
+        for i in 1..=3 {
+            let call = Call::new(TestMethod {
+                operation: "fetch",
+                id: i,
+            });
+            write_conn_individual.send_call(&call).await.unwrap();
+        }
+        assert_eq!(write_conn_individual.socket.write_count.get(), 3);
+
+        // Test pipelined sends (1 write call expected).
+        let counting_write = CountingWriteHalf {
+            write_count: Cell::new(0),
+        };
+        let mut write_conn_pipelined = WriteConnection::new(counting_write, 2);
+
+        for i in 1..=3 {
+            let call = Call::new(TestMethod {
+                operation: "fetch",
+                id: i,
+            });
+            write_conn_pipelined.enqueue_call(&call).unwrap();
+        }
+        write_conn_pipelined.flush().await.unwrap();
+        assert_eq!(write_conn_pipelined.socket.write_count.get(), 1);
     }
 }

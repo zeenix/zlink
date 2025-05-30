@@ -63,15 +63,15 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let mut conn = connect(SOCKET_PATH).await?;
 
         // Ask for the drive condition, then set them and then ask again.
-        conn.send_call(&Methods::GetDriveCondition.into()).await?;
-        conn.send_call(
+        conn.enqueue_call(&Methods::GetDriveCondition.into())?;
+        conn.enqueue_call(
             &Methods::SetDriveCondition {
                 condition: conditions[1],
             }
             .into(),
-        )
-        .await?;
-        conn.send_call(&Methods::GetDriveCondition.into()).await?;
+        )?;
+        conn.enqueue_call(&Methods::GetDriveCondition.into())?;
+        conn.flush().await?;
 
         // Now we should be able to get all the replies.
         for i in 0..3 {

@@ -39,3 +39,10 @@ pin-project-lite = "0.2.16"
 
 [dev-dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["alloc"] }
+tokio = { version = "1.44.0", features = [
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "test-util",
+    "fs",
+] }
