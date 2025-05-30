@@ -1,13 +1,13 @@
 use std::{pin::pin, time::Duration};
 
-use futures_util::TryStreamExt;
+use futures_util::{pin_mut, stream::StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{select, time::sleep};
 use zlink::{
     notified,
     service::MethodReply,
     unix::{bind, connect},
-    Call, Reply, Service,
+    Call, Service,
 };
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
@@ -63,37 +63,40 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let mut conn = connect(SOCKET_PATH).await?;
 
         // Ask for the drive condition, then set them and then ask again.
-        conn.enqueue_call(&Methods::GetDriveCondition.into())?;
-        conn.enqueue_call(
-            &Methods::SetDriveCondition {
-                condition: conditions[1],
-            }
-            .into(),
-        )?;
-        conn.enqueue_call(&Methods::GetDriveCondition.into())?;
-        conn.flush().await?;
+        let get_drive_cond = Methods::GetDriveCondition.into();
+        let set_drive_cond = Methods::SetDriveCondition {
+            condition: conditions[1],
+        }
+        .into();
+
+        let replies = conn
+            .chain_call::<Methods, Replies, Errors>(&get_drive_cond)?
+            .append(&set_drive_cond)?
+            .append(&get_drive_cond)?
+            .send()
+            .await?;
 
         // Now we should be able to get all the replies.
-        for i in 0..3 {
-            match conn
-                .receive_reply::<Replies, Errors>()
-                .await??
-                .into_parameters()
-                .unwrap()
-            {
-                Replies::DriveCondition(drive_condition) => {
-                    assert_eq!(drive_condition, conditions[i]);
+        {
+            pin_mut!(replies);
+
+            for i in 0..3 {
+                let reply = replies.next().await.unwrap()?.unwrap();
+                match reply.into_parameters().unwrap() {
+                    Replies::DriveCondition(drive_condition) => {
+                        assert_eq!(drive_condition, conditions[i]);
+                    }
+                    _ => panic!("Unexpected reply"),
                 }
-                _ => panic!("Unexpected reply"),
             }
         }
 
-        // Let's try to jump to a new coordinate but first requiring more tylium than we have.
         let duration = 10;
         let impossible_speed = conditions[1].tylium_level / duration + 1;
-        // This should fail because we don't have enough energy.
-        let e = conn
-            .call_method::<_, Errors, Coordinate>(
+        let replies = conn
+            // Let's try to jump to a new coordinate but first requiring more tylium
+            // than we have.
+            .chain_call::<_, Coordinate, Errors>(
                 &Methods::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed,
@@ -102,25 +105,27 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
                     },
                 }
                 .into(),
-            )
-            .await?
-            .unwrap_err();
-        assert_eq!(e, Errors::NotEnoughEnergy);
-
-        // Now let's try to jump with a valid speed.
-        let possible_speed = impossible_speed - 1;
-        let reply: Reply<Coordinate> = conn
-            .call_method::<_, Errors, Coordinate>(
+            )?
+            // Now let's try to jump with a valid speed.
+            .append(
                 &Methods::Jump {
                     config: DriveConfiguration {
-                        speed: possible_speed,
+                        speed: impossible_speed - 1,
                         trajectory: 1,
                         duration: 10,
                     },
                 }
                 .into(),
-            )
-            .await??;
+            )?
+            .send()
+            .await?;
+        pin_mut!(replies);
+        let e = replies.try_next().await?.unwrap().unwrap_err();
+        // The first call should fail because we didn't have enough energy.
+        assert_eq!(e, Errors::NotEnoughEnergy);
+
+        // The second call should succeed.
+        let reply = replies.try_next().await?.unwrap()?;
         assert_eq!(
             reply.parameters(),
             Some(&Coordinate {
