@@ -7,7 +7,7 @@ use zlink::{
     notified,
     service::MethodReply,
     unix::{bind, connect},
-    Call, Proxy, Reply, Service,
+    Call, Reply, Service,
 };
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
@@ -50,11 +50,11 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
-    let conn = connect(SOCKET_PATH).await?;
-    let mut proxy = Proxy::new(conn, "org.example.ftl");
+    let mut conn = connect(SOCKET_PATH).await?;
+    let call = Call::new(Methods::GetDriveCondition).set_more(Some(true));
     let mut drive_monitor_stream = pin!(
-        proxy
-            .call_more::<(), DriveCondition, Errors>("GetDriveCondition", None)
+        conn.chain_call::<Methods, Replies, Errors>(&call)?
+            .send()
             .await?
     );
 
@@ -133,7 +133,12 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
 
     // `drive_monitor_conn` should have received the drive condition changes.
     let drive_cond = drive_monitor_stream.try_next().await?.unwrap()?;
-    assert_eq!(drive_cond.parameters().unwrap(), &conditions[1]);
+    match drive_cond.parameters().unwrap() {
+        Replies::DriveCondition(condition) => {
+            assert_eq!(condition, &conditions[1]);
+        }
+        _ => panic!("Expected DriveCondition reply"),
+    }
 
     Ok(())
 }
