@@ -111,7 +111,7 @@ where
     ///
     /// This is a convenience method that combines [`Connection::send_call`] and
     /// [`Connection::receive_reply`].
-    pub async fn call_method<'r, Method, ReplyError, Params>(
+    pub async fn call_method<'r, Method, Params, ReplyError>(
         &'r mut self,
         call: &Call<Method>,
     ) -> Result<reply::Result<Params, ReplyError>>
