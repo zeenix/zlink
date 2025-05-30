@@ -12,7 +12,7 @@
       * `Info` type with fields of `GetInfo` method
       * impl `GetInfo` method for test case
     * cargo features to allow use of `idl` only
-    * IntrospectionProxy
+  * IntrospectionProxy
 * zlink-macros
   * Provide introspection derives
   * Update `Service` example/test to make use of these
@@ -39,6 +39,8 @@
     * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
   * Ensure cancelation safety (if needed by Server/Service) is satisfied
 * zlink-macros
+  * `proxy` pipelining
+    * generate separate send/receive methods for each method in the service
   * embedded feature
     * Manual Deserialize impl
     * assume fields in a specific order
@@ -47,7 +49,6 @@
 * More metadata in Cargo.toml files
 
 * zlink-core
-  * Pipelining
   * FDs
   * Graceful shutdown
   * More efficient parsing of messages in Connection using winnow
