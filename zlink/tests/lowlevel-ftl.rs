@@ -41,8 +41,8 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
     let service = Ftl::new(conditions[0]);
     let server = zlink::Server::new(listener, service);
     select! {
-        _ = server.run() => {},
-        _ = run_client(&conditions) => {}
+        res = server.run() => res?,
+        res = run_client(&conditions) => res?,
     }
 
     Ok(())
