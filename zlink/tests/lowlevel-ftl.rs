@@ -256,7 +256,7 @@ impl From<Coordinate> for Replies {
 
 /// The FTL service methods.
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "error", content = "parameters")]
+#[serde(tag = "method", content = "parameters")]
 enum Methods {
     #[serde(rename = "org.example.ftl.GetDriveCondition")]
     GetDriveCondition,
