@@ -89,7 +89,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         // that information. Perhaps a simple parser using `winnow`?
         let ret = match from_slice::<ReplyError>(buffer) {
             Ok(e) => Ok(Err(e)),
-            Err(_) => from_slice::<Reply<_>>(buffer).map(Ok),
+            Err(_) => from_slice::<Reply<Params>>(buffer).map(Ok),
         };
         trace!("connection {}: received reply: {:?}", id, ret);
 
