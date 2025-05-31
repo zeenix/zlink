@@ -96,7 +96,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let replies = conn
             // Let's try to jump to a new coordinate but first requiring more tylium
             // than we have.
-            .chain_call::<_, Coordinate, Errors>(
+            .chain_call::<_, Replies, Errors>(
                 &Methods::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed,
@@ -128,11 +128,11 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let reply = replies.try_next().await?.unwrap()?;
         assert_eq!(
             reply.parameters(),
-            Some(&Coordinate {
+            Some(&Replies::Coordinates(Coordinate {
                 longitude: 1.0,
                 latitude: 0.0,
                 distance: 10,
-            })
+            }))
         );
     }
 
@@ -280,7 +280,7 @@ enum Methods {
 }
 
 /// The FTL service replies.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 enum Replies {
     DriveCondition(DriveCondition),
