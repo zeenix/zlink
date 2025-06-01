@@ -1,21 +1,27 @@
 # TODO
 
-* zlink-core
-  * IDL <https://varlink.org/Service>
-    * `idl` mod
-    * Type that describes a type: Interface, Method, Type, Error
-    * Trait that gives the IDL name of the type
-      * impl for common types
-    * `Service`
-      * `Info` type with fields of `GetInfo` method
-      * impl `GetInfo` method for test case
+* IDL <https://varlink.org/Interface-Definition>
+  * zlink-core
+    * Test for parsing org.varlink.service IDL
+    * Test for parsing io.systemd.Resolve IDL
+    * Update to latest winnow
+    * `introspect` module containing [Introspection](https://varlink.org/Service>) API
+      * structs for methods and errors (to be used for client and server)
+        * impl Serialize+Deserialize in such a way that it can be used as return value of service and
+        connection (for client-side)
+      * Make use of zlink-macros' derives
+      * `IntrospectionProxy`
+        * client-side API
     * cargo features to allow use of `idl` only
-  * IntrospectionProxy
+  * zlink-macros
+    * Provide introspection derives
+      * `TypeInfo`
+      * `ReplyErrors`
+  * zlink
+    * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
+      * Make use of `zlink_core::introspect` and `zlink-macros`
 * zlink-macros
-  * Provide introspection derives
-  * Update `Service` example/test to make use of these
-* zlink-macros
-  * `proxy` attribute macro (wraps `Proxy`)
+  * `proxy` attribute macro
     * gated behind (default)`proxy` feature
   * `service` attribute macro (see below)
     * gated behind `service` feature
