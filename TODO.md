@@ -1,8 +1,6 @@
 # TODO
 
 * zlink-core
-  * Ensure fairness in handling method calls from multiple connections
-    * Idea: SelectAll takes the index of the last future that won & polls that one the last
   * IDL <https://varlink.org/Service>
     * `idl` mod
     * Type that describes a type: Interface, Method, Type, Error

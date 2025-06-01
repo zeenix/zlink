@@ -63,11 +63,14 @@ where
         let mut writers = Vec::<_, MAX_CONNECTIONS>::new();
         let mut reply_streams =
             Vec::<ReplyStream<Service::ReplyStream, Listener::Socket>, MAX_CONNECTIONS>::new();
+        let mut last_reply_stream_winner = None;
+        let mut last_reader_winner = None;
 
         loop {
             let mut reply_stream_futures: Vec<_, MAX_CONNECTIONS> =
                 reply_streams.iter_mut().map(|s| s.stream.next()).collect();
-            let mut reply_stream_select_all = SelectAll::new();
+            let start_index = last_reply_stream_winner.map(|idx| idx + 1);
+            let mut reply_stream_select_all = SelectAll::new(start_index);
             for future in reply_stream_futures.iter_mut() {
                 reply_stream_select_all
                     .push(future)
@@ -91,8 +94,10 @@ where
                     // SAFETY: `readers` is not invalidated or dropped until the output of this
                     // future is dropped.
                     unsafe { &mut *(&mut readers as *mut _) },
+                    last_reader_winner.map(|idx| idx + 1),
                 ).fuse() => {
                         let (idx, call) = res?;
+                        last_reader_winner = Some(idx);
 
                         let mut stream = None;
                         let mut remove = true;
@@ -123,6 +128,7 @@ where
                     #[cfg(feature = "embedded")]
                     drop(reply_stream_futures);
                     let (idx, reply) = reply;
+                    last_reply_stream_winner = Some(idx);
                     let id = reply_streams.get(idx).unwrap().conn.id();
 
                     match reply {
@@ -171,9 +177,10 @@ where
             ReadConnection<<<Listener as crate::Listener>::Socket as Socket>::ReadHalf>,
             16,
         >,
+        start_index: Option<usize>,
     ) -> crate::Result<(usize, crate::Result<Call<Service::MethodCall<'r>>>)> {
         let mut read_futures: Vec<_, 16> = readers.iter_mut().map(|r| r.receive_call()).collect();
-        let mut select_all = SelectAll::new();
+        let mut select_all = SelectAll::new(start_index);
         for future in &mut read_futures {
             // Safety: `future` is in fact `Unpin` but the compiler doesn't know that.
             unsafe {
