@@ -64,7 +64,7 @@ where
         let mut reply_streams =
             Vec::<ReplyStream<Service::ReplyStream, Listener::Socket>, MAX_CONNECTIONS>::new();
         let mut last_reply_stream_winner = None;
-        let mut last_reader_winner = None;
+        let mut last_method_call_winner = None;
 
         loop {
             let mut reply_stream_futures: Vec<_, MAX_CONNECTIONS> =
@@ -94,10 +94,10 @@ where
                     // SAFETY: `readers` is not invalidated or dropped until the output of this
                     // future is dropped.
                     unsafe { &mut *(&mut readers as *mut _) },
-                    last_reader_winner.map(|idx| idx + 1),
+                    last_method_call_winner.map(|idx| idx + 1),
                 ).fuse() => {
                         let (idx, call) = res?;
-                        last_reader_winner = Some(idx);
+                        last_method_call_winner = Some(idx);
 
                         let mut stream = None;
                         let mut remove = true;
