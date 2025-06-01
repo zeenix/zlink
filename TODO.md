@@ -1,21 +1,67 @@
 # TODO
 
-* zlink-core
-  * IDL <https://varlink.org/Service>
-    * `idl` mod
-    * Type that describes a type: Interface, Method, Type, Error
-    * Trait that gives the IDL name of the type
+* IDL <https://varlink.org/Interface-Definition>
+  * zlink-core
+    * Add `winnow` dep (no default features, enable `alloc` feature)
+    * `idl` module
+    * `List<T>` enum
+      * `Borrowed(&[&T])` (for const contexts)
+      * `Owned(Vec<T>)` (for deserialization to be used by codegen later)
+        * `std::vec::Vec` if `std` is enabled
+        * `alloc::vec::Vec` otherwise (will need `extern crate alloc;` in `lib.rs`)
+      * Serialize+Deserialize impl
+    * `Type` enum that describes a type
+      * variants for standard types
+      * `Custom` variant with `CustomType` struct
+        * `CustomType` struct
+          * `name: &str`
+          * `fields: List<Field>`
+        * `Parameter` struct (`Field` type alias)
+          * `name: &str`
+          * `ty: Type`
+      * `name` method
+      * Serialize+Deserialize
+        * as a string
+        * use winnow for parsing (from bytes of the string to avoid UTF-8 overhead)
+    * `Interface` struct
+      * `name: &str`
+      * `members: List<Member>`
+    * `Member` enum
+      * `Custom` variant with `CustomType` struct
+      * `Method` variant with `Method` struct:
+        * `name: &str`
+        * `inputs: List<Parameter>`
+        * `outputs: List<Parameter>`
+      * `Error` variant with `Error` struct:
+        * `name: &str`
+        * `fields: List<Field>`
+      * standard types don't need declarations
+    * Serialize+Deserialize for all types
+      * (de)serialize as a string
+      * use winnow for parsing (from bytes of the string to avoid UTF-8 overhead)
+    * `TypeInfo` trait
+      * `const TYPE_INFO: &'static Type<'static>`
       * impl for common types
-    * `Service`
-      * `Info` type with fields of `GetInfo` method
-      * impl `GetInfo` method for test case
+    * `ReplyErrors` trait
+      * `const REPLY_ERRORS: &'static [&Error]`
+    * `introspect` module containing [Introspection](https://varlink.org/Service>) API
+      * structs for methods and errors (to be used for client and server)
+        * impl Serialize+Deserialize in such a way that it can be used as return value of service and
+        connection (for client-side)
+      * Make use of zlink-macros' derives
+      * `IntrospectionProxy`
+        * client-side API
+    * cargo features `idl` and `introspection` (non-default)
     * cargo features to allow use of `idl` only
-  * IntrospectionProxy
+  * zlink-macros
+    * Provide introspection derives
+      * `TypeInfo`
+      * `ReplyErrors`
+  * zlink
+    * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
+      * Make use of `zlink_core::introspect` and `zlink-macros`
 * zlink-macros
-  * Provide introspection derives
-  * Update `Service` example/test to make use of these
-* zlink-macros
-  * `proxy` attribute macro (wraps `Proxy`)
+  * `proxy` attribute macro
     * gated behind (default)`proxy` feature
   * `service` attribute macro (see below)
     * gated behind `service` feature
