@@ -808,6 +808,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
+name = "winnow"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da01e24d23aeb852fb05609f2701ce4da9f73d58857239ed3853667cf178f204"
+
+[[package]]
 name = "zlink"
 version = "0.0.1-alpha.1"
 dependencies = [
@@ -837,6 +843,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "winnow",
 ]
 
 [[package]]

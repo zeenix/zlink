@@ -11,6 +11,10 @@
 #[cfg(all(not(feature = "std"), not(feature = "embedded")))]
 compile_error!("Either 'std' or 'embedded' feature must be enabled.");
 
+#[allow(unused_extern_crates)]
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 #[macro_use]
 mod log;
 
@@ -28,3 +32,5 @@ mod call;
 pub use call::Call;
 pub mod reply;
 pub use reply::Reply;
+#[cfg(feature = "idl")]
+pub mod idl;
