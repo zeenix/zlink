@@ -28,3 +28,5 @@ mod call;
 pub use call::Call;
 pub mod reply;
 pub use reply::Reply;
+#[cfg(feature = "idl")]
+pub mod idl;

@@ -16,6 +16,10 @@ io-buffer-2kb = []
 io-buffer-4kb = []
 io-buffer-16kb = []
 io-buffer-1mb = []
+# IDL and introspection support
+idl = []
+idl-parse = ["idl", "dep:winnow", "std"]
+introspection = ["idl-parse"]
 
 [dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }
@@ -34,6 +38,9 @@ futures-util = { version = "0.3.31", default-features = false, features = [
 tracing = { version = "0.1.41", default-features = false, optional = true }
 defmt = { version = "1.0.1", default-features = false, optional = true }
 pin-project-lite = "0.2.16"
+winnow = { version = "0.3", default-features = false, features = [
+    "alloc",
+], optional = true }
 
 [dev-dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["alloc"] }
