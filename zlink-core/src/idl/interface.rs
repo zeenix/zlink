@@ -119,48 +119,36 @@ mod tests {
         use crate::idl::TypeRef;
 
         // Build the org.varlink.service interface as our test case
-        let vendor_param = Parameter::new("vendor", <&str>::TYPE_INFO);
-        let product_param = Parameter::new("product", <&str>::TYPE_INFO);
-        let version_param = Parameter::new("version", <&str>::TYPE_INFO);
-        let url_param = Parameter::new("url", <&str>::TYPE_INFO);
         let interfaces_type = Type::Array(TypeRef::new(&Type::String));
-        let interfaces_param = Parameter::new("interfaces", &interfaces_type);
         let get_info_outputs = [
-            &vendor_param,
-            &product_param,
-            &version_param,
-            &url_param,
-            &interfaces_param,
+            &Parameter::new("vendor", <&str>::TYPE_INFO),
+            &Parameter::new("product", <&str>::TYPE_INFO),
+            &Parameter::new("version", <&str>::TYPE_INFO),
+            &Parameter::new("url", <&str>::TYPE_INFO),
+            &Parameter::new("interfaces", &interfaces_type),
         ];
-
-        let get_interface_desc_input = Parameter::new("interface", <&str>::TYPE_INFO);
-        let get_interface_desc_inputs = [&get_interface_desc_input];
-
-        let get_interface_desc_output = Parameter::new("description", <&str>::TYPE_INFO);
-        let get_interface_desc_outputs = [&get_interface_desc_output];
-
-        let interface_not_found_field = Field::new("interface", <&str>::TYPE_INFO);
-        let interface_not_found_fields = [&interface_not_found_field];
-
-        let method_not_found_field = Field::new("method", <&str>::TYPE_INFO);
-        let method_not_found_fields = [&method_not_found_field];
-
-        let method_not_impl_field = Field::new("method", <&str>::TYPE_INFO);
-        let method_not_impl_fields = [&method_not_impl_field];
-
-        let invalid_param_field = Field::new("parameter", <&str>::TYPE_INFO);
-        let invalid_param_fields = [&invalid_param_field];
-
         let get_info = Method::new("GetInfo", &[], &get_info_outputs);
+
+        let get_interface_desc_inputs = [&Parameter::new("interface", <&str>::TYPE_INFO)];
+        let get_interface_desc_outputs = [&Parameter::new("description", <&str>::TYPE_INFO)];
         let get_interface_desc = Method::new(
             "GetInterfaceDescription",
             &get_interface_desc_inputs,
             &get_interface_desc_outputs,
         );
+
+        let interface_not_found_fields = [&Field::new("interface", <&str>::TYPE_INFO)];
         let interface_not_found = Error::new("InterfaceNotFound", &interface_not_found_fields);
+
+        let method_not_found_fields = [&Field::new("method", <&str>::TYPE_INFO)];
         let method_not_found = Error::new("MethodNotFound", &method_not_found_fields);
+
+        let method_not_impl_fields = [&Field::new("method", <&str>::TYPE_INFO)];
         let method_not_impl = Error::new("MethodNotImplemented", &method_not_impl_fields);
+
+        let invalid_param_fields = [&Field::new("parameter", <&str>::TYPE_INFO)];
         let invalid_param = Error::new("InvalidParameter", &invalid_param_fields);
+
         let permission_denied = Error::new("PermissionDenied", &[]);
         let expected_more = Error::new("ExpectedMore", &[]);
 
