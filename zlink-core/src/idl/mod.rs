@@ -11,7 +11,10 @@ mod r#type;
 pub use r#type::{Type, TypeRef};
 
 mod custom_type;
-pub use custom_type::{CustomType, Field, Parameter};
+pub use custom_type::CustomType;
+
+mod field;
+pub use field::{Field, Parameter};
 
 mod method;
 pub use method::Method;
