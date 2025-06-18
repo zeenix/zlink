@@ -6,9 +6,9 @@
 use winnow::{
     ascii::multispace0,
     combinator::{alt, separated},
-    error::{ErrMode, ErrorKind, ParserError},
+    error::{ErrMode, InputError, ParserError},
     token::{literal, take_while},
-    PResult, Parser,
+    ModalResult, Parser,
 };
 
 use super::{CustomType, Error, Field, Interface, List, Member, Method, Parameter, Type, TypeRef};
@@ -17,7 +17,7 @@ use super::{CustomType, Error, Field, Interface, List, Member, Method, Parameter
 use std::vec::Vec;
 
 /// Parse whitespace.
-fn ws(input: &mut &[u8]) -> PResult<()> {
+fn ws<'a>(input: &mut &'a [u8]) -> ModalResult<(), InputError<&'a [u8]>> {
     multispace0.parse_next(input).map(|_| ())
 }
 
@@ -28,16 +28,13 @@ fn bytes_to_str(bytes: &[u8]) -> &str {
 }
 
 /// Parse a field name: starts with letter, continues with alphanumeric and underscores.
-fn field_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
+fn field_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'a [u8]>> {
     let start = *input;
     let mut pos = 0;
 
     // First character must be alphabetic
     if pos >= input.len() || !input[pos].is_ascii_alphabetic() {
-        return Err(ErrMode::Backtrack(ParserError::from_error_kind(
-            input,
-            ErrorKind::Tag,
-        )));
+        return Err(ErrMode::Backtrack(ParserError::from_input(input)));
     }
     pos += 1;
 
@@ -52,13 +49,10 @@ fn field_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
 }
 
 /// Parse a type name: starts with uppercase letter, continues with alphanumeric.
-fn type_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
+fn type_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'a [u8]>> {
     let start = *input;
     if input.is_empty() || !input[0].is_ascii_uppercase() {
-        return Err(ErrMode::Backtrack(ParserError::from_error_kind(
-            input,
-            ErrorKind::Tag,
-        )));
+        return Err(ErrMode::Backtrack(ParserError::from_input(input)));
     }
 
     let mut end = 1;
@@ -72,7 +66,7 @@ fn type_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
 }
 
 /// Parse a primitive type.
-fn primitive_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn primitive_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     alt((
         literal("bool").map(|_| Type::Bool),
         literal("int").map(|_| Type::Int),
@@ -84,7 +78,7 @@ fn primitive_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
 }
 
 /// Parse a field in a struct or parameter list.
-fn field<'a>(input: &mut &'a [u8]) -> PResult<Field<'a>> {
+fn field<'a>(input: &mut &'a [u8]) -> ModalResult<Field<'a>, InputError<&'a [u8]>> {
     let name = field_name(input)?;
     ws(input)?;
     literal(":").parse_next(input)?;
@@ -94,7 +88,7 @@ fn field<'a>(input: &mut &'a [u8]) -> PResult<Field<'a>> {
 }
 
 /// Parse an inline struct type: (field1: type1, field2: type2).
-fn struct_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn struct_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     literal("(").parse_next(input)?;
     ws(input)?;
     let fields: Vec<Field<'a>> = separated(0.., field, (ws, literal(","), ws)).parse_next(input)?;
@@ -104,7 +98,7 @@ fn struct_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
 }
 
 /// Parse an inline enum type: (variant1, variant2, variant3).
-fn enum_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn enum_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     literal("(").parse_next(input)?;
     ws(input)?;
     let variants: Vec<&str> =
@@ -116,7 +110,7 @@ fn enum_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
 
 /// Parse an inline type (struct or enum).
 /// Determines if it's a struct by looking for ':' character.
-fn inline_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn inline_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     // Look ahead to see if this contains a colon (indicating struct)
     if let Some(pos) = input.iter().position(|&b| b == b')') {
         let content = &input[1..pos]; // Skip opening paren
@@ -126,60 +120,54 @@ fn inline_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
             enum_type(input)
         }
     } else {
-        Err(ErrMode::Backtrack(ParserError::from_error_kind(
-            input,
-            ErrorKind::Tag,
-        )))
+        Err(ErrMode::Backtrack(ParserError::from_input(input)))
     }
 }
 
 /// Parse an element type (primitive, custom, or inline).
-fn element_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn element_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     alt((primitive_type, type_name.map(Type::Custom), inline_type)).parse_next(input)
 }
 
 /// Parse an optional type: ?type.
-fn optional_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn optional_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     literal("?").parse_next(input)?;
     let inner = non_optional_type(input)?;
     Ok(Type::Optional(TypeRef::new_owned(inner)))
 }
 
 /// Parse any type except optional (to avoid recursion).
-fn non_optional_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn non_optional_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     alt((array_type, map_type, element_type)).parse_next(input)
 }
 
 /// Parse an array type: []type.
-fn array_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn array_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     literal("[]").parse_next(input)?;
     let inner = varlink_type(input)?;
     Ok(Type::Array(TypeRef::new_owned(inner)))
 }
 
 /// Parse a map type: [string]type.
-fn map_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn map_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     literal("[string]").parse_next(input)?;
     let inner = varlink_type(input)?;
     Ok(Type::Map(TypeRef::new_owned(inner)))
 }
 
 /// Parse any Varlink type.
-fn varlink_type<'a>(input: &mut &'a [u8]) -> PResult<Type<'a>> {
+fn varlink_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     alt((optional_type, array_type, map_type, element_type)).parse_next(input)
 }
 
 /// Parse an interface name: reverse domain notation like org.example.test.
-fn interface_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
+fn interface_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'a [u8]>> {
     let start = *input;
     let mut pos = 0;
 
     // First segment: [A-Za-z]([-]*[A-Za-z0-9])*
     if pos >= input.len() || !input[pos].is_ascii_alphabetic() {
-        return Err(ErrMode::Backtrack(ParserError::from_error_kind(
-            input,
-            ErrorKind::Tag,
-        )));
+        return Err(ErrMode::Backtrack(ParserError::from_input(input)));
     }
     pos += 1;
 
@@ -207,10 +195,7 @@ fn interface_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
 
     // Check for at least one dot
     if !found_dot {
-        return Err(ErrMode::Backtrack(ParserError::from_error_kind(
-            input,
-            ErrorKind::Tag,
-        )));
+        return Err(ErrMode::Backtrack(ParserError::from_input(input)));
     }
 
     let name_bytes = &start[0..pos];
@@ -220,7 +205,7 @@ fn interface_name<'a>(input: &mut &'a [u8]) -> PResult<&'a str> {
 
 /// Parse a parameter definition: name: type.
 /// Parse a parameter: name: type.
-fn parameter<'a>(input: &mut &'a [u8]) -> PResult<Parameter<'a>> {
+fn parameter<'a>(input: &mut &'a [u8]) -> ModalResult<Parameter<'a>, InputError<&'a [u8]>> {
     let name = field_name(input)?;
     ws(input)?;
     literal(":").parse_next(input)?;
@@ -230,7 +215,9 @@ fn parameter<'a>(input: &mut &'a [u8]) -> PResult<Parameter<'a>> {
 }
 
 /// Parse a parameter list: (param1: type1, param2: type2).
-fn parameter_list<'a>(input: &mut &'a [u8]) -> PResult<Vec<Parameter<'a>>> {
+fn parameter_list<'a>(
+    input: &mut &'a [u8],
+) -> ModalResult<Vec<Parameter<'a>>, InputError<&'a [u8]>> {
     literal("(").parse_next(input)?;
     ws(input)?;
     let params: Vec<Parameter<'a>> =
@@ -241,7 +228,7 @@ fn parameter_list<'a>(input: &mut &'a [u8]) -> PResult<Vec<Parameter<'a>>> {
 }
 
 /// Parse a method definition: method Name(params) -> (returns).
-fn method_def<'a>(input: &mut &'a [u8]) -> PResult<Method<'a>> {
+fn method_def<'a>(input: &mut &'a [u8]) -> ModalResult<Method<'a>, InputError<&'a [u8]>> {
     literal("method").parse_next(input)?;
     take_while(1.., |c: u8| c.is_ascii_whitespace()).parse_next(input)?;
     let name = type_name(input)?;
@@ -256,7 +243,7 @@ fn method_def<'a>(input: &mut &'a [u8]) -> PResult<Method<'a>> {
 }
 
 /// Parse an error definition: error Name (fields).
-fn error_def<'a>(input: &mut &'a [u8]) -> PResult<Error<'a>> {
+fn error_def<'a>(input: &mut &'a [u8]) -> ModalResult<Error<'a>, InputError<&'a [u8]>> {
     literal("error").parse_next(input)?;
     take_while(1.., |c: u8| c.is_ascii_whitespace()).parse_next(input)?;
     let name = type_name(input)?;
@@ -267,7 +254,7 @@ fn error_def<'a>(input: &mut &'a [u8]) -> PResult<Error<'a>> {
 }
 
 /// Parse a type definition: type Name <definition>.
-fn type_def<'a>(input: &mut &'a [u8]) -> PResult<CustomType<'a>> {
+fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<&'a [u8]>> {
     literal("type").parse_next(input)?;
     take_while(1.., |c: u8| c.is_ascii_whitespace()).parse_next(input)?;
     let name = type_name(input)?;
@@ -283,7 +270,7 @@ fn type_def<'a>(input: &mut &'a [u8]) -> PResult<CustomType<'a>> {
 }
 
 /// Parse a member definition (type, method, or error).
-fn member_def<'a>(input: &mut &'a [u8]) -> PResult<Member<'a>> {
+fn member_def<'a>(input: &mut &'a [u8]) -> ModalResult<Member<'a>, InputError<&'a [u8]>> {
     alt((
         type_def.map(Member::Custom),
         method_def.map(Member::Method),
@@ -293,7 +280,7 @@ fn member_def<'a>(input: &mut &'a [u8]) -> PResult<Member<'a>> {
 }
 
 /// Parse an interface definition.
-fn interface_def<'a>(input: &mut &'a [u8]) -> PResult<Interface<'a>> {
+fn interface_def<'a>(input: &mut &'a [u8]) -> ModalResult<Interface<'a>, InputError<&'a [u8]>> {
     literal("interface").parse_next(input)?;
     take_while(1.., |c: u8| c.is_ascii_whitespace()).parse_next(input)?;
     let name = interface_name(input)?;
@@ -358,7 +345,7 @@ pub(super) fn parse_field(input: &str) -> Result<Field<'_>, crate::Error> {
 /// Helper function to parse from string using byte-based parsers.
 fn parse_from_str<'a, T>(
     input: &'a str,
-    parser: impl Fn(&mut &'a [u8]) -> PResult<T>,
+    parser: impl Fn(&mut &'a [u8]) -> ModalResult<T, InputError<&'a [u8]>>,
 ) -> Result<T, crate::Error> {
     let input_bytes = input.trim().as_bytes();
     if input_bytes.is_empty() {
