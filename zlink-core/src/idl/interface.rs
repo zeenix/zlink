@@ -200,6 +200,43 @@ mod tests {
             .as_str()
             .contains("error InterfaceNotFound (interface: string)"));
         assert!(idl.as_str().contains("error PermissionDenied ()"));
+
+        // Test parsing the official org.varlink.service IDL and compare with manually constructed
+        #[cfg(feature = "idl-parse")]
+        {
+            use crate::idl::parse;
+
+            const ORG_VARLINK_SERVICE_IDL: &str = r#"interface org.varlink.service
+
+method GetInfo() -> (
+  vendor: string,
+  product: string,
+  version: string,
+  url: string,
+  interfaces: []string
+)
+
+method GetInterfaceDescription(interface: string) -> (description: string)
+
+error InterfaceNotFound (interface: string)
+
+error MethodNotFound (method: string)
+
+error MethodNotImplemented (method: string)
+
+error InvalidParameter (parameter: string)
+
+error PermissionDenied ()
+
+error ExpectedMore ()
+"#;
+
+            let parsed_interface = parse::parse_interface(ORG_VARLINK_SERVICE_IDL)
+                .expect("Failed to parse org.varlink.service IDL");
+
+            // Compare the parsed interface with our manually constructed one
+            assert_eq!(parsed_interface, interface);
+        }
     }
 
     #[test]
