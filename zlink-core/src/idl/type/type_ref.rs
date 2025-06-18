@@ -8,15 +8,15 @@ use std::boxed::Box;
 pub struct TypeRef<'a>(TypeRefInner<'a>);
 
 impl<'a> TypeRef<'a> {
-    /// Creates a new type reference with an owned type.
-    #[cfg(feature = "std")]
-    pub fn new(inner: Type<'a>) -> Self {
-        Self(TypeRefInner::Owned(Box::new(inner)))
+    /// Creates a new type reference with a borrowed type reference.
+    pub const fn new(inner: &'a Type<'a>) -> Self {
+        Self(TypeRefInner::Borrowed(inner))
     }
 
-    /// Creates a new type reference with a borrowed type reference.
-    pub const fn borrowed(inner: &'a Type<'a>) -> Self {
-        Self(TypeRefInner::Borrowed(inner))
+    /// Creates a new type reference with an owned type.
+    #[cfg(feature = "std")]
+    pub fn new_owned(inner: Type<'a>) -> Self {
+        Self(TypeRefInner::Owned(Box::new(inner)))
     }
 
     /// Returns a reference to the inner type.

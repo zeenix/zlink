@@ -26,7 +26,7 @@ impl<'a> Field<'a> {
     pub const fn new(name: &'a str, ty: &'a Type<'a>) -> Self {
         Self {
             name,
-            ty: TypeRef::borrowed(ty),
+            ty: TypeRef::new(ty),
         }
     }
 
@@ -35,7 +35,7 @@ impl<'a> Field<'a> {
     pub fn new_owned(name: &'a str, ty: Type<'a>) -> Self {
         Self {
             name,
-            ty: TypeRef::new(ty),
+            ty: TypeRef::new_owned(ty),
         }
     }
 

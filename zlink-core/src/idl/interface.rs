@@ -123,7 +123,7 @@ mod tests {
         let product_param = Parameter::new("product", <&str>::TYPE_INFO);
         let version_param = Parameter::new("version", <&str>::TYPE_INFO);
         let url_param = Parameter::new("url", <&str>::TYPE_INFO);
-        let interfaces_type = Type::Array(TypeRef::borrowed(&Type::String));
+        let interfaces_type = Type::Array(TypeRef::new(&Type::String));
         let interfaces_param = Parameter::new("interfaces", &interfaces_type);
         let get_info_outputs = [
             &vendor_param,
