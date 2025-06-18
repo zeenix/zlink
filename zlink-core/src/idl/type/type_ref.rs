@@ -56,9 +56,9 @@ impl<'a> TypeRefInner<'a> {
     /// A reference to the inner type.
     fn ty(&self) -> &Type<'a> {
         match self {
-            TypeRefInner::Borrowed(inner) => *inner,
+            TypeRefInner::Borrowed(inner) => inner,
             #[cfg(feature = "std")]
-            TypeRefInner::Owned(inner) => &inner,
+            TypeRefInner::Owned(inner) => inner,
         }
     }
 }
