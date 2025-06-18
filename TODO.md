@@ -2,8 +2,7 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
-    * Test for parsing org.varlink.service IDL
-    * Test for parsing io.systemd.Resolve IDL
+    * Add idl testing to CI
     * Update to latest winnow
     * `introspect` module containing [Introspection](https://varlink.org/Service>) API
       * structs for methods and errors (to be used for client and server)
