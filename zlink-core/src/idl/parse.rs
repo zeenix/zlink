@@ -136,7 +136,7 @@ fn element_type<'a>(input: &'a [u8]) -> IResult<&'a [u8], Type<'a>> {
 fn optional_type<'a>(input: &'a [u8]) -> IResult<&'a [u8], Type<'a>> {
     let (input, _) = tag("?")(input)?;
     let (input, inner) = non_optional_type(input)?;
-    Ok((input, Type::Optional(TypeRef::new(inner))))
+    Ok((input, Type::Optional(TypeRef::new_owned(inner))))
 }
 
 /// Parse any type except optional (to avoid recursion).
@@ -148,14 +148,14 @@ fn non_optional_type<'a>(input: &'a [u8]) -> IResult<&'a [u8], Type<'a>> {
 fn array_type<'a>(input: &'a [u8]) -> IResult<&'a [u8], Type<'a>> {
     let (input, _) = tag("[]")(input)?;
     let (input, inner) = varlink_type(input)?;
-    Ok((input, Type::Array(TypeRef::new(inner))))
+    Ok((input, Type::Array(TypeRef::new_owned(inner))))
 }
 
 /// Parse a map type: [string]type.
 fn map_type<'a>(input: &'a [u8]) -> IResult<&'a [u8], Type<'a>> {
     let (input, _) = tag("[string]")(input)?;
     let (input, inner) = varlink_type(input)?;
-    Ok((input, Type::Map(TypeRef::new(inner))))
+    Ok((input, Type::Map(TypeRef::new_owned(inner))))
 }
 
 /// Parse any Varlink type.
@@ -584,7 +584,7 @@ mod tests {
         let input = "items: []int";
         let field = parse_field(input).unwrap();
         assert_eq!(field.name(), "items");
-        assert_eq!(field.ty(), &Type::Array(TypeRef::borrowed(&Type::Int)));
+        assert_eq!(field.ty(), &Type::Array(TypeRef::new(&Type::Int)));
     }
 
     #[test]

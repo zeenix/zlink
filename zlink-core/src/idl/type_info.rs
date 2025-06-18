@@ -28,17 +28,17 @@ impl_type_info!(String => Type::String);
 
 // Optional types.
 impl<T: TypeInfo> TypeInfo for Option<T> {
-    const TYPE_INFO: &'static Type<'static> = &Type::Optional(TypeRef::borrowed(T::TYPE_INFO));
+    const TYPE_INFO: &'static Type<'static> = &Type::Optional(TypeRef::new(T::TYPE_INFO));
 }
 
 // Array types.
 #[cfg(feature = "std")]
 impl<T: TypeInfo> TypeInfo for Vec<T> {
-    const TYPE_INFO: &'static Type<'static> = &Type::Array(TypeRef::borrowed(T::TYPE_INFO));
+    const TYPE_INFO: &'static Type<'static> = &Type::Array(TypeRef::new(T::TYPE_INFO));
 }
 
 impl<T: TypeInfo> TypeInfo for &[T] {
-    const TYPE_INFO: &'static Type<'static> = &Type::Array(TypeRef::borrowed(T::TYPE_INFO));
+    const TYPE_INFO: &'static Type<'static> = &Type::Array(TypeRef::new(T::TYPE_INFO));
 }
 
 // For raw objects.

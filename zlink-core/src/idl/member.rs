@@ -97,7 +97,7 @@ mod tests {
         #[cfg(feature = "std")]
         {
             use crate::idl::TypeRef;
-            let interfaces_type = Type::Array(TypeRef::borrowed(<&str>::TYPE_INFO));
+            let interfaces_type = Type::Array(TypeRef::new(<&str>::TYPE_INFO));
             let outputs = vec![
                 Parameter::new("vendor", <&str>::TYPE_INFO),
                 Parameter::new("product", <&str>::TYPE_INFO),

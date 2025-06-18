@@ -148,28 +148,33 @@ mod tests {
         let mut buf = mayheap::String::<64>::new();
 
         buf.clear();
-        write!(buf, "{}", Type::Optional(TypeRef::borrowed(&INT_TYPE))).unwrap();
+        write!(buf, "{}", Type::Optional(TypeRef::new(&INT_TYPE))).unwrap();
         assert_eq!(buf, "?int");
 
         buf.clear();
-        write!(buf, "{}", Type::Array(TypeRef::borrowed(&STRING_TYPE))).unwrap();
+        write!(buf, "{}", Type::Array(TypeRef::new(&STRING_TYPE))).unwrap();
         assert_eq!(buf, "[]string");
 
         buf.clear();
-        write!(buf, "{}", Type::Map(TypeRef::borrowed(&BOOL_TYPE))).unwrap();
+        write!(buf, "{}", Type::Map(TypeRef::new(&BOOL_TYPE))).unwrap();
         assert_eq!(buf, "[string]bool");
 
         // Test with owned variants
         #[cfg(feature = "std")]
         {
-            assert_eq!(Type::Optional(TypeRef::new(Type::Int)).to_string(), "?int");
             assert_eq!(
-                Type::Array(TypeRef::new(Type::String)).to_string(),
+                Type::Optional(TypeRef::new_owned(Type::Int)).to_string(),
+                "?int"
+            );
+            assert_eq!(
+                Type::Array(TypeRef::new_owned(Type::String)).to_string(),
                 "[]string"
             );
 
             // Test complex nested types
-            let nested_type = Type::Array(TypeRef::new(Type::Optional(TypeRef::new(Type::String))));
+            let nested_type = Type::Array(TypeRef::new_owned(Type::Optional(TypeRef::new_owned(
+                Type::String,
+            ))));
             assert_eq!(nested_type.to_string(), "[]?string");
 
             // Test inline enum
@@ -187,7 +192,7 @@ mod tests {
 
     #[test]
     fn type_serialization() {
-        let ty = Type::Array(TypeRef::borrowed(&Type::Int));
+        let ty = Type::Array(TypeRef::new(&Type::Int));
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&ty).unwrap();
         #[cfg(feature = "embedded")]

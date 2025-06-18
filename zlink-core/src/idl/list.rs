@@ -12,7 +12,7 @@ use std::vec::Vec;
 ///
 /// This type is useful for const contexts where we need borrowed data,
 /// as well as for deserialization where we need owned data.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub enum List<'a, T> {
     /// Borrowed slice of references, useful for const contexts.
     Borrowed(&'a [&'a T]),
@@ -123,6 +123,19 @@ impl<'a, T> From<&'a [&'a T]> for List<'a, T> {
     }
 }
 
+impl<'a, T> PartialEq for List<'a, T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+
+        self.iter().zip(other.iter()).all(|(a, b)| a == b)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,6 +199,34 @@ mod tests {
         match list {
             List::Owned(vec) => assert_eq!(vec, vec![1, 2, 3]),
             _ => panic!("Expected owned list"),
+        }
+    }
+
+    #[test]
+    fn list_partial_eq_cross_variant() {
+        // Test that borrowed and owned variants compare equal when they have the same content
+        static ITEM_ONE: &str = "one";
+        static ITEM_TWO: &str = "two";
+        static ITEM_THREE: &str = "three";
+        static REFS: [&'static &str; 3] = [&ITEM_ONE, &ITEM_TWO, &ITEM_THREE];
+        let borrowed_list: List<'_, &str> = List::Borrowed(&REFS);
+
+        #[cfg(feature = "std")]
+        {
+            let owned_list: List<'_, &str> = List::Owned(vec!["one", "two", "three"]);
+            assert_eq!(borrowed_list, owned_list);
+            assert_eq!(owned_list, borrowed_list);
+        }
+
+        // Test that lists with different content are not equal
+        static OTHER_REFS: [&'static &str; 2] = [&ITEM_ONE, &ITEM_TWO];
+        let different_borrowed: List<'_, &str> = List::Borrowed(&OTHER_REFS);
+        assert_ne!(borrowed_list, different_borrowed);
+
+        #[cfg(feature = "std")]
+        {
+            let different_owned: List<'_, &str> = List::Owned(vec!["one", "two"]);
+            assert_ne!(borrowed_list, different_owned);
         }
     }
 }
