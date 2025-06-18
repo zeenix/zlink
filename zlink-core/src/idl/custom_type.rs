@@ -107,6 +107,7 @@ impl<'a> Field<'a> {
     }
 
     /// Same as `new` but takes `ty` by value.
+    #[cfg(feature = "std")]
     pub fn new_owned(name: &'a str, ty: Type<'a>) -> Self {
         Self {
             name,
