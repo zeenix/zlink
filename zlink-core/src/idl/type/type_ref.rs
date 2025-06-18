@@ -3,6 +3,10 @@ use core::{fmt, ops::Deref};
 #[cfg(feature = "std")]
 use std::boxed::Box;
 
+/// A type reference that can be either borrowed or owned.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeRef<'a>(TypeRefInner<'a>);
+
 impl<'a> TypeRef<'a> {
     /// Creates a new type reference with an owned type.
     #[cfg(feature = "std")]
@@ -40,10 +44,6 @@ impl<'a> PartialEq<Type<'a>> for TypeRef<'a> {
         self.inner() == other
     }
 }
-
-/// A type reference that can be either borrowed or owned.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypeRef<'a>(TypeRefInner<'a>);
 
 #[derive(Debug, Clone, Eq)]
 enum TypeRefInner<'a> {
