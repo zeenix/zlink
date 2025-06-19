@@ -2,8 +2,6 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
-    * Add idl testing to CI
-    * Update to latest winnow
     * `introspect` module containing [Introspection](https://varlink.org/Service>) API
       * structs for methods and errors (to be used for client and server)
         * impl Serialize+Deserialize in such a way that it can be used as return value of service and
