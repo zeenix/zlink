@@ -31,8 +31,8 @@ pub use interface::Interface;
 mod type_info;
 pub use type_info::TypeInfo;
 
-mod reply_errors;
-pub use reply_errors::ReplyErrors;
+mod reply_error;
+pub use reply_error::ReplyError;
 
 #[cfg(feature = "idl-parse")]
 mod parse;
