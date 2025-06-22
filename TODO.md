@@ -11,8 +11,9 @@
       * types for methods and errors (to be used for client and server)
         * `ServiceInfo` struct
         * `Error` enum (make use of `ReplyError` derive)
-      * `IntrospectionProxy`
+      * `Proxy`
         * client-side API
+        * `new` method takes a `Connection` instance.
   * zlink
     * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
       * Make use of `zlink_core::introspect` and macros
