@@ -1,22 +1,21 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * zlink-core
-    * `introspect` module containing [Introspection](https://varlink.org/Service>) API
-      * structs for methods and errors (to be used for client and server)
-        * impl Serialize+Deserialize in such a way that it can be used as return value of service and
-        connection (for client-side)
-      * Make use of zlink-macros' derives
-      * `IntrospectionProxy`
-        * client-side API
-    * cargo features to allow use of `idl` only
   * zlink-macros
     * Provide introspection derives
-      * `TypeInfo`
-      * `ReplyErrors`
+      * `TypeInfo` (only structs supported)
+      * `ReplyError` (only enums supported)
+    * Re-export from zlink
+  * zlink-core
+    * `introspect` module containing [Introspection](https://varlink.org/Service>) API
+      * types for methods and errors (to be used for client and server)
+        * `ServiceInfo` struct
+        * `Error` enum (make use of `ReplyError` derive)
+      * `IntrospectionProxy`
+        * client-side API
   * zlink
     * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
-      * Make use of `zlink_core::introspect` and `zlink-macros`
+      * Make use of `zlink_core::introspect` and macros
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default)`proxy` feature
@@ -29,6 +28,8 @@
       * Add required API to `Service` trait first
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
+* zlink-core
+  * cargo features to allow use of `idl` only
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
 * zlink-usb
