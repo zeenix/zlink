@@ -10,6 +10,9 @@ repository.workspace = true
 [features]
 default = ["tokio"]
 tokio = ["dep:zlink-tokio"]
+idl = ["zlink-tokio/idl"]
+idl-parse = ["zlink-tokio/idl-parse"]
+introspection = ["zlink-tokio/introspection"]
 
 [dependencies]
 zlink-tokio = { path = "../zlink-tokio", version = "0.0.1-alpha.1", default-features = false, optional = true }
