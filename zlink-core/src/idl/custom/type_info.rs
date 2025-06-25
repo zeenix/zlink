@@ -76,7 +76,7 @@ mod tests {
             Type::Object(obj) => {
                 assert_eq!(obj.name(), "Point");
 
-                let fields: Vec<_> = obj.fields().collect();
+                let fields: mayheap::Vec<_, 8> = obj.fields().collect();
                 assert_eq!(fields.len(), 2);
 
                 assert_eq!(fields[0].name(), "x");
@@ -95,7 +95,7 @@ mod tests {
             Type::Enum(enm) => {
                 assert_eq!(enm.name(), "Status");
 
-                let variants: Vec<_> = enm.variants().collect();
+                let variants: mayheap::Vec<_, 8> = enm.variants().collect();
                 assert_eq!(variants.len(), 3);
 
                 assert_eq!(*variants[0], "Active");
