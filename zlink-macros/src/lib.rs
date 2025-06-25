@@ -10,24 +10,42 @@
 #[cfg(feature = "idl")]
 mod type_info;
 
-/// Derives `TypeInfo` for structs, generating appropriate `Type::Object` representation.
+/// Derives `TypeInfo` for structs and enums, generating appropriate `Type::Object` or `Type::Enum`
+/// representation.
 ///
-/// This macro only supports structs with named fields (and unit structs). It will generate a
+/// ## Structs
+///
+/// For structs, this macro supports named fields and unit structs. It will generate a
 /// `TypeInfo` implementation that creates a `Type::Object` containing all the fields with their
 /// names and types. Tuple structs are not supported as Varlink does not support unnamed fields.
+///
+/// ## Enums
+///
+/// For enums, this macro only supports unit variants (variants without associated data). It will
+/// generate a `TypeInfo` implementation that creates a `Type::Enum` containing all the variant
+/// names.
 ///
 /// # Limitations
 ///
 /// The following types are **not** supported by this macro:
 ///
 /// - **Tuple structs**: Varlink does not support unnamed fields
-/// - **Enums**: Use the `ReplyError` derive macro for error enums instead
+/// - **Enums with data**: Only unit enums (variants without associated data) are supported
 /// - **Unions**: Not supported by Varlink
 ///
 /// ```rust,compile_fail
 /// # use zlink::idl::TypeInfo;
 /// #[derive(TypeInfo)]  // This will fail to compile
 /// struct Point(f32, f32, f32);
+/// ```
+///
+/// ```rust,compile_fail
+/// # use zlink::idl::TypeInfo;
+/// #[derive(TypeInfo)]  // This will fail to compile
+/// enum Status {
+///     Active(String),  // Variants with data are not supported
+///     Inactive,
+/// }
 /// ```
 ///
 /// # Examples
@@ -108,6 +126,30 @@ mod type_info;
 ///         }
 ///     }
 ///     _ => panic!("Expected struct type"),
+/// }
+/// ```
+///
+/// ## Unit Enums
+///
+/// ```rust
+/// # use zlink::idl::{TypeInfo, Type};
+/// #[derive(TypeInfo)]
+/// enum Status {
+///     Active,
+///     Inactive,
+///     Pending,
+/// }
+///
+/// // Unit enums generate variant lists
+/// match Status::TYPE_INFO {
+///     Type::Enum(variants) => {
+///         let variant_vec: Vec<_> = variants.iter().collect();
+///         assert_eq!(variant_vec.len(), 3);
+///         assert_eq!(*variant_vec[0], "Active");
+///         assert_eq!(*variant_vec[1], "Inactive");
+///         assert_eq!(*variant_vec[2], "Pending");
+///     }
+///     _ => panic!("Expected enum type"),
 /// }
 /// ```
 ///

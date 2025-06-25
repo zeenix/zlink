@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{Data, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed};
+use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed};
 
 /// Main entry point for the TypeInfo derive macro.
 pub(crate) fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -20,36 +20,48 @@ fn derive_type_info_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     // Check for unsupported attributes.
     check_attributes(&input.attrs)?;
 
-    // Only support structs.
-    let fields = match &input.data {
-        Data::Struct(data_struct) => &data_struct.fields,
-        Data::Enum(_) => {
-            return Err(Error::new_spanned(
-                input,
-                "TypeInfo derive macro only supports structs, not enums",
-            ));
+    let expanded = match &input.data {
+        Data::Struct(data_struct) => {
+            let fields = &data_struct.fields;
+            let (field_statics, field_refs) = generate_field_definitions(name, fields)?;
+
+            quote! {
+                impl #impl_generics ::zlink::idl::TypeInfo for #name #ty_generics #where_clause {
+                    const TYPE_INFO: &'static ::zlink::idl::Type<'static> = &{
+                        #(#field_statics)*
+
+                        static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
+                            #(#field_refs),*
+                        ];
+
+                        ::zlink::idl::Type::Object(::zlink::idl::List::Borrowed(FIELD_REFS))
+                    };
+                }
+            }
+        }
+        Data::Enum(data_enum) => {
+            let (variant_statics, variant_refs) =
+                generate_enum_variant_definitions(name, data_enum)?;
+
+            quote! {
+                impl #impl_generics ::zlink::idl::TypeInfo for #name #ty_generics #where_clause {
+                    const TYPE_INFO: &'static ::zlink::idl::Type<'static> = &{
+                        #(#variant_statics)*
+
+                        static VARIANT_REFS: &[&'static &'static str] = &[
+                            #(#variant_refs),*
+                        ];
+
+                        ::zlink::idl::Type::Enum(::zlink::idl::List::Borrowed(VARIANT_REFS))
+                    };
+                }
+            }
         }
         Data::Union(_) => {
             return Err(Error::new_spanned(
                 input,
-                "TypeInfo derive macro only supports structs, not unions",
+                "TypeInfo derive macro only supports structs and enums, not unions",
             ));
-        }
-    };
-
-    let (field_statics, field_refs) = generate_field_definitions(name, fields)?;
-
-    let expanded = quote! {
-        impl #impl_generics ::zlink::idl::TypeInfo for #name #ty_generics #where_clause {
-            const TYPE_INFO: &'static ::zlink::idl::Type<'static> = &{
-                #(#field_statics)*
-
-                static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
-                    #(#field_refs),*
-                ];
-
-                ::zlink::idl::Type::Object(::zlink::idl::List::Borrowed(FIELD_REFS))
-            };
         }
     };
 
@@ -115,4 +127,48 @@ fn generate_field_definitions(
             Ok((Vec::new(), Vec::new()))
         }
     }
+}
+
+fn generate_enum_variant_definitions(
+    _enum_name: &syn::Ident,
+    data_enum: &DataEnum,
+) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
+    let mut variant_statics = Vec::new();
+    let mut variant_refs = Vec::new();
+
+    for variant in &data_enum.variants {
+        // Check for unsupported variant attributes.
+        check_attributes(&variant.attrs)?;
+
+        // Only support unit variants (no associated data).
+        match &variant.fields {
+            Fields::Unit => {
+                let variant_name = variant.ident.to_string();
+                let static_name = quote::format_ident!("VARIANT_{}", variant_name.to_uppercase());
+
+                let variant_static = quote! {
+                    static #static_name: &'static str = #variant_name;
+                };
+
+                let variant_ref = quote! { &#static_name };
+
+                variant_statics.push(variant_static);
+                variant_refs.push(variant_ref);
+            }
+            Fields::Named(_) => {
+                return Err(Error::new_spanned(
+                    variant,
+                    "TypeInfo derive macro only supports unit enum variants, not struct variants",
+                ));
+            }
+            Fields::Unnamed(_) => {
+                return Err(Error::new_spanned(
+                    variant,
+                    "TypeInfo derive macro only supports unit enum variants, not tuple variants",
+                ));
+            }
+        }
+    }
+
+    Ok((variant_statics, variant_refs))
 }

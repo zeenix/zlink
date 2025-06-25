@@ -21,6 +21,14 @@ struct Unit;
 
 #[derive(TypeInfo)]
 #[allow(dead_code)]
+enum Status {
+    Active,
+    Inactive,
+    Pending,
+}
+
+#[derive(TypeInfo)]
+#[allow(dead_code)]
 struct Complex {
     id: u64,
     tags: Vec<String>,
@@ -115,5 +123,20 @@ fn test_trait_and_macro_same_name() {
             assert_eq!(field_vec[0].ty(), &Type::Int);
         }
         _ => panic!("Expected struct type"),
+    }
+}
+
+#[test]
+fn test_enum_typeinfo_integration() {
+    // This test verifies that enum TypeInfo works with the main API
+    match Status::TYPE_INFO {
+        Type::Enum(variants) => {
+            let variant_vec: Vec<_> = variants.iter().collect();
+            assert_eq!(variant_vec.len(), 3);
+            assert_eq!(*variant_vec[0], "Active");
+            assert_eq!(*variant_vec[1], "Inactive");
+            assert_eq!(*variant_vec[2], "Pending");
+        }
+        _ => panic!("Expected enum type for Status"),
     }
 }

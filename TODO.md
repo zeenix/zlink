@@ -1,8 +1,6 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * zlink-macros
-    * `TypeInfo` to support unit (only unit variants) enums
   * zlink-core
     * Add `custom::TypeInfo` trait
       * similar to `TypeInfo` but impl provides a `custom::Type`

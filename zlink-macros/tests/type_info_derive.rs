@@ -1,5 +1,6 @@
 use zlink::idl::{Type, TypeInfo};
 
+// Force diagnostics refresh
 #[test]
 fn named_struct_type_info() {
     match Person::TYPE_INFO {
@@ -99,12 +100,58 @@ fn primitives_struct_type_info() {
     }
 }
 
+#[test]
+fn basic_enum_type_info() {
+    match Status::TYPE_INFO {
+        Type::Enum(variants) => {
+            let variant_vec: Vec<_> = variants.iter().collect();
+            assert_eq!(variant_vec.len(), 3);
+            assert_eq!(*variant_vec[0], "Active");
+            assert_eq!(*variant_vec[1], "Inactive");
+            assert_eq!(*variant_vec[2], "Pending");
+        }
+        _ => panic!("Expected enum type for Status"),
+    }
+}
+
+#[test]
+fn multi_variant_enum_type_info() {
+    match Color::TYPE_INFO {
+        Type::Enum(variants) => {
+            let variant_vec: Vec<_> = variants.iter().collect();
+            assert_eq!(variant_vec.len(), 6);
+            assert_eq!(*variant_vec[0], "Red");
+            assert_eq!(*variant_vec[1], "Green");
+            assert_eq!(*variant_vec[2], "Blue");
+            assert_eq!(*variant_vec[3], "Yellow");
+            assert_eq!(*variant_vec[4], "Orange");
+            assert_eq!(*variant_vec[5], "Purple");
+        }
+        _ => panic!("Expected enum type for Color"),
+    }
+}
+
+#[test]
+fn single_variant_enum_type_info() {
+    match UnitEnum::TYPE_INFO {
+        Type::Enum(variants) => {
+            let variant_vec: Vec<_> = variants.iter().collect();
+            assert_eq!(variant_vec.len(), 1);
+            assert_eq!(*variant_vec[0], "Only");
+        }
+        _ => panic!("Expected enum type for UnitEnum"),
+    }
+}
+
 // Test that the macro generates const-compatible code
 #[test]
 fn const_compatibility() {
     const _: &Type<'static> = Person::TYPE_INFO;
     const _: &Type<'static> = Unit::TYPE_INFO;
     const _: &Type<'static> = Complex::TYPE_INFO;
+    const _: &Type<'static> = Status::TYPE_INFO;
+    const _: &Type<'static> = Color::TYPE_INFO;
+    const _: &Type<'static> = UnitEnum::TYPE_INFO;
 }
 
 #[test]
@@ -189,4 +236,32 @@ struct PersonWithAddress {
 struct Address {
     street: String,
     city: String,
+}
+
+// Test basic unit enum
+#[derive(TypeInfo)]
+#[allow(unused)]
+enum Status {
+    Active,
+    Inactive,
+    Pending,
+}
+
+// Test enum with more variants
+#[derive(TypeInfo)]
+#[allow(unused)]
+enum Color {
+    Red,
+    Green,
+    Blue,
+    Yellow,
+    Orange,
+    Purple,
+}
+
+// Test single variant enum
+#[derive(TypeInfo)]
+#[allow(unused)]
+enum UnitEnum {
+    Only,
 }
