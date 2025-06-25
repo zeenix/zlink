@@ -2,13 +2,6 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
-    * Fix `Type`
-      * `Object` should be called `ForeignObject`
-      * `Struct` should be named `Object`
-    * Fix `CustomType`: It needs to support enums too
-      * It should be an enum with these variants:
-        * `Struct`: named fields (just take current ones from existing `CustomType`)
-        * `Enum`: the same as `Type::Enum`
     * CustomTypeInfo trait
       * similar to `TypeInfo` but impl provides a `CustomType`
   * zlink-macros
