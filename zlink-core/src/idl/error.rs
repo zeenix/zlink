@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn error_serialization() {
         let message_field = Field::new("message", <&str>::TYPE_INFO);
-        let details_field = Field::new("details", &Type::Object);
+        let details_field = Field::new("details", &Type::ForeignObject);
         let fields = [&message_field, &details_field];
 
         let error = Error::new("ValidationError", &fields);
@@ -134,7 +134,7 @@ mod tests {
         assert_eq!(fields_vec[0].name(), "message");
         assert_eq!(fields_vec[0].ty(), &Type::String);
         assert_eq!(fields_vec[1].name(), "details");
-        assert_eq!(fields_vec[1].ty(), &Type::Object);
+        assert_eq!(fields_vec[1].ty(), &Type::ForeignObject);
 
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&error).unwrap();

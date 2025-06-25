@@ -44,7 +44,7 @@ impl<T: TypeInfo> TypeInfo for &[T] {
 // For raw objects.
 #[cfg(feature = "std")]
 impl TypeInfo for serde_json::Value {
-    const TYPE_INFO: &'static Type<'static> = &Type::Object;
+    const TYPE_INFO: &'static Type<'static> = &Type::ForeignObject;
 }
 
 #[cfg(test)]

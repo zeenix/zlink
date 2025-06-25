@@ -72,7 +72,7 @@ fn primitive_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<
         literal("int").map(|_| Type::Int),
         literal("float").map(|_| Type::Float),
         literal("string").map(|_| Type::String),
-        literal("object").map(|_| Type::Object),
+        literal("object").map(|_| Type::ForeignObject),
     ))
     .parse_next(input)
 }
@@ -376,7 +376,7 @@ mod tests {
         assert_eq!(parse_type("int").unwrap(), Type::Int);
         assert_eq!(parse_type("float").unwrap(), Type::Float);
         assert_eq!(parse_type("string").unwrap(), Type::String);
-        assert_eq!(parse_type("object").unwrap(), Type::Object);
+        assert_eq!(parse_type("object").unwrap(), Type::ForeignObject);
     }
 
     #[test]

@@ -23,7 +23,7 @@ pub enum Type<'a> {
     /// UTF-8 string.
     String,
     /// Foreign untyped object.
-    Object,
+    ForeignObject,
     /// Optional/nullable type.
     Optional(TypeRef<'a>),
     /// Array type.
@@ -45,7 +45,7 @@ impl<'a> fmt::Display for Type<'a> {
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),
             Type::String => write!(f, "string"),
-            Type::Object => write!(f, "object"),
+            Type::ForeignObject => write!(f, "object"),
             Type::Optional(optional) => write!(f, "?{}", optional),
             Type::Array(array) => write!(f, "[]{}", array),
             Type::Map(map) => write!(f, "[string]{}", map),
@@ -133,7 +133,7 @@ mod tests {
         assert_eq!(buf, "string");
 
         buf.clear();
-        write!(buf, "{}", Type::Object).unwrap();
+        write!(buf, "{}", Type::ForeignObject).unwrap();
         assert_eq!(buf, "object");
     }
 
