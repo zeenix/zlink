@@ -2,10 +2,10 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-macros
+    * Only enable needed features of `syn`
     * Provide introspection derives
-      * `TypeInfo` (only structs supported)
-      * `ReplyError` (only enums supported)
-    * Re-export from zlink
+      * `idl::ReplyError` (only enums supported)
+    * Re-export `ReplyError`from `zlink::idl` (similarly to `idl::TypeInfo`)
   * zlink-core
     * `introspect` module containing [Introspection](https://varlink.org/Service>) API
       * types for methods and errors (to be used for client and server)
@@ -27,6 +27,7 @@
     * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
       * Add required API to `Service` trait first
+      * will require all custom types to be declared in an attribute
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
 * zlink-core
