@@ -7,8 +7,7 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../README.md")]
 
-use proc_macro::TokenStream;
-
+#[cfg(feature = "idl")]
 mod type_info;
 
 /// Derives `TypeInfo` for structs, generating appropriate `Type::Object` representation.
@@ -111,7 +110,10 @@ mod type_info;
 ///     _ => panic!("Expected struct type"),
 /// }
 /// ```
+///
+/// This macro is only available when the `idl` feature is enabled.
 #[proc_macro_derive(TypeInfo)]
-pub fn derive_type_info(input: TokenStream) -> TokenStream {
+#[cfg(feature = "idl")]
+pub fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     type_info::derive_type_info(input)
 }

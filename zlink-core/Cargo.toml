@@ -17,7 +17,7 @@ io-buffer-4kb = []
 io-buffer-16kb = []
 io-buffer-1mb = []
 # IDL and introspection support
-idl = []
+idl = ["zlink-macros/idl"]
 idl-parse = ["idl", "dep:winnow", "std"]
 introspection = ["idl-parse"]
 
