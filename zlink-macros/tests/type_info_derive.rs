@@ -24,27 +24,6 @@ fn named_struct_type_info() {
 }
 
 #[test]
-fn tuple_struct_type_info() {
-    match Point::TYPE_INFO {
-        Type::Struct(fields) => {
-            let field_vec: Vec<_> = fields.iter().collect();
-            assert_eq!(field_vec.len(), 3);
-
-            // Check generated field names
-            assert_eq!(field_vec[0].name(), "field0");
-            assert_eq!(field_vec[0].ty(), &Type::Float);
-
-            assert_eq!(field_vec[1].name(), "field1");
-            assert_eq!(field_vec[1].ty(), &Type::Float);
-
-            assert_eq!(field_vec[2].name(), "field2");
-            assert_eq!(field_vec[2].ty(), &Type::Float);
-        }
-        _ => panic!("Expected struct type for Point"),
-    }
-}
-
-#[test]
 fn unit_struct_type_info() {
     match Unit::TYPE_INFO {
         Type::Struct(fields) => {
@@ -124,7 +103,6 @@ fn primitives_struct_type_info() {
 #[test]
 fn const_compatibility() {
     const _: &Type<'static> = Person::TYPE_INFO;
-    const _: &Type<'static> = Point::TYPE_INFO;
     const _: &Type<'static> = Unit::TYPE_INFO;
     const _: &Type<'static> = Complex::TYPE_INFO;
 }
@@ -171,11 +149,6 @@ struct Person {
     age: i32,
     active: bool,
 }
-
-// Test tuple struct
-#[derive(TypeInfo)]
-#[allow(unused)]
-struct Point(f32, f32, f32);
 
 // Test unit struct
 #[derive(TypeInfo)]

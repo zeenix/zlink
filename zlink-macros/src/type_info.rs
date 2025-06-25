@@ -106,33 +106,10 @@ fn generate_field_definitions(
 
             Ok((field_statics, field_refs))
         }
-        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
-            let mut field_statics = Vec::new();
-            let mut field_refs = Vec::new();
-
-            for (index, field) in unnamed.iter().enumerate() {
-                // Check for unsupported field attributes.
-                check_attributes(&field.attrs)?;
-                let field_type = &field.ty;
-                let field_name = format!("field{}", index);
-                let static_name = quote::format_ident!("FIELD_{}", index);
-
-                let field_static = quote! {
-                    static #static_name: ::zlink::idl::Field<'static> =
-                        ::zlink::idl::Field::new(
-                            #field_name,
-                            <#field_type as ::zlink::idl::TypeInfo>::TYPE_INFO
-                        );
-                };
-
-                let field_ref = quote! { &#static_name };
-
-                field_statics.push(field_static);
-                field_refs.push(field_ref);
-            }
-
-            Ok((field_statics, field_refs))
-        }
+        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => Err(Error::new_spanned(
+            unnamed,
+            "Only named fields are supported",
+        )),
         Fields::Unit => {
             // Unit structs have no fields.
             Ok((Vec::new(), Vec::new()))

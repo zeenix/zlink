@@ -17,10 +17,6 @@ struct Person {
 }
 
 #[derive(TypeInfo)]
-#[allow(dead_code)]
-struct Point(f64, f64, f64);
-
-#[derive(TypeInfo)]
 struct Unit;
 
 #[derive(TypeInfo)]
@@ -51,17 +47,6 @@ fn test_typeinfo_integration() {
                 Type::Optional(inner) => assert_eq!(inner.inner(), &Type::String),
                 _ => panic!("Expected optional type"),
             }
-        }
-        _ => panic!("Expected struct type"),
-    }
-
-    // Test tuple struct
-    match Point::TYPE_INFO {
-        Type::Struct(fields) => {
-            let field_vec: Vec<_> = fields.iter().collect();
-            assert_eq!(field_vec.len(), 3);
-            assert_eq!(field_vec[0].name(), "field0");
-            assert_eq!(field_vec[0].ty(), &Type::Float);
         }
         _ => panic!("Expected struct type"),
     }
@@ -105,7 +90,6 @@ fn test_typeinfo_integration() {
 fn test_const_compatibility() {
     // Verify that TYPE_INFO can be used in const contexts
     const _PERSON_TYPE: &Type<'static> = Person::TYPE_INFO;
-    const _POINT_TYPE: &Type<'static> = Point::TYPE_INFO;
     const _UNIT_TYPE: &Type<'static> = Unit::TYPE_INFO;
     const _COMPLEX_TYPE: &Type<'static> = Complex::TYPE_INFO;
 }

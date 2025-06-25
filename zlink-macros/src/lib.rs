@@ -13,8 +13,23 @@ mod type_info;
 
 /// Derives `TypeInfo` for structs, generating appropriate `Type::Struct` representation.
 ///
-/// This macro only supports structs. It will generate a `TypeInfo` implementation that
-/// creates a `Type::Struct` containing all the fields with their names and types.
+/// This macro only supports structs with named fields (and unit structs). It will generate a
+/// `TypeInfo` implementation that creates a `Type::Struct` containing all the fields with their
+/// names and types. Tuple structs are not supported as Varlink does not support unnamed fields.
+///
+/// # Limitations
+///
+/// The following types are **not** supported by this macro:
+///
+/// - **Tuple structs**: Varlink does not support unnamed fields
+/// - **Enums**: Use the `ReplyError` derive macro for error enums instead
+/// - **Unions**: Not supported by Varlink
+///
+/// ```rust,compile_fail
+/// # use zlink::idl::TypeInfo;
+/// #[derive(TypeInfo)]  // This will fail to compile
+/// struct Point(f32, f32, f32);
+/// ```
 ///
 /// # Examples
 ///
@@ -44,24 +59,6 @@ mod type_info;
 ///
 ///         assert_eq!(field_vec[2].name(), "active");
 ///         assert_eq!(field_vec[2].ty(), &Type::Bool);
-///     }
-///     _ => panic!("Expected struct type"),
-/// }
-/// ```
-///
-/// ## Tuple Structs
-///
-/// ```rust
-/// # use zlink::idl::{TypeInfo, Type};
-/// #[derive(TypeInfo)]
-/// struct Point(f32, f32, f32);
-///
-/// // Tuple struct fields get auto-generated names: field0, field1, field2, etc.
-/// match Point::TYPE_INFO {
-///     Type::Struct(fields) => {
-///         let field_vec: Vec<_> = fields.iter().collect();
-///         assert_eq!(field_vec[0].name(), "field0");
-///         assert_eq!(field_vec[0].ty(), &Type::Float);
 ///     }
 ///     _ => panic!("Expected struct type"),
 /// }
