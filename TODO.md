@@ -1,10 +1,23 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
+  * zlink-core
+    * Fix `Type`
+      * `Object` should be called `ForeignObject`
+      * `Struct` should be named `Object`
+    * Fix `CustomType`: It needs to support enums too
+      * It should be an enum with these variants:
+        * `Struct`: named fields (just take current ones from existing `CustomType`)
+        * `Enum`: the same as `Type::Enum`
+    * CustomTypeInfo trait
+      * similar to `TypeInfo` but impl provides a `CustomType`
   * zlink-macros
-    * Provide introspection derives
-      * `idl::ReplyError` (only enums supported)
-    * Re-export `ReplyError`from `zlink::idl` (similarly to `idl::TypeInfo`)
+    * Gate `TypeInfo` derive behind `idl` feature
+    * `TypeInfo` to supports unit (only unit variants) enums
+    * CustomTypeInfo derive
+      * Re-export from `zlink::idl` (similarly to `idl::TypeInfo`)
+    * `idl::ReplyError` derive (only enums supported)
+      * Re-export from `zlink::idl` (similarly to `idl::TypeInfo`)
   * zlink-core
     * `introspect` module containing [Introspection](https://varlink.org/Service>) API
       * types for methods and errors (to be used for client and server)
