@@ -58,6 +58,7 @@ This is a Rust workspace implementing an asynchronous no-std-compatible Varlink 
 - Supports both std and no_std environments through feature flags
 - Leverages mayheap for heap/heapless abstraction
 - Uses pin-project-lite for async/await support
+- Only enable needed features of dependencies
 
 ### Code Style
 - Follows GNOME commit message guidelines with emoji prefixes
