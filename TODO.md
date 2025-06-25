@@ -2,7 +2,6 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-macros
-    * Only enable needed features of `syn`
     * Provide introspection derives
       * `idl::ReplyError` (only enums supported)
     * Re-export `ReplyError`from `zlink::idl` (similarly to `idl::TypeInfo`)
