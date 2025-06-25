@@ -7,13 +7,13 @@ use serde::Serialize;
 #[cfg(feature = "idl-parse")]
 use serde::Deserialize;
 
-use super::{CustomType, Error, Method};
+use super::{custom, Error, Method};
 
 /// A member of a Varlink interface.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Member<'a> {
     /// A custom type definition.
-    Custom(CustomType<'a>),
+    Custom(custom::Type<'a>),
     /// A method definition.
     Method(Method<'a>),
     /// An error definition.
@@ -69,7 +69,7 @@ mod tests {
     use super::*;
     #[cfg(feature = "std")]
     use crate::idl::Type;
-    use crate::idl::{CustomObject, CustomType, Error, Field, Method, Parameter, TypeInfo};
+    use crate::idl::{custom, Error, Field, Method, Parameter, TypeInfo};
 
     #[test]
     fn member_custom_type() {
@@ -78,7 +78,7 @@ mod tests {
         let version_field = Field::new("version", <&str>::TYPE_INFO);
         let fields = [&vendor_field, &product_field, &version_field];
 
-        let custom = CustomType::from(CustomObject::new("ServiceInfo", &fields));
+        let custom = custom::Type::from(custom::Object::new("ServiceInfo", &fields));
         let member = Member::Custom(custom);
 
         assert_eq!(member.name(), "ServiceInfo");

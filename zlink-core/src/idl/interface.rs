@@ -60,7 +60,7 @@ impl<'a> Interface<'a> {
     }
 
     /// Returns an iterator over the custom types in this interface.
-    pub fn custom_types(&self) -> impl Iterator<Item = &super::CustomType<'a>> {
+    pub fn custom_types(&self) -> impl Iterator<Item = &super::custom::Type<'a>> {
         self.members.iter().filter_map(|member| match member {
             Member::Custom(custom) => Some(custom),
             _ => None,
@@ -257,7 +257,7 @@ error ExpectedMore ()
     #[cfg(feature = "idl-parse")]
     #[test]
     fn systemd_resolved_interface_parsing() {
-        use crate::idl::{parse, CustomObject, CustomType, TypeRef};
+        use crate::idl::{custom, parse, TypeRef};
 
         // Manually construct the systemd-resolved interface for comparison.
 
@@ -273,7 +273,7 @@ error ExpectedMore ()
             &Field::new("family", <i64>::TYPE_INFO),
             &Field::new("address", &int_array_type),
         ];
-        let resolved_address = CustomType::from(CustomObject::new(
+        let resolved_address = custom::Type::from(custom::Object::new(
             "ResolvedAddress",
             &resolved_address_fields,
         ));
@@ -284,7 +284,7 @@ error ExpectedMore ()
             &Field::new("name", <&str>::TYPE_INFO),
         ];
         let resolved_name =
-            CustomType::from(CustomObject::new("ResolvedName", &resolved_name_fields));
+            custom::Type::from(custom::Object::new("ResolvedName", &resolved_name_fields));
 
         // Build ResourceKey custom type.
         let resource_key_fields = [
@@ -292,7 +292,8 @@ error ExpectedMore ()
             &Field::new("type", <i64>::TYPE_INFO),
             &Field::new("name", <&str>::TYPE_INFO),
         ];
-        let resource_key = CustomType::from(CustomObject::new("ResourceKey", &resource_key_fields));
+        let resource_key =
+            custom::Type::from(custom::Object::new("ResourceKey", &resource_key_fields));
 
         // Build ResourceRecord custom type (references ResourceKey).
         let resource_key_type = Type::Custom("ResourceKey");
@@ -304,8 +305,10 @@ error ExpectedMore ()
             &Field::new("name", &optional_string_type),
             &Field::new("address", &optional_int_array_type),
         ];
-        let resource_record =
-            CustomType::from(CustomObject::new("ResourceRecord", &resource_record_fields));
+        let resource_record = custom::Type::from(custom::Object::new(
+            "ResourceRecord",
+            &resource_record_fields,
+        ));
 
         // Build methods.
         let resolved_address_array_type =
