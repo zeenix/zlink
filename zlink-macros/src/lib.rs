@@ -11,10 +11,10 @@ use proc_macro::TokenStream;
 
 mod type_info;
 
-/// Derives `TypeInfo` for structs, generating appropriate `Type::Struct` representation.
+/// Derives `TypeInfo` for structs, generating appropriate `Type::Object` representation.
 ///
 /// This macro only supports structs with named fields (and unit structs). It will generate a
-/// `TypeInfo` implementation that creates a `Type::Struct` containing all the fields with their
+/// `TypeInfo` implementation that creates a `Type::Object` containing all the fields with their
 /// names and types. Tuple structs are not supported as Varlink does not support unnamed fields.
 ///
 /// # Limitations
@@ -47,7 +47,7 @@ mod type_info;
 ///
 /// // Access the generated type information
 /// match Person::TYPE_INFO {
-///     Type::Struct(fields) => {
+///     Type::Object(fields) => {
 ///         let field_vec: Vec<_> = fields.iter().collect();
 ///         assert_eq!(field_vec.len(), 3);
 ///
@@ -73,7 +73,7 @@ mod type_info;
 ///
 /// // Unit structs generate empty field lists
 /// match Unit::TYPE_INFO {
-///     Type::Struct(fields) => {
+///     Type::Object(fields) => {
 ///         assert_eq!(fields.len(), 0);
 ///     }
 ///     _ => panic!("Expected struct type"),
@@ -93,7 +93,7 @@ mod type_info;
 ///
 /// // The macro handles nested types like Option<T> and Vec<T>
 /// match Complex::TYPE_INFO {
-///     Type::Struct(fields) => {
+///     Type::Object(fields) => {
 ///         let field_vec: Vec<_> = fields.iter().collect();
 ///
 ///         // Optional field becomes Type::Optional

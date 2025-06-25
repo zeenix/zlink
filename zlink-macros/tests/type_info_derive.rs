@@ -3,7 +3,7 @@ use zlink::idl::{Type, TypeInfo};
 #[test]
 fn named_struct_type_info() {
     match Person::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 3);
 
@@ -26,7 +26,7 @@ fn named_struct_type_info() {
 #[test]
 fn unit_struct_type_info() {
     match Unit::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 0);
         }
@@ -37,7 +37,7 @@ fn unit_struct_type_info() {
 #[test]
 fn complex_struct_type_info() {
     match Complex::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 4);
 
@@ -76,7 +76,7 @@ fn complex_struct_type_info() {
 #[test]
 fn primitives_struct_type_info() {
     match Primitives::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 5);
 
@@ -111,7 +111,7 @@ fn const_compatibility() {
 fn nested_struct_type_info() {
     // First verify Address works
     match Address::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 2);
         }
@@ -120,7 +120,7 @@ fn nested_struct_type_info() {
 
     // Then verify PersonWithAddress works
     match PersonWithAddress::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 2);
 
@@ -130,7 +130,7 @@ fn nested_struct_type_info() {
             assert_eq!(field_vec[1].name(), "address");
             // The address field should reference Address::TYPE_INFO
             match field_vec[1].ty() {
-                Type::Struct(_) => {
+                Type::Object(_) => {
                     // This should be the same as Address::TYPE_INFO
                     assert_eq!(field_vec[1].ty(), Address::TYPE_INFO);
                 }

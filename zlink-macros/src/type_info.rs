@@ -48,7 +48,7 @@ fn derive_type_info_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
                     #(#field_refs),*
                 ];
 
-                ::zlink::idl::Type::Struct(::zlink::idl::List::Borrowed(FIELD_REFS))
+                ::zlink::idl::Type::Object(::zlink::idl::List::Borrowed(FIELD_REFS))
             };
         }
     };

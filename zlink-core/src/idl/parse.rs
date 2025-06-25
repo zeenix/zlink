@@ -94,7 +94,7 @@ fn struct_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a
     let fields: Vec<Field<'a>> = separated(0.., field, (ws, literal(","), ws)).parse_next(input)?;
     ws(input)?;
     literal(")").parse_next(input)?;
-    Ok(Type::Struct(List::from(fields)))
+    Ok(Type::Object(List::from(fields)))
 }
 
 /// Parse an inline enum type: (variant1, variant2, variant3).
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn test_parse_inline_struct() {
         match parse_type("(x: float, y: float)").unwrap() {
-            Type::Struct(fields) => {
+            Type::Object(fields) => {
                 let collected: Vec<_> = fields.iter().collect();
                 assert_eq!(collected.len(), 2);
                 assert_eq!(collected[0].name(), "x");

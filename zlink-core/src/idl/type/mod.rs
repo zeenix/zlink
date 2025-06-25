@@ -35,7 +35,7 @@ pub enum Type<'a> {
     /// Inline enum type.
     Enum(List<'a, &'a str>),
     /// Inline struct type.
-    Struct(List<'a, Field<'a>>),
+    Object(List<'a, Field<'a>>),
 }
 
 impl<'a> fmt::Display for Type<'a> {
@@ -62,7 +62,7 @@ impl<'a> fmt::Display for Type<'a> {
                 }
                 write!(f, ")")
             }
-            Type::Struct(fields) => {
+            Type::Object(fields) => {
                 write!(f, "(")?;
                 let mut first = true;
                 for field in fields.iter() {
@@ -182,7 +182,7 @@ mod tests {
             assert_eq!(enum_type.to_string(), "(one, two, three)");
 
             // Test inline struct
-            let struct_type = Type::Struct(List::from(vec![
+            let struct_type = Type::Object(List::from(vec![
                 Field::new("first", &Type::Int),
                 Field::new("second", &Type::String),
             ]));

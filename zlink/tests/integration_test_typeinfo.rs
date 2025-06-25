@@ -32,7 +32,7 @@ struct Complex {
 fn test_typeinfo_integration() {
     // Test that TYPE_INFO is available and returns correct type
     match Person::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 3);
 
@@ -53,7 +53,7 @@ fn test_typeinfo_integration() {
 
     // Test unit struct
     match Unit::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             assert_eq!(fields.len(), 0);
         }
         _ => panic!("Expected struct type"),
@@ -61,7 +61,7 @@ fn test_typeinfo_integration() {
 
     // Test complex types
     match Complex::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 4);
 
@@ -108,7 +108,7 @@ fn test_trait_and_macro_same_name() {
 
     // Use the trait method
     match Local::TYPE_INFO {
-        Type::Struct(fields) => {
+        Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 1);
             assert_eq!(field_vec[0].name(), "value");
