@@ -40,19 +40,14 @@ fn derive_type_info_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             }
         }
         Data::Enum(data_enum) => {
-            let (variant_statics, variant_refs) =
-                generate_enum_variant_definitions(name, data_enum)?;
+            let variant_refs = generate_enum_variant_definitions(name, data_enum)?;
 
             quote! {
                 impl #impl_generics ::zlink::idl::TypeInfo for #name #ty_generics #where_clause {
                     const TYPE_INFO: &'static ::zlink::idl::Type<'static> = &{
-                        #(#variant_statics)*
-
-                        static VARIANT_REFS: &[&'static &'static str] = &[
+                        ::zlink::idl::Type::Enum(::zlink::idl::List::Borrowed(&[
                             #(#variant_refs),*
-                        ];
-
-                        ::zlink::idl::Type::Enum(::zlink::idl::List::Borrowed(VARIANT_REFS))
+                        ]))
                     };
                 }
             }
@@ -132,8 +127,7 @@ fn generate_field_definitions(
 fn generate_enum_variant_definitions(
     _enum_name: &syn::Ident,
     data_enum: &DataEnum,
-) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
-    let mut variant_statics = Vec::new();
+) -> Result<Vec<TokenStream2>, Error> {
     let mut variant_refs = Vec::new();
 
     for variant in &data_enum.variants {
@@ -144,15 +138,7 @@ fn generate_enum_variant_definitions(
         match &variant.fields {
             Fields::Unit => {
                 let variant_name = variant.ident.to_string();
-                let static_name = quote::format_ident!("VARIANT_{}", variant_name.to_uppercase());
-
-                let variant_static = quote! {
-                    static #static_name: &'static str = #variant_name;
-                };
-
-                let variant_ref = quote! { &#static_name };
-
-                variant_statics.push(variant_static);
+                let variant_ref = quote! { &#variant_name };
                 variant_refs.push(variant_ref);
             }
             Fields::Named(_) => {
@@ -170,5 +156,5 @@ fn generate_enum_variant_definitions(
         }
     }
 
-    Ok((variant_statics, variant_refs))
+    Ok(variant_refs)
 }
