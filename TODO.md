@@ -2,8 +2,6 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-macros
-    * Add `custom::TypeInfo` derive
-      * Re-export from `zlink::idl::custom` (similarly to `idl::TypeInfo`)
     * `idl::TypeInfo` derive should support boolean `custom` attribute that makes the macro generate
       `idle::Type::Custom` variant with just the name of the type.
     * `idl::ReplyError` derive (only enums supported)

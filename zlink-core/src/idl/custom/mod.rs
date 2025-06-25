@@ -15,6 +15,9 @@ pub use r#type::Type;
 mod type_info;
 pub use type_info::TypeInfo;
 
+// Re-export the CustomTypeInfo derive macro as TypeInfo so it's available alongside the trait
+pub use zlink_macros::CustomTypeInfo as TypeInfo;
+
 #[cfg(test)]
 mod tests {
     use super::*;
