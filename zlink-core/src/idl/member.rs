@@ -69,7 +69,7 @@ mod tests {
     use super::*;
     #[cfg(feature = "std")]
     use crate::idl::Type;
-    use crate::idl::{CustomType, Error, Field, Method, Parameter, TypeInfo};
+    use crate::idl::{CustomObject, CustomType, Error, Field, Method, Parameter, TypeInfo};
 
     #[test]
     fn member_custom_type() {
@@ -78,7 +78,7 @@ mod tests {
         let version_field = Field::new("version", <&str>::TYPE_INFO);
         let fields = [&vendor_field, &product_field, &version_field];
 
-        let custom = CustomType::new("ServiceInfo", &fields);
+        let custom = CustomType::from(CustomObject::new("ServiceInfo", &fields));
         let member = Member::Custom(custom);
 
         assert_eq!(member.name(), "ServiceInfo");

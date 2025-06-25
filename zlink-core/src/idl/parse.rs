@@ -11,7 +11,10 @@ use winnow::{
     ModalResult, Parser,
 };
 
-use super::{CustomType, Error, Field, Interface, List, Member, Method, Parameter, Type, TypeRef};
+use super::{
+    CustomObject, CustomType, Error, Field, Interface, List, Member, Method, Parameter, Type,
+    TypeRef,
+};
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -266,7 +269,7 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
     let fields: Vec<Field<'a>> = separated(0.., field, (ws, literal(","), ws)).parse_next(input)?;
     ws(input)?;
     literal(")").parse_next(input)?;
-    Ok(CustomType::new_owned(name, fields))
+    Ok(CustomType::from(CustomObject::new_owned(name, fields)))
 }
 
 /// Parse a member definition (type, method, or error).
@@ -542,7 +545,7 @@ mod tests {
         let input = "type Person (name: string, age: int)";
         let custom_type = parse_custom_type(input).unwrap();
         assert_eq!(custom_type.name(), "Person");
-        let mut fields = custom_type.fields();
+        let mut fields = custom_type.as_object().unwrap().fields();
         assert_eq!(fields.next().unwrap(), &Field::new("name", &Type::String));
         assert_eq!(fields.next().unwrap(), &Field::new("age", &Type::Int));
         assert!(fields.next().is_none());
@@ -550,8 +553,8 @@ mod tests {
         let input = "type Config (host: string, port: int, enabled: bool)";
         let custom_type = parse_custom_type(input).unwrap();
         assert_eq!(custom_type.name(), "Config");
-        assert_eq!(custom_type.fields().count(), 3);
-        let mut fields = custom_type.fields();
+        assert_eq!(custom_type.as_object().unwrap().fields().count(), 3);
+        let mut fields = custom_type.as_object().unwrap().fields();
         assert_eq!(fields.next().unwrap(), &Field::new("host", &Type::String));
         assert_eq!(fields.next().unwrap(), &Field::new("port", &Type::Int));
         assert_eq!(fields.next().unwrap(), &Field::new("enabled", &Type::Bool));
@@ -610,7 +613,7 @@ error NotFound(id: int)
         let custom_type_json = r#""type Person (name: string, age: int)""#;
         let custom_type: CustomType<'_> = serde_json::from_str(custom_type_json).unwrap();
         assert_eq!(custom_type.name(), "Person");
-        let mut fields = custom_type.fields();
+        let mut fields = custom_type.as_object().unwrap().fields();
         assert_eq!(fields.next().unwrap(), &Field::new("name", &Type::String));
         assert_eq!(fields.next().unwrap(), &Field::new("age", &Type::Int));
         assert!(fields.next().is_none());

@@ -257,7 +257,7 @@ error ExpectedMore ()
     #[cfg(feature = "idl-parse")]
     #[test]
     fn systemd_resolved_interface_parsing() {
-        use crate::idl::{parse, CustomType, TypeRef};
+        use crate::idl::{parse, CustomObject, CustomType, TypeRef};
 
         // Manually construct the systemd-resolved interface for comparison.
 
@@ -273,14 +273,18 @@ error ExpectedMore ()
             &Field::new("family", <i64>::TYPE_INFO),
             &Field::new("address", &int_array_type),
         ];
-        let resolved_address = CustomType::new("ResolvedAddress", &resolved_address_fields);
+        let resolved_address = CustomType::from(CustomObject::new(
+            "ResolvedAddress",
+            &resolved_address_fields,
+        ));
 
         // Build ResolvedName custom type.
         let resolved_name_fields = [
             &Field::new("ifindex", &optional_int_type),
             &Field::new("name", <&str>::TYPE_INFO),
         ];
-        let resolved_name = CustomType::new("ResolvedName", &resolved_name_fields);
+        let resolved_name =
+            CustomType::from(CustomObject::new("ResolvedName", &resolved_name_fields));
 
         // Build ResourceKey custom type.
         let resource_key_fields = [
@@ -288,7 +292,7 @@ error ExpectedMore ()
             &Field::new("type", <i64>::TYPE_INFO),
             &Field::new("name", <&str>::TYPE_INFO),
         ];
-        let resource_key = CustomType::new("ResourceKey", &resource_key_fields);
+        let resource_key = CustomType::from(CustomObject::new("ResourceKey", &resource_key_fields));
 
         // Build ResourceRecord custom type (references ResourceKey).
         let resource_key_type = Type::Custom("ResourceKey");
@@ -300,7 +304,8 @@ error ExpectedMore ()
             &Field::new("name", &optional_string_type),
             &Field::new("address", &optional_int_array_type),
         ];
-        let resource_record = CustomType::new("ResourceRecord", &resource_record_fields);
+        let resource_record =
+            CustomType::from(CustomObject::new("ResourceRecord", &resource_record_fields));
 
         // Build methods.
         let resolved_address_array_type =
@@ -475,8 +480,16 @@ error DNSError(
             .expect("ResolvedAddress type should exist in manual interface");
 
         // Verify field types in ResolvedAddress.
-        let parsed_fields: Vec<_> = parsed_resolved_address.fields().collect();
-        let manual_fields: Vec<_> = manual_resolved_address.fields().collect();
+        let parsed_fields: Vec<_> = parsed_resolved_address
+            .as_object()
+            .unwrap()
+            .fields()
+            .collect();
+        let manual_fields: Vec<_> = manual_resolved_address
+            .as_object()
+            .unwrap()
+            .fields()
+            .collect();
         assert_eq!(parsed_fields.len(), manual_fields.len());
 
         assert_eq!(parsed_fields[0].name(), "ifindex");
