@@ -1,14 +1,15 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * zlink-core
-    * CustomTypeInfo trait
-      * similar to `TypeInfo` but impl provides a `CustomType`
   * zlink-macros
     * Gate `TypeInfo` derive behind `idl` feature
-    * `TypeInfo` to supports unit (only unit variants) enums
-    * CustomTypeInfo derive
-      * Re-export from `zlink::idl` (similarly to `idl::TypeInfo`)
+    * `TypeInfo` to support unit (only unit variants) enums
+  * zlink-core
+    * Add `custom::TypeInfo` trait
+      * similar to `TypeInfo` but impl provides a `custom::Type`
+  * zlink-macros
+    * Add `custom::TypeInfo` derive
+      * Re-export from `zlink::idl::custom` (similarly to `idl::TypeInfo`)
     * `idl::ReplyError` derive (only enums supported)
       * Re-export from `zlink::idl` (similarly to `idl::TypeInfo`)
   * zlink-core
