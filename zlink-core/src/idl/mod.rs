@@ -31,6 +31,9 @@ pub use interface::Interface;
 mod type_info;
 pub use type_info::TypeInfo;
 
+// Re-export the TypeInfo derive macro so it's available alongside the trait
+pub use zlink_macros::TypeInfo;
+
 mod reply_error;
 pub use reply_error::ReplyError;
 
