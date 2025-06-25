@@ -1,9 +1,6 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * zlink-core
-    * Add `custom::TypeInfo` trait
-      * similar to `TypeInfo` but impl provides a `custom::Type`
   * zlink-macros
     * Add `custom::TypeInfo` derive
       * Re-export from `zlink::idl::custom` (similarly to `idl::TypeInfo`)

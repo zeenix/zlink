@@ -12,6 +12,9 @@ pub use r#enum::Enum;
 mod r#type;
 pub use r#type::Type;
 
+mod type_info;
+pub use type_info::TypeInfo;
+
 #[cfg(test)]
 mod tests {
     use super::*;
