@@ -1,64 +1,65 @@
-//! Integration test to verify end-to-end custom::TypeInfo functionality.
+//! Integration test to verify end-to-end custom::Type functionality.
 //!
 //! This test verifies that:
-//! 1. The custom::TypeInfo trait is available from zlink::idl::custom
+//! 1. The custom::Type trait is available from zlink::introspect::custom
 //! 2. It can be implemented manually for custom types
-//! 3. It generates correct TYPE_INFO implementations with type names
+//! 3. It generates correct TYPE implementations with type names
 //! 4. Both object and enum custom types work as expected
 
-use zlink::idl::{
-    custom::{Enum, Object, Type, TypeInfo},
-    Field, Type as VarlinkType, TypeInfo as VarlinkTypeInfo,
+use zlink::{
+    idl::{
+        custom::{Enum, Object, Type as CustomType},
+        Field, Type as VarlinkType,
+    },
+    introspect::{custom::Type, Type as IntrospectType},
 };
 
-// Test struct that implements custom::TypeInfo
+// Test struct that implements custom::Type
 struct Point;
 
-impl TypeInfo for Point {
-    const TYPE_INFO: &'static Type<'static> = &{
-        static FIELD_X: Field<'static> = Field::new("x", <f64 as VarlinkTypeInfo>::TYPE_INFO);
-        static FIELD_Y: Field<'static> = Field::new("y", <f64 as VarlinkTypeInfo>::TYPE_INFO);
+impl Type for Point {
+    const TYPE: &'static CustomType<'static> = &{
+        static FIELD_X: Field<'static> = Field::new("x", <f64 as IntrospectType>::TYPE);
+        static FIELD_Y: Field<'static> = Field::new("y", <f64 as IntrospectType>::TYPE);
         static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 
-        Type::Object(Object::new("Point", FIELDS))
+        CustomType::Object(Object::new("Point", FIELDS))
     };
 }
 
-// Test enum that implements custom::TypeInfo
+// Test enum that implements custom::Type
 struct Color;
 
-impl TypeInfo for Color {
-    const TYPE_INFO: &'static Type<'static> = &{
+impl Type for Color {
+    const TYPE: &'static CustomType<'static> = &{
         static VARIANT_RED: &str = "Red";
         static VARIANT_GREEN: &str = "Green";
         static VARIANT_BLUE: &str = "Blue";
         static VARIANTS: &[&'static &'static str] = &[&VARIANT_RED, &VARIANT_GREEN, &VARIANT_BLUE];
 
-        Type::Enum(Enum::new("Color", VARIANTS))
+        CustomType::Enum(Enum::new("Color", VARIANTS))
     };
 }
 
 // Complex struct with various field types
 struct Person;
 
-impl TypeInfo for Person {
-    const TYPE_INFO: &'static Type<'static> = &{
-        static FIELD_NAME: Field<'static> =
-            Field::new("name", <&str as VarlinkTypeInfo>::TYPE_INFO);
-        static FIELD_AGE: Field<'static> = Field::new("age", <u32 as VarlinkTypeInfo>::TYPE_INFO);
-        static FIELD_ACTIVE: Field<'static> =
-            Field::new("active", <bool as VarlinkTypeInfo>::TYPE_INFO);
+impl Type for Person {
+    const TYPE: &'static CustomType<'static> = &{
+        static FIELD_NAME: Field<'static> = Field::new("name", <&str as IntrospectType>::TYPE);
+        static FIELD_AGE: Field<'static> = Field::new("age", <u32 as IntrospectType>::TYPE);
+        static FIELD_ACTIVE: Field<'static> = Field::new("active", <bool as IntrospectType>::TYPE);
         static FIELDS: &[&Field<'static>] = &[&FIELD_NAME, &FIELD_AGE, &FIELD_ACTIVE];
 
-        Type::Object(Object::new("Person", FIELDS))
+        CustomType::Object(Object::new("Person", FIELDS))
     };
 }
 
 #[test]
-fn test_custom_struct_typeinfo_integration() {
-    // Test that TYPE_INFO is available and returns correct custom type
-    match Point::TYPE_INFO {
-        Type::Object(obj) => {
+fn test_custom_struct_type_integration() {
+    // Test that TYPE is available and returns correct custom type
+    match Point::TYPE {
+        CustomType::Object(obj) => {
             assert_eq!(obj.name(), "Point");
 
             let fields: Vec<_> = obj.fields().collect();
@@ -73,17 +74,17 @@ fn test_custom_struct_typeinfo_integration() {
         _ => panic!("Expected custom object type"),
     }
 
-    // Verify the type has a name (unlike regular TypeInfo)
-    assert_eq!(Point::TYPE_INFO.name(), "Point");
-    assert!(Point::TYPE_INFO.is_object());
-    assert!(!Point::TYPE_INFO.is_enum());
+    // Verify the type has a name (unlike regular Type)
+    assert_eq!(Point::TYPE.name(), "Point");
+    assert!(Point::TYPE.is_object());
+    assert!(!Point::TYPE.is_enum());
 }
 
 #[test]
-fn test_custom_enum_typeinfo_integration() {
+fn test_custom_enum_type_integration() {
     // Test enum custom type
-    match Color::TYPE_INFO {
-        Type::Enum(enm) => {
+    match Color::TYPE {
+        CustomType::Enum(enm) => {
             assert_eq!(enm.name(), "Color");
 
             let variants: Vec<_> = enm.variants().collect();
@@ -97,16 +98,16 @@ fn test_custom_enum_typeinfo_integration() {
     }
 
     // Verify the type has a name and correct variant type
-    assert_eq!(Color::TYPE_INFO.name(), "Color");
-    assert!(!Color::TYPE_INFO.is_object());
-    assert!(Color::TYPE_INFO.is_enum());
+    assert_eq!(Color::TYPE.name(), "Color");
+    assert!(!Color::TYPE.is_object());
+    assert!(Color::TYPE.is_enum());
 }
 
 #[test]
-fn test_complex_custom_typeinfo_integration() {
+fn test_complex_custom_type_integration() {
     // Test complex struct with multiple field types
-    match Person::TYPE_INFO {
-        Type::Object(obj) => {
+    match Person::TYPE {
+        CustomType::Object(obj) => {
             assert_eq!(obj.name(), "Person");
 
             let fields: Vec<_> = obj.fields().collect();
@@ -127,33 +128,32 @@ fn test_complex_custom_typeinfo_integration() {
 
 #[test]
 fn test_const_compatibility() {
-    // Verify that TYPE_INFO can be used in const contexts
-    const _POINT_TYPE: &Type<'static> = Point::TYPE_INFO;
-    const _COLOR_TYPE: &Type<'static> = Color::TYPE_INFO;
-    const _PERSON_TYPE: &Type<'static> = Person::TYPE_INFO;
+    // Verify that TYPE can be used in const contexts
+    const _POINT_TYPE: &CustomType<'static> = Point::TYPE;
+    const _COLOR_TYPE: &CustomType<'static> = Color::TYPE;
+    const _PERSON_TYPE: &CustomType<'static> = Person::TYPE;
 }
 
 #[test]
 fn test_trait_imports() {
-    // This test verifies that we can import the custom TypeInfo trait
-    // and it doesn't conflict with the regular TypeInfo trait
-    use zlink::idl::{custom::TypeInfo as CustomTypeInfo, TypeInfo as RegularTypeInfo};
+    // This test verifies that we can import the custom Type trait
+    // and it doesn't conflict with the regular Type trait
 
     // Both traits should be available and distinct
-    const _CUSTOM: &Type<'static> = Point::TYPE_INFO;
-    const _REGULAR: &VarlinkType<'static> = <i32 as RegularTypeInfo>::TYPE_INFO;
+    const _CUSTOM: &CustomType<'static> = Point::TYPE;
+    const _REGULAR: &VarlinkType<'static> = <i32 as IntrospectType>::TYPE;
 }
 
 #[test]
 fn test_type_accessor_methods() {
     // Test the convenience methods on custom types
-    let point_type = Point::TYPE_INFO;
+    let point_type = Point::TYPE;
     assert!(point_type.is_object());
     assert!(!point_type.is_enum());
     assert!(point_type.as_object().is_some());
     assert!(point_type.as_enum().is_none());
 
-    let color_type = Color::TYPE_INFO;
+    let color_type = Color::TYPE;
     assert!(!color_type.is_object());
     assert!(color_type.is_enum());
     assert!(color_type.as_object().is_none());

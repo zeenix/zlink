@@ -7,25 +7,27 @@
 #![warn(unreachable_pub)]
 #![doc = include_str!("../README.md")]
 
-#[cfg(feature = "idl")]
-mod type_info;
+#[cfg(feature = "introspection")]
+mod r#type;
 
-#[cfg(feature = "idl")]
-mod custom_type_info;
+#[cfg(feature = "introspection")]
+mod custom_type;
 
-/// Derives `TypeInfo` for structs and enums, generating appropriate `Type::Object` or `Type::Enum`
+/// Derives `Type` for structs and enums, generating appropriate `Type::Object` or `Type::Enum`
 /// representation.
+///
+/// **Requires the `introspection` feature to be enabled.**
 ///
 /// ## Structs
 ///
 /// For structs, this macro supports named fields and unit structs. It will generate a
-/// `TypeInfo` implementation that creates a `Type::Object` containing all the fields with their
+/// `Type` implementation that creates a `Type::Object` containing all the fields with their
 /// names and types. Tuple structs are not supported as Varlink does not support unnamed fields.
 ///
 /// ## Enums
 ///
 /// For enums, this macro only supports unit variants (variants without associated data). It will
-/// generate a `TypeInfo` implementation that creates a `Type::Enum` containing all the variant
+/// generate a `Type` implementation that creates a `Type::Enum` containing all the variant
 /// names.
 ///
 /// # Limitations
@@ -37,14 +39,14 @@ mod custom_type_info;
 /// - **Unions**: Not supported by Varlink
 ///
 /// ```rust,compile_fail
-/// # use zlink::idl::TypeInfo;
-/// #[derive(TypeInfo)]  // This will fail to compile
+/// # use zlink::introspect::Type;
+/// #[derive(Type)]  // This will fail to compile
 /// struct Point(f32, f32, f32);
 /// ```
 ///
 /// ```rust,compile_fail
-/// # use zlink::idl::TypeInfo;
-/// #[derive(TypeInfo)]  // This will fail to compile
+/// # use zlink::introspect::Type;
+/// #[derive(Type)]  // This will fail to compile
 /// enum Status {
 ///     Active(String),  // Variants with data are not supported
 ///     Inactive,
@@ -56,9 +58,10 @@ mod custom_type_info;
 /// ## Named Structs
 ///
 /// ```rust
-/// use zlink::idl::{TypeInfo, Type};
+/// use zlink::introspect::Type;
+/// use zlink::idl;
 ///
-/// #[derive(TypeInfo)]
+/// #[derive(Type)]
 /// struct Person {
 ///     name: String,
 ///     age: i32,
@@ -66,19 +69,19 @@ mod custom_type_info;
 /// }
 ///
 /// // Access the generated type information
-/// match Person::TYPE_INFO {
-///     Type::Object(fields) => {
+/// match Person::TYPE {
+///     idl::Type::Object(fields) => {
 ///         let field_vec: Vec<_> = fields.iter().collect();
 ///         assert_eq!(field_vec.len(), 3);
 ///
 ///         assert_eq!(field_vec[0].name(), "name");
-///         assert_eq!(field_vec[0].ty(), &Type::String);
+///         assert_eq!(field_vec[0].ty(), &idl::Type::String);
 ///
 ///         assert_eq!(field_vec[1].name(), "age");
-///         assert_eq!(field_vec[1].ty(), &Type::Int);
+///         assert_eq!(field_vec[1].ty(), &idl::Type::Int);
 ///
 ///         assert_eq!(field_vec[2].name(), "active");
-///         assert_eq!(field_vec[2].ty(), &Type::Bool);
+///         assert_eq!(field_vec[2].ty(), &idl::Type::Bool);
 ///     }
 ///     _ => panic!("Expected struct type"),
 /// }
@@ -87,13 +90,14 @@ mod custom_type_info;
 /// ## Unit Structs
 ///
 /// ```rust
-/// # use zlink::idl::{TypeInfo, Type};
-/// #[derive(TypeInfo)]
+/// # use zlink::introspect::Type;
+/// # use zlink::idl;
+/// #[derive(Type)]
 /// struct Unit;
 ///
 /// // Unit structs generate empty field lists
-/// match Unit::TYPE_INFO {
-///     Type::Object(fields) => {
+/// match Unit::TYPE {
+///     idl::Type::Object(fields) => {
 ///         assert_eq!(fields.len(), 0);
 ///     }
 ///     _ => panic!("Expected struct type"),
@@ -103,8 +107,9 @@ mod custom_type_info;
 /// ## Complex Types
 ///
 /// ```rust
-/// # use zlink::idl::{TypeInfo, Type};
-/// #[derive(TypeInfo)]
+/// # use zlink::introspect::Type;
+/// # use zlink::idl;
+/// #[derive(Type)]
 /// struct Complex {
 ///     id: u64,
 ///     description: Option<String>,
@@ -112,19 +117,19 @@ mod custom_type_info;
 /// }
 ///
 /// // The macro handles nested types like Option<T> and Vec<T>
-/// match Complex::TYPE_INFO {
-///     Type::Object(fields) => {
+/// match Complex::TYPE {
+///     idl::Type::Object(fields) => {
 ///         let field_vec: Vec<_> = fields.iter().collect();
 ///
 ///         // Optional field becomes Type::Optional
 ///         match field_vec[1].ty() {
-///             Type::Optional(inner) => assert_eq!(inner.inner(), &Type::String),
+///             idl::Type::Optional(inner) => assert_eq!(inner.inner(), &idl::Type::String),
 ///             _ => panic!("Expected optional type"),
 ///         }
 ///
 ///         // Vec field becomes Type::Array
 ///         match field_vec[2].ty() {
-///             Type::Array(inner) => assert_eq!(inner.inner(), &Type::String),
+///             idl::Type::Array(inner) => assert_eq!(inner.inner(), &idl::Type::String),
 ///             _ => panic!("Expected array type"),
 ///         }
 ///     }
@@ -135,8 +140,9 @@ mod custom_type_info;
 /// ## Unit Enums
 ///
 /// ```rust
-/// # use zlink::idl::{TypeInfo, Type};
-/// #[derive(TypeInfo)]
+/// # use zlink::introspect::Type;
+/// # use zlink::idl;
+/// #[derive(Type)]
 /// enum Status {
 ///     Active,
 ///     Inactive,
@@ -144,8 +150,8 @@ mod custom_type_info;
 /// }
 ///
 /// // Unit enums generate variant lists
-/// match Status::TYPE_INFO {
-///     Type::Enum(variants) => {
+/// match Status::TYPE {
+///     idl::Type::Enum(variants) => {
 ///         let variant_vec: Vec<_> = variants.iter().collect();
 ///         assert_eq!(variant_vec.len(), 3);
 ///         assert_eq!(*variant_vec[0], "Active");
@@ -155,18 +161,18 @@ mod custom_type_info;
 ///     _ => panic!("Expected enum type"),
 /// }
 /// ```
-///
-/// This macro is only available when the `idl` feature is enabled.
-#[proc_macro_derive(TypeInfo)]
-#[cfg(feature = "idl")]
-pub fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    type_info::derive_type_info(input)
+#[cfg(feature = "introspection")]
+#[proc_macro_derive(Type)]
+pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    r#type::derive_type(input)
 }
 
-/// Derives `TypeInfo` for structs and enums, generating named custom type definitions.
+/// Derives `Type` for structs and enums, generating named custom type definitions.
 ///
-/// This macro generates implementations of the `TypeInfo` trait, which provides named
-/// custom type definitions suitable for IDL generation. Unlike the regular `TypeInfo` derive,
+/// **Requires the `introspection` feature to be enabled.**
+///
+/// This macro generates implementations of the `Type` trait, which provides named
+/// custom type definitions suitable for IDL generation. Unlike the regular `Type` derive,
 /// this macro includes the type name in the generated type information.
 ///
 /// ## Structs
@@ -184,17 +190,18 @@ pub fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// ## Named Structs
 ///
 /// ```rust
-/// use zlink::idl::custom::{TypeInfo, Type};
+/// use zlink::introspect::custom::Type;
+/// use zlink::idl::custom;
 ///
-/// #[derive(TypeInfo)]
+/// #[derive(Type)]
 /// struct Point {
 ///     x: f64,
 ///     y: f64,
 /// }
 ///
 /// // Access the generated custom type information
-/// match Point::TYPE_INFO {
-///     Type::Object(obj) => {
+/// match Point::TYPE {
+///     custom::Type::Object(obj) => {
 ///         assert_eq!(obj.name(), "Point");
 ///         let fields: Vec<_> = obj.fields().collect();
 ///         assert_eq!(fields.len(), 2);
@@ -208,8 +215,9 @@ pub fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// ## Unit Enums
 ///
 /// ```rust
-/// # use zlink::idl::custom::{TypeInfo, Type};
-/// #[derive(TypeInfo)]
+/// # use zlink::introspect::custom::Type;
+/// # use zlink::idl::custom;
+/// #[derive(Type)]
 /// enum Status {
 ///     Active,
 ///     Inactive,
@@ -217,8 +225,8 @@ pub fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// }
 ///
 /// // Access the generated custom enum type information
-/// match Status::TYPE_INFO {
-///     Type::Enum(enm) => {
+/// match Status::TYPE {
+///     custom::Type::Enum(enm) => {
 ///         assert_eq!(enm.name(), "Status");
 ///         let variants: Vec<_> = enm.variants().collect();
 ///         assert_eq!(variants.len(), 3);
@@ -229,10 +237,8 @@ pub fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 ///     _ => panic!("Expected custom enum type"),
 /// }
 /// ```
-///
-/// This macro is only available when the `idl` feature is enabled.
-#[proc_macro_derive(CustomTypeInfo)]
-#[cfg(feature = "idl")]
-pub fn derive_custom_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    custom_type_info::derive_custom_type_info(input)
+#[cfg(feature = "introspection")]
+#[proc_macro_derive(CustomType)]
+pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    custom_type::derive_custom_type(input)
 }

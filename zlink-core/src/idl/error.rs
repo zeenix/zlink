@@ -93,12 +93,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::idl::{Type, TypeInfo};
+    use crate::idl::Type;
 
     #[test]
     fn error_creation() {
-        let message_field = Field::new("message", <&str>::TYPE_INFO);
-        let code_field = Field::new("code", <i32>::TYPE_INFO);
+        let message_field = Field::new("message", &Type::String);
+        let code_field = Field::new("code", &Type::Int);
         let fields = [&message_field, &code_field];
 
         let error = Error::new("InvalidInput", &fields);
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn error_serialization() {
-        let message_field = Field::new("message", <&str>::TYPE_INFO);
+        let message_field = Field::new("message", &Type::String);
         let details_field = Field::new("details", &Type::ForeignObject);
         let fields = [&message_field, &details_field];
 

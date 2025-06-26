@@ -112,7 +112,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::idl::{Error, Field, Method, Parameter, Type, TypeInfo};
+    use crate::idl::{Error, Field, Method, Parameter, Type};
 
     #[test]
     fn org_varlink_service_interface() {
@@ -121,32 +121,32 @@ mod tests {
         // Build the org.varlink.service interface as our test case
         let interfaces_type = Type::Array(TypeRef::new(&Type::String));
         let get_info_outputs = [
-            &Parameter::new("vendor", <&str>::TYPE_INFO),
-            &Parameter::new("product", <&str>::TYPE_INFO),
-            &Parameter::new("version", <&str>::TYPE_INFO),
-            &Parameter::new("url", <&str>::TYPE_INFO),
+            &Parameter::new("vendor", &Type::String),
+            &Parameter::new("product", &Type::String),
+            &Parameter::new("version", &Type::String),
+            &Parameter::new("url", &Type::String),
             &Parameter::new("interfaces", &interfaces_type),
         ];
         let get_info = Method::new("GetInfo", &[], &get_info_outputs);
 
-        let get_interface_desc_inputs = [&Parameter::new("interface", <&str>::TYPE_INFO)];
-        let get_interface_desc_outputs = [&Parameter::new("description", <&str>::TYPE_INFO)];
+        let get_interface_desc_inputs = [&Parameter::new("interface", &Type::String)];
+        let get_interface_desc_outputs = [&Parameter::new("description", &Type::String)];
         let get_interface_desc = Method::new(
             "GetInterfaceDescription",
             &get_interface_desc_inputs,
             &get_interface_desc_outputs,
         );
 
-        let interface_not_found_fields = [&Field::new("interface", <&str>::TYPE_INFO)];
+        let interface_not_found_fields = [&Field::new("interface", &Type::String)];
         let interface_not_found = Error::new("InterfaceNotFound", &interface_not_found_fields);
 
-        let method_not_found_fields = [&Field::new("method", <&str>::TYPE_INFO)];
+        let method_not_found_fields = [&Field::new("method", &Type::String)];
         let method_not_found = Error::new("MethodNotFound", &method_not_found_fields);
 
-        let method_not_impl_fields = [&Field::new("method", <&str>::TYPE_INFO)];
+        let method_not_impl_fields = [&Field::new("method", &Type::String)];
         let method_not_impl = Error::new("MethodNotImplemented", &method_not_impl_fields);
 
-        let invalid_param_fields = [&Field::new("parameter", <&str>::TYPE_INFO)];
+        let invalid_param_fields = [&Field::new("parameter", &Type::String)];
         let invalid_param = Error::new("InvalidParameter", &invalid_param_fields);
 
         let permission_denied = Error::new("PermissionDenied", &[]);
@@ -270,7 +270,7 @@ error ExpectedMore ()
         // Build ResolvedAddress custom type.
         let resolved_address_fields = [
             &Field::new("ifindex", &optional_int_type),
-            &Field::new("family", <i64>::TYPE_INFO),
+            &Field::new("family", &Type::Int),
             &Field::new("address", &int_array_type),
         ];
         let resolved_address = custom::Type::from(custom::Object::new(
@@ -281,16 +281,16 @@ error ExpectedMore ()
         // Build ResolvedName custom type.
         let resolved_name_fields = [
             &Field::new("ifindex", &optional_int_type),
-            &Field::new("name", <&str>::TYPE_INFO),
+            &Field::new("name", &Type::String),
         ];
         let resolved_name =
             custom::Type::from(custom::Object::new("ResolvedName", &resolved_name_fields));
 
         // Build ResourceKey custom type.
         let resource_key_fields = [
-            &Field::new("class", <i64>::TYPE_INFO),
-            &Field::new("type", <i64>::TYPE_INFO),
-            &Field::new("name", <&str>::TYPE_INFO),
+            &Field::new("class", &Type::Int),
+            &Field::new("type", &Type::Int),
+            &Field::new("name", &Type::String),
         ];
         let resource_key =
             custom::Type::from(custom::Object::new("ResourceKey", &resource_key_fields));
@@ -317,14 +317,14 @@ error ExpectedMore ()
 
         let resolve_hostname_inputs = [
             &Parameter::new("ifindex", &optional_int_type),
-            &Parameter::new("name", <&str>::TYPE_INFO),
+            &Parameter::new("name", &Type::String),
             &Parameter::new("family", &optional_int_type),
             &Parameter::new("flags", &optional_int_type),
         ];
         let resolve_hostname_outputs = [
             &Parameter::new("addresses", &resolved_address_array_type),
-            &Parameter::new("name", <&str>::TYPE_INFO),
-            &Parameter::new("flags", <i64>::TYPE_INFO),
+            &Parameter::new("name", &Type::String),
+            &Parameter::new("flags", &Type::Int),
         ];
         let resolve_hostname = Method::new(
             "ResolveHostname",
@@ -334,13 +334,13 @@ error ExpectedMore ()
 
         let resolve_address_inputs = [
             &Parameter::new("ifindex", &optional_int_type),
-            &Parameter::new("family", <i64>::TYPE_INFO),
+            &Parameter::new("family", &Type::Int),
             &Parameter::new("address", &int_array_type),
             &Parameter::new("flags", &optional_int_type),
         ];
         let resolve_address_outputs = [
             &Parameter::new("names", &resolved_name_array_type),
-            &Parameter::new("flags", <i64>::TYPE_INFO),
+            &Parameter::new("flags", &Type::Int),
         ];
         let resolve_address = Method::new(
             "ResolveAddress",
@@ -353,7 +353,7 @@ error ExpectedMore ()
         let query_timed_out = Error::new("QueryTimedOut", &[]);
 
         let dnssec_validation_failed_fields = [
-            &Field::new("result", <&str>::TYPE_INFO),
+            &Field::new("result", &Type::String),
             &Field::new("extendedDNSErrorCode", &optional_int_type),
             &Field::new("extendedDNSErrorMessage", &optional_string_type),
         ];
@@ -361,7 +361,7 @@ error ExpectedMore ()
             Error::new("DNSSECValidationFailed", &dnssec_validation_failed_fields);
 
         let dns_error_fields = [
-            &Field::new("rcode", <i64>::TYPE_INFO),
+            &Field::new("rcode", &Type::Int),
             &Field::new("extendedDNSErrorCode", &optional_int_type),
             &Field::new("extendedDNSErrorMessage", &optional_string_type),
         ];

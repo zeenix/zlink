@@ -7,9 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Testing
 ```bash
 # Run the full test suite, including doc tests and compile-tests
-cargo test --features introspection
+cargo test --features introspection,idl-parse
 # For embedded
-cargo test -p zlink-core --no-default-features --features embedded,idl
+cargo test -p zlink-core --no-default-features --features embedded,introspection
 ```
 
 ### Code Quality
@@ -21,9 +21,9 @@ cargo +nightly fmt --all
 cargo clippy -- -D warnings
 
 # Check all features compile
-cargo check --features introspection
+cargo check --features introspection,idl-parse
 # For embedded
-cargo check -p zlink-core --no-default-features --features embedded,idl
+cargo check -p zlink-core --no-default-features --features embedded,introspection
 ```
 
 ### Git Hooks Setup

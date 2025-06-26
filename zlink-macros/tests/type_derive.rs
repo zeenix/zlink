@@ -1,33 +1,33 @@
-use zlink::idl::{Type, TypeInfo};
+use zlink::{idl, introspect::Type};
 
 // Force diagnostics refresh
 #[test]
-fn named_struct_type_info() {
-    match Person::TYPE_INFO {
-        Type::Object(fields) => {
+fn named_struct_type() {
+    match Person::TYPE {
+        idl::Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 3);
 
             // Check name field
             assert_eq!(field_vec[0].name(), "name");
-            assert_eq!(field_vec[0].ty(), &Type::String);
+            assert_eq!(field_vec[0].ty(), &idl::Type::String);
 
             // Check age field
             assert_eq!(field_vec[1].name(), "age");
-            assert_eq!(field_vec[1].ty(), &Type::Int);
+            assert_eq!(field_vec[1].ty(), &idl::Type::Int);
 
             // Check active field
             assert_eq!(field_vec[2].name(), "active");
-            assert_eq!(field_vec[2].ty(), &Type::Bool);
+            assert_eq!(field_vec[2].ty(), &idl::Type::Bool);
         }
         _ => panic!("Expected struct type for Person"),
     }
 }
 
 #[test]
-fn unit_struct_type_info() {
-    match Unit::TYPE_INFO {
-        Type::Object(fields) => {
+fn unit_struct_type() {
+    match Unit::TYPE {
+        idl::Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 0);
         }
@@ -36,35 +36,37 @@ fn unit_struct_type_info() {
 }
 
 #[test]
-fn complex_struct_type_info() {
-    match Complex::TYPE_INFO {
-        Type::Object(fields) => {
+fn complex_struct_type() {
+    match Complex::TYPE {
+        idl::Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 4);
 
             // Check id field
             assert_eq!(field_vec[0].name(), "id");
-            assert_eq!(field_vec[0].ty(), &Type::Int);
+            assert_eq!(field_vec[0].ty(), &idl::Type::Int);
 
             // Check description field (Option<String>)
             assert_eq!(field_vec[1].name(), "description");
             match field_vec[1].ty() {
-                Type::Optional(inner) => assert_eq!(inner.inner(), &Type::String),
+                idl::Type::Optional(inner) => assert_eq!(inner.inner(), &idl::Type::String),
                 _ => panic!("Expected optional type for description"),
             }
 
             // Check tags field (Vec<String>)
             assert_eq!(field_vec[2].name(), "tags");
             match field_vec[2].ty() {
-                Type::Array(inner) => assert_eq!(inner.inner(), &Type::String),
+                idl::Type::Array(inner) => assert_eq!(inner.inner(), &idl::Type::String),
                 _ => panic!("Expected array type for tags"),
             }
 
             // Check coordinates field (Option<Vec<f64>>)
             assert_eq!(field_vec[3].name(), "coordinates");
             match field_vec[3].ty() {
-                Type::Optional(optional_inner) => match optional_inner.inner() {
-                    Type::Array(array_inner) => assert_eq!(array_inner.inner(), &Type::Float),
+                idl::Type::Optional(optional_inner) => match optional_inner.inner() {
+                    idl::Type::Array(array_inner) => {
+                        assert_eq!(array_inner.inner(), &idl::Type::Float)
+                    }
                     _ => panic!("Expected array inside optional for coordinates"),
                 },
                 _ => panic!("Expected optional type for coordinates"),
@@ -75,35 +77,35 @@ fn complex_struct_type_info() {
 }
 
 #[test]
-fn primitives_struct_type_info() {
-    match Primitives::TYPE_INFO {
-        Type::Object(fields) => {
+fn primitives_struct_type() {
+    match Primitives::TYPE {
+        idl::Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 5);
 
             assert_eq!(field_vec[0].name(), "boolean");
-            assert_eq!(field_vec[0].ty(), &Type::Bool);
+            assert_eq!(field_vec[0].ty(), &idl::Type::Bool);
 
             assert_eq!(field_vec[1].name(), "signed");
-            assert_eq!(field_vec[1].ty(), &Type::Int);
+            assert_eq!(field_vec[1].ty(), &idl::Type::Int);
 
             assert_eq!(field_vec[2].name(), "unsigned");
-            assert_eq!(field_vec[2].ty(), &Type::Int);
+            assert_eq!(field_vec[2].ty(), &idl::Type::Int);
 
             assert_eq!(field_vec[3].name(), "floating");
-            assert_eq!(field_vec[3].ty(), &Type::Float);
+            assert_eq!(field_vec[3].ty(), &idl::Type::Float);
 
             assert_eq!(field_vec[4].name(), "text");
-            assert_eq!(field_vec[4].ty(), &Type::String);
+            assert_eq!(field_vec[4].ty(), &idl::Type::String);
         }
         _ => panic!("Expected struct type for Primitives"),
     }
 }
 
 #[test]
-fn basic_enum_type_info() {
-    match Status::TYPE_INFO {
-        Type::Enum(variants) => {
+fn basic_enum_type() {
+    match Status::TYPE {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 3);
             assert_eq!(*variant_vec[0], "Active");
@@ -115,9 +117,9 @@ fn basic_enum_type_info() {
 }
 
 #[test]
-fn multi_variant_enum_type_info() {
-    match Color::TYPE_INFO {
-        Type::Enum(variants) => {
+fn multi_variant_enum_type() {
+    match Color::TYPE {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 6);
             assert_eq!(*variant_vec[0], "Red");
@@ -132,9 +134,9 @@ fn multi_variant_enum_type_info() {
 }
 
 #[test]
-fn single_variant_enum_type_info() {
-    match UnitEnum::TYPE_INFO {
-        Type::Enum(variants) => {
+fn single_variant_enum_type() {
+    match UnitEnum::TYPE {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 1);
             assert_eq!(*variant_vec[0], "Only");
@@ -146,19 +148,19 @@ fn single_variant_enum_type_info() {
 // Test that the macro generates const-compatible code
 #[test]
 fn const_compatibility() {
-    const _: &Type<'static> = Person::TYPE_INFO;
-    const _: &Type<'static> = Unit::TYPE_INFO;
-    const _: &Type<'static> = Complex::TYPE_INFO;
-    const _: &Type<'static> = Status::TYPE_INFO;
-    const _: &Type<'static> = Color::TYPE_INFO;
-    const _: &Type<'static> = UnitEnum::TYPE_INFO;
+    const _: &idl::Type<'static> = Person::TYPE;
+    const _: &idl::Type<'static> = Unit::TYPE;
+    const _: &idl::Type<'static> = Complex::TYPE;
+    const _: &idl::Type<'static> = Status::TYPE;
+    const _: &idl::Type<'static> = Color::TYPE;
+    const _: &idl::Type<'static> = UnitEnum::TYPE;
 }
 
 #[test]
-fn nested_struct_type_info() {
+fn nested_struct_type() {
     // First verify Address works
-    match Address::TYPE_INFO {
-        Type::Object(fields) => {
+    match Address::TYPE {
+        idl::Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 2);
         }
@@ -166,20 +168,20 @@ fn nested_struct_type_info() {
     }
 
     // Then verify PersonWithAddress works
-    match PersonWithAddress::TYPE_INFO {
-        Type::Object(fields) => {
+    match PersonWithAddress::TYPE {
+        idl::Type::Object(fields) => {
             let field_vec: Vec<_> = fields.iter().collect();
             assert_eq!(field_vec.len(), 2);
 
             assert_eq!(field_vec[0].name(), "name");
-            assert_eq!(field_vec[0].ty(), &Type::String);
+            assert_eq!(field_vec[0].ty(), &idl::Type::String);
 
             assert_eq!(field_vec[1].name(), "address");
-            // The address field should reference Address::TYPE_INFO
+            // The address field should reference Address::TYPE
             match field_vec[1].ty() {
-                Type::Object(_) => {
-                    // This should be the same as Address::TYPE_INFO
-                    assert_eq!(field_vec[1].ty(), Address::TYPE_INFO);
+                idl::Type::Object(_) => {
+                    // This should be the same as Address::TYPE
+                    assert_eq!(field_vec[1].ty(), Address::TYPE);
                 }
                 _ => panic!("Expected struct type for address field"),
             }
@@ -189,7 +191,7 @@ fn nested_struct_type_info() {
 }
 
 // Test basic named struct
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 struct Person {
     name: String,
@@ -198,12 +200,12 @@ struct Person {
 }
 
 // Test unit struct
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 struct Unit;
 
 // Test struct with optional and array types
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 struct Complex {
     id: u64,
@@ -213,7 +215,7 @@ struct Complex {
 }
 
 // Test struct with primitive types
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 struct Primitives {
     boolean: bool,
@@ -224,14 +226,14 @@ struct Primitives {
 }
 
 // Test nested struct (this will require the other struct to also have TypeInfo)
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 struct PersonWithAddress {
     name: String,
     address: Address,
 }
 
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 struct Address {
     street: String,
@@ -239,7 +241,7 @@ struct Address {
 }
 
 // Test basic unit enum
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 enum Status {
     Active,
@@ -248,7 +250,7 @@ enum Status {
 }
 
 // Test enum with more variants
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 enum Color {
     Red,
@@ -260,7 +262,7 @@ enum Color {
 }
 
 // Test single variant enum
-#[derive(TypeInfo)]
+#[derive(Type)]
 #[allow(unused)]
 enum UnitEnum {
     Only,

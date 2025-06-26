@@ -2,18 +2,19 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed};
 
-/// Main entry point for the TypeInfo derive macro.
-pub(crate) fn derive_type_info(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+/// Main entry point for the custom Type derive macro.
+pub(crate) fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
 
-    match derive_type_info_impl(input) {
+    match derive_custom_type_impl(input) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-fn derive_type_info_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
+fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let name = &input.ident;
+    let name_str = name.to_string();
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -26,28 +27,32 @@ fn derive_type_info_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             let (field_statics, field_refs) = generate_field_definitions(name, fields)?;
 
             quote! {
-                impl #impl_generics ::zlink::idl::TypeInfo for #name #ty_generics #where_clause {
-                    const TYPE_INFO: &'static ::zlink::idl::Type<'static> = &{
+                impl #impl_generics ::zlink::introspect::custom::Type for #name #ty_generics #where_clause {
+                    const TYPE: &'static ::zlink::idl::custom::Type<'static> = &{
                         #(#field_statics)*
 
                         static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
                             #(#field_refs),*
                         ];
 
-                        ::zlink::idl::Type::Object(::zlink::idl::List::Borrowed(FIELD_REFS))
+                        ::zlink::idl::custom::Type::Object(
+                            ::zlink::idl::custom::Object::new(#name_str, FIELD_REFS)
+                        )
                     };
                 }
             }
         }
         Data::Enum(data_enum) => {
-            let variant_refs = generate_enum_variant_definitions(name, data_enum)?;
+            let variant_names = generate_enum_variant_definitions(name, data_enum)?;
 
             quote! {
-                impl #impl_generics ::zlink::idl::TypeInfo for #name #ty_generics #where_clause {
-                    const TYPE_INFO: &'static ::zlink::idl::Type<'static> = &{
-                        ::zlink::idl::Type::Enum(::zlink::idl::List::Borrowed(&[
-                            #(#variant_refs),*
-                        ]))
+                impl #impl_generics ::zlink::introspect::custom::Type for #name #ty_generics #where_clause {
+                    const TYPE: &'static ::zlink::idl::custom::Type<'static> = &{
+                        ::zlink::idl::custom::Type::Enum(
+                            ::zlink::idl::custom::Enum::new(#name_str, &[
+                                #(#variant_names),*
+                            ])
+                        )
                     };
                 }
             }
@@ -55,7 +60,7 @@ fn derive_type_info_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
         Data::Union(_) => {
             return Err(Error::new_spanned(
                 input,
-                "TypeInfo derive macro only supports structs and enums, not unions",
+                "Type derive macro only supports structs and enums, not unions",
             ));
         }
     };
@@ -68,7 +73,7 @@ fn check_attributes(attrs: &[syn::Attribute]) -> Result<(), Error> {
         if attr.path().is_ident("zlink") {
             return Err(Error::new_spanned(
                 attr,
-                "zlink attributes are not yet supported on TypeInfo derive",
+                "zlink attributes are not yet supported on Type derive",
             ));
         }
     }
@@ -101,7 +106,7 @@ fn generate_field_definitions(
                     static #static_name: ::zlink::idl::Field<'static> =
                         ::zlink::idl::Field::new(
                             #field_name_str,
-                            <#field_type as ::zlink::idl::TypeInfo>::TYPE_INFO
+                            <#field_type as ::zlink::introspect::Type>::TYPE
                         );
                 };
 
@@ -128,7 +133,7 @@ fn generate_enum_variant_definitions(
     _enum_name: &syn::Ident,
     data_enum: &DataEnum,
 ) -> Result<Vec<TokenStream2>, Error> {
-    let mut variant_refs = Vec::new();
+    let mut variant_names = Vec::new();
 
     for variant in &data_enum.variants {
         // Check for unsupported variant attributes.
@@ -138,23 +143,22 @@ fn generate_enum_variant_definitions(
         match &variant.fields {
             Fields::Unit => {
                 let variant_name = variant.ident.to_string();
-                let variant_ref = quote! { &#variant_name };
-                variant_refs.push(variant_ref);
+                variant_names.push(quote! { &#variant_name });
             }
             Fields::Named(_) => {
                 return Err(Error::new_spanned(
                     variant,
-                    "TypeInfo derive macro only supports unit enum variants, not struct variants",
+                    "Type derive macro only supports unit enum variants, not struct variants",
                 ));
             }
             Fields::Unnamed(_) => {
                 return Err(Error::new_spanned(
                     variant,
-                    "TypeInfo derive macro only supports unit enum variants, not tuple variants",
+                    "Type derive macro only supports unit enum variants, not tuple variants",
                 ));
             }
         }
     }
 
-    Ok(variant_refs)
+    Ok(variant_names)
 }

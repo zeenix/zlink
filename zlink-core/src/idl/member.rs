@@ -67,15 +67,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "std")]
-    use crate::idl::Type;
-    use crate::idl::{custom, Error, Field, Method, Parameter, TypeInfo};
+    use crate::idl::{custom, Error, Field, Method, Parameter, Type};
 
     #[test]
     fn member_custom_type() {
-        let vendor_field = Field::new("vendor", <&str>::TYPE_INFO);
-        let product_field = Field::new("product", <&str>::TYPE_INFO);
-        let version_field = Field::new("version", <&str>::TYPE_INFO);
+        let vendor_field = Field::new("vendor", &Type::String);
+        let product_field = Field::new("product", &Type::String);
+        let version_field = Field::new("version", &Type::String);
         let fields = [&vendor_field, &product_field, &version_field];
 
         let custom = custom::Type::from(custom::Object::new("ServiceInfo", &fields));
@@ -97,12 +95,12 @@ mod tests {
         #[cfg(feature = "std")]
         {
             use crate::idl::TypeRef;
-            let interfaces_type = Type::Array(TypeRef::new(<&str>::TYPE_INFO));
+            let interfaces_type = Type::Array(TypeRef::new(&Type::String));
             let outputs = vec![
-                Parameter::new("vendor", <&str>::TYPE_INFO),
-                Parameter::new("product", <&str>::TYPE_INFO),
-                Parameter::new("version", <&str>::TYPE_INFO),
-                Parameter::new("url", <&str>::TYPE_INFO),
+                Parameter::new("vendor", &Type::String),
+                Parameter::new("product", &Type::String),
+                Parameter::new("version", &Type::String),
+                Parameter::new("url", &Type::String),
                 Parameter::new("interfaces", &interfaces_type),
             ];
             let method = Method::new_owned("GetInfo", vec![], outputs);
@@ -120,10 +118,10 @@ mod tests {
 
         #[cfg(not(feature = "std"))]
         {
-            let vendor_param = Parameter::new("vendor", <&str>::TYPE_INFO);
-            let product_param = Parameter::new("product", <&str>::TYPE_INFO);
-            let version_param = Parameter::new("version", <&str>::TYPE_INFO);
-            let url_param = Parameter::new("url", <&str>::TYPE_INFO);
+            let vendor_param = Parameter::new("vendor", &Type::String);
+            let product_param = Parameter::new("product", &Type::String);
+            let version_param = Parameter::new("version", &Type::String);
+            let url_param = Parameter::new("url", &Type::String);
             let outputs = [&vendor_param, &product_param, &version_param, &url_param];
 
             let method = Method::new("GetInfo", &[], &outputs);
@@ -142,7 +140,7 @@ mod tests {
 
     #[test]
     fn member_error() {
-        let interface_field = Field::new("interface", <&str>::TYPE_INFO);
+        let interface_field = Field::new("interface", &Type::String);
         let fields = [&interface_field];
 
         let error = Error::new("InterfaceNotFound", &fields);

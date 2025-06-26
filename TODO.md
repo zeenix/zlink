@@ -1,17 +1,6 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * Seperate out introspection traits
-    * `introspection` feature doesn't require `idl-parse` anymore but `idl`.
-      * Replace `idl` feature in 'zlink-macros` with `introspection` & update `zlink-core/Cargo.toml`
-        accordingly.
-      * Update commands in the CI and CLAUDE.md
-    * Add `introspect` module hierarchy directly in the root of `-core`, which is enabled when the
-      `introspection` feature is enabled.
-    * Move `idl::TypeInfo` to `introspect`
-      * Rename to just `Type` (also the derive macro)
-    * Similarly, move `idl::custom` to `introspect`
-      * Rename `TypeInfo` to just `Type` (also rename the derive macro to `CustomType`)
   * zlink-macros
     * `introspect::Type` derive should support boolean `custom` attribute that makes the macro
       generate `idl::Type::Custom` variant with just the name of the type.

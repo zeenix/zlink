@@ -17,9 +17,9 @@ io-buffer-4kb = []
 io-buffer-16kb = []
 io-buffer-1mb = []
 # IDL and introspection support
-idl = ["zlink-macros/idl"]
+idl = []
 idl-parse = ["idl", "dep:winnow", "std"]
-introspection = ["idl-parse"]
+introspection = ["idl", "zlink-macros/introspection"]
 
 [dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }

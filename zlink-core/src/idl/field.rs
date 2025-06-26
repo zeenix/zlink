@@ -82,18 +82,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::idl::{Type, TypeInfo};
+    use crate::idl::Type;
 
     #[test]
     fn field_creation() {
-        let field = Field::new("age", <i32>::TYPE_INFO);
+        let field = Field::new("age", &Type::Int);
         assert_eq!(field.name(), "age");
         assert_eq!(field.ty(), &Type::Int);
     }
 
     #[test]
     fn field_serialization() {
-        let field = Field::new("count", <i32>::TYPE_INFO);
+        let field = Field::new("count", &Type::Int);
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&field).unwrap();
         #[cfg(feature = "embedded")]
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn parameter_alias() {
-        let param: Parameter<'_> = Field::new("input", <&str>::TYPE_INFO);
+        let param: Parameter<'_> = Field::new("input", &Type::String);
         assert_eq!(param.name(), "input");
         assert_eq!(param.ty(), &Type::String);
     }

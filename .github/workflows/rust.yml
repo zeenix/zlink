@@ -92,8 +92,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build and Test
         run: |
-          cargo test --release --features introspection
-          cargo test -p zlink-core --release --no-default-features --features embedded,idl
+          cargo test --release --features introspection,idl-parse
+          cargo test -p zlink-core --release --no-default-features --features embedded,introspection
 
   doc_build:
     runs-on: ubuntu-latest

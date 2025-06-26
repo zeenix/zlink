@@ -130,12 +130,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::idl::{Parameter, Type, TypeInfo};
+    use crate::idl::{Parameter, Type};
 
     #[test]
     fn method_creation() {
-        let input = Parameter::new("id", <i32>::TYPE_INFO);
-        let output = Parameter::new("name", <&str>::TYPE_INFO);
+        let input = Parameter::new("id", &Type::Int);
+        let output = Parameter::new("name", &Type::String);
         let inputs = [&input];
         let outputs = [&output];
 
@@ -166,9 +166,9 @@ mod tests {
 
     #[test]
     fn method_serialization() {
-        let input_x = Parameter::new("x", <f64>::TYPE_INFO);
-        let input_y = Parameter::new("y", <f64>::TYPE_INFO);
-        let output = Parameter::new("distance", <f64>::TYPE_INFO);
+        let input_x = Parameter::new("x", &Type::Float);
+        let input_y = Parameter::new("y", &Type::Float);
+        let output = Parameter::new("distance", &Type::Float);
         let inputs = [&input_x, &input_y];
         let outputs = [&output];
 
