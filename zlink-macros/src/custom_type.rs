@@ -18,9 +18,6 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    // Check for unsupported attributes.
-    check_attributes(&input.attrs)?;
-
     let expanded = match &input.data {
         Data::Struct(data_struct) => {
             let fields = &data_struct.fields;
@@ -68,18 +65,6 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     Ok(expanded)
 }
 
-fn check_attributes(attrs: &[syn::Attribute]) -> Result<(), Error> {
-    for attr in attrs {
-        if attr.path().is_ident("zlink") {
-            return Err(Error::new_spanned(
-                attr,
-                "zlink attributes are not yet supported on Type derive",
-            ));
-        }
-    }
-    Ok(())
-}
-
 fn generate_field_definitions(
     _struct_name: &syn::Ident,
     fields: &Fields,
@@ -95,8 +80,6 @@ fn generate_field_definitions(
                     .as_ref()
                     .ok_or_else(|| Error::new_spanned(field, "Field must have a name"))?;
 
-                // Check for unsupported field attributes.
-                check_attributes(&field.attrs)?;
                 let field_type = &field.ty;
                 let field_name_str = field_name.to_string();
                 let static_name =
@@ -136,9 +119,6 @@ fn generate_enum_variant_definitions(
     let mut variant_names = Vec::new();
 
     for variant in &data_enum.variants {
-        // Check for unsupported variant attributes.
-        check_attributes(&variant.attrs)?;
-
         // Only support unit variants (no associated data).
         match &variant.fields {
             Fields::Unit => {
