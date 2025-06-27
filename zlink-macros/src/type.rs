@@ -20,7 +20,7 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let expanded = match &input.data {
         Data::Struct(data_struct) => {
             let fields = &data_struct.fields;
-            let (field_statics, field_refs) = generate_field_definitions(name, fields)?;
+            let (field_statics, field_refs) = generate_field_definitions(fields)?;
 
             quote! {
                 impl #impl_generics ::zlink::introspect::Type for #name #ty_generics #where_clause {
@@ -37,7 +37,7 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             }
         }
         Data::Enum(data_enum) => {
-            let variant_refs = generate_enum_variant_definitions(name, data_enum)?;
+            let variant_refs = generate_enum_variant_definitions(data_enum)?;
 
             quote! {
                 impl #impl_generics ::zlink::introspect::Type for #name #ty_generics #where_clause {
@@ -61,7 +61,6 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
 }
 
 fn generate_field_definitions(
-    _struct_name: &syn::Ident,
     fields: &Fields,
 ) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
     match fields {
@@ -107,10 +106,7 @@ fn generate_field_definitions(
     }
 }
 
-fn generate_enum_variant_definitions(
-    _enum_name: &syn::Ident,
-    data_enum: &DataEnum,
-) -> Result<Vec<TokenStream2>, Error> {
+fn generate_enum_variant_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>, Error> {
     let mut variant_refs = Vec::new();
 
     for variant in &data_enum.variants {
