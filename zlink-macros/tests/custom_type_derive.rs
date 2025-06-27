@@ -1,7 +1,4 @@
-use zlink::{
-    idl,
-    introspect::{CustomType, Type},
-};
+use zlink::{idl, introspect::CustomType};
 
 #[test]
 fn named_struct_custom_type() {
@@ -202,14 +199,9 @@ fn nested_struct_custom_type() {
             assert_eq!(field_vec[0].ty(), &idl::Type::String);
 
             assert_eq!(field_vec[1].name(), "address");
-            // The address field should reference Address::TYPE through regular TypeInfo
-            // This tests that custom TypeInfo can reference regular TypeInfo for field types
             match field_vec[1].ty() {
-                idl::Type::Object(_) => {
-                    // This should be a regular inline type, not a custom named type
-                    // Custom TypeInfo uses regular TypeInfo for field types
-                }
-                _ => panic!("Expected object type for address field"),
+                idl::Type::Custom(name) if *name == "Address" => (),
+                _ => panic!("Expected custom object type for address field"),
             }
         }
         _ => panic!("Expected custom object type for PersonWithAddress"),
@@ -285,7 +277,7 @@ struct PersonWithAddress {
     address: Address,
 }
 
-#[derive(CustomType, Type)]
+#[derive(CustomType)]
 #[allow(unused)]
 struct Address {
     street: String,

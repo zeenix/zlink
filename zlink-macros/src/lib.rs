@@ -171,9 +171,9 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// **Requires the `introspection` feature to be enabled.**
 ///
-/// This macro generates implementations of the `Type` trait, which provides named
-/// custom type definitions suitable for IDL generation. Unlike the regular `Type` derive,
-/// this macro includes the type name in the generated type information.
+/// This macro generates implementations of the `CustomType` trait, which provides named
+/// custom type definitions suitable for IDL generation. It also generates a `Type` implementation
+/// and therefore is mutually exclusive to [`Type`] derive macro.
 ///
 /// ## Structs
 ///
@@ -190,7 +190,7 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// ## Named Structs
 ///
 /// ```rust
-/// use zlink::introspect::CustomType;
+/// use zlink::introspect::{CustomType, Type};
 /// use zlink::idl;
 ///
 /// #[derive(CustomType)]
@@ -210,12 +210,19 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///     }
 ///     _ => panic!("Expected custom object type"),
 /// }
+///
+/// match Point::TYPE {
+///     idl::Type::Custom(name) => {
+///         assert_eq!(*name, "Point");
+///     }
+///     _ => panic!("Expected custom type"),
+/// }
 /// ```
 ///
 /// ## Unit Enums
 ///
 /// ```rust
-/// # use zlink::introspect::CustomType;
+/// # use zlink::introspect::{CustomType, Type};
 /// # use zlink::idl;
 /// #[derive(CustomType)]
 /// enum Status {
@@ -235,6 +242,13 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///         assert_eq!(*variants[2], "Pending");
 ///     }
 ///     _ => panic!("Expected custom enum type"),
+/// }
+///
+/// match Status::TYPE {
+///     idl::Type::Custom(name) => {
+///         assert_eq!(*name, "Status");
+///     }
+///     _ => panic!("Expected custom type"),
 /// }
 /// ```
 #[cfg(feature = "introspection")]

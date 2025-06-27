@@ -2,7 +2,6 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-macros
-    * `introspect::CustomType` derive also generates `introspect::Type` impl.
     * `introspect::ReplyError` derive (only enums supported)
       * Re-export from `zlink_core::introspect` (similarly to `introspect::TypeInfo`)
   * zlink-core

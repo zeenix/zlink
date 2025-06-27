@@ -58,6 +58,10 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
         impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
             const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &#custom_type;
         }
+
+        impl #impl_generics ::zlink::introspect::Type for #name #ty_generics #where_clause {
+            const TYPE: &'static ::zlink::idl::Type<'static> = &::zlink::idl::Type::Custom(#name_str);
+        }
     })
 }
 
