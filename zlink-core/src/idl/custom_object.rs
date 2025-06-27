@@ -4,18 +4,18 @@ use core::fmt;
 
 use serde::Serialize;
 
-use super::super::{Field, List};
+use super::{Field, List};
 
 /// An object type definition in Varlink IDL (struct-like with named fields).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Object<'a> {
+pub struct CustomObject<'a> {
     /// The name of the object type.
     name: &'a str,
     /// The fields of the object type.
     fields: List<'a, Field<'a>>,
 }
 
-impl<'a> Object<'a> {
+impl<'a> CustomObject<'a> {
     /// Creates a new object type with the given name and borrowed fields.
     pub const fn new(name: &'a str, fields: &'a [&'a Field<'a>]) -> Self {
         Self {
@@ -44,7 +44,7 @@ impl<'a> Object<'a> {
     }
 }
 
-impl<'a> fmt::Display for Object<'a> {
+impl<'a> fmt::Display for CustomObject<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "type {} (", self.name)?;
         let mut first = true;
@@ -59,7 +59,7 @@ impl<'a> fmt::Display for Object<'a> {
     }
 }
 
-impl<'a> Serialize for Object<'a> {
+impl<'a> Serialize for CustomObject<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

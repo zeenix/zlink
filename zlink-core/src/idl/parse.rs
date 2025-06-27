@@ -11,7 +11,10 @@ use winnow::{
     ModalResult, Parser,
 };
 
-use super::{custom, Error, Field, Interface, List, Member, Method, Parameter, Type, TypeRef};
+use super::{
+    CustomObject, CustomType, Error, Field, Interface, List, Member, Method, Parameter, Type,
+    TypeRef,
+};
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -254,7 +257,7 @@ fn error_def<'a>(input: &mut &'a [u8]) -> ModalResult<Error<'a>, InputError<&'a 
 }
 
 /// Parse a type definition: type Name <definition>.
-fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<custom::Type<'a>, InputError<&'a [u8]>> {
+fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<&'a [u8]>> {
     literal("type").parse_next(input)?;
     take_while(1.., |c: u8| c.is_ascii_whitespace()).parse_next(input)?;
     let name = type_name(input)?;
@@ -266,7 +269,7 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<custom::Type<'a>, InputErro
     let fields: Vec<Field<'a>> = separated(0.., field, (ws, literal(","), ws)).parse_next(input)?;
     ws(input)?;
     literal(")").parse_next(input)?;
-    Ok(custom::Type::from(custom::Object::new_owned(name, fields)))
+    Ok(CustomType::from(CustomObject::new_owned(name, fields)))
 }
 
 /// Parse a member definition (type, method, or error).
@@ -333,7 +336,7 @@ pub(super) fn parse_error(input: &str) -> Result<Error<'_>, crate::Error> {
 }
 
 /// Parse a custom type from a string.
-pub(super) fn parse_custom_type(input: &str) -> Result<custom::Type<'_>, crate::Error> {
+pub(super) fn parse_custom_type(input: &str) -> Result<CustomType<'_>, crate::Error> {
     parse_from_str(input, type_def)
 }
 
@@ -608,7 +611,7 @@ error NotFound(id: int)
         assert!(fields.next().is_none());
 
         let custom_type_json = r#""type Person (name: string, age: int)""#;
-        let custom_type: custom::Type<'_> = serde_json::from_str(custom_type_json).unwrap();
+        let custom_type: CustomType<'_> = serde_json::from_str(custom_type_json).unwrap();
         assert_eq!(custom_type.name(), "Person");
         let mut fields = custom_type.as_object().unwrap().fields();
         assert_eq!(fields.next().unwrap(), &Field::new("name", &Type::String));

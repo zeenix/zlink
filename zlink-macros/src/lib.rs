@@ -190,18 +190,18 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// ## Named Structs
 ///
 /// ```rust
-/// use zlink::introspect::custom::Type;
-/// use zlink::idl::custom;
+/// use zlink::introspect::CustomType;
+/// use zlink::idl;
 ///
-/// #[derive(Type)]
+/// #[derive(CustomType)]
 /// struct Point {
 ///     x: f64,
 ///     y: f64,
 /// }
 ///
 /// // Access the generated custom type information
-/// match Point::TYPE {
-///     custom::Type::Object(obj) => {
+/// match Point::CUSTOM_TYPE {
+///     idl::CustomType::Object(obj) => {
 ///         assert_eq!(obj.name(), "Point");
 ///         let fields: Vec<_> = obj.fields().collect();
 ///         assert_eq!(fields.len(), 2);
@@ -215,9 +215,9 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// ## Unit Enums
 ///
 /// ```rust
-/// # use zlink::introspect::custom::Type;
-/// # use zlink::idl::custom;
-/// #[derive(Type)]
+/// # use zlink::introspect::CustomType;
+/// # use zlink::idl;
+/// #[derive(CustomType)]
 /// enum Status {
 ///     Active,
 ///     Inactive,
@@ -225,8 +225,8 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 ///
 /// // Access the generated custom enum type information
-/// match Status::TYPE {
-///     custom::Type::Enum(enm) => {
+/// match Status::CUSTOM_TYPE {
+///     idl::CustomType::Enum(enm) => {
 ///         assert_eq!(enm.name(), "Status");
 ///         let variants: Vec<_> = enm.variants().collect();
 ///         assert_eq!(variants.len(), 3);

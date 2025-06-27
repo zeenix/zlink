@@ -6,12 +6,12 @@
 //! 3. The generated types include proper names and work with the API
 //! 4. Both the trait and derive macro are available from the same module
 
-use zlink::{idl::custom::Type as CustomType, introspect::custom::Type};
+use zlink::{idl, introspect::CustomType};
 
 #[test]
 fn test_custom_type_derive_integration() {
     // Test struct with CustomType derive
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     struct Point {
         x: f64,
@@ -19,8 +19,8 @@ fn test_custom_type_derive_integration() {
     }
 
     // Verify the derive macro generated the correct implementation
-    match Point::TYPE {
-        CustomType::Object(obj) => {
+    match Point::CUSTOM_TYPE {
+        idl::CustomType::Object(obj) => {
             assert_eq!(obj.name(), "Point");
 
             let fields: Vec<_> = obj.fields().collect();
@@ -33,15 +33,15 @@ fn test_custom_type_derive_integration() {
     }
 
     // Test that the type name is accessible
-    assert_eq!(Point::TYPE.name(), "Point");
-    assert!(Point::TYPE.is_object());
-    assert!(!Point::TYPE.is_enum());
+    assert_eq!(Point::CUSTOM_TYPE.name(), "Point");
+    assert!(Point::CUSTOM_TYPE.is_object());
+    assert!(!Point::CUSTOM_TYPE.is_enum());
 }
 
 #[test]
 fn test_custom_enum_derive_integration() {
     // Test enum with CustomType derive
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     enum Status {
         Active,
@@ -50,8 +50,8 @@ fn test_custom_enum_derive_integration() {
     }
 
     // Verify the derive macro generated the correct implementation
-    match Status::TYPE {
-        CustomType::Enum(enm) => {
+    match Status::CUSTOM_TYPE {
+        idl::CustomType::Enum(enm) => {
             assert_eq!(enm.name(), "Status");
 
             let variants: Vec<_> = enm.variants().collect();
@@ -65,20 +65,20 @@ fn test_custom_enum_derive_integration() {
     }
 
     // Test that the type name is accessible
-    assert_eq!(Status::TYPE.name(), "Status");
-    assert!(!Status::TYPE.is_object());
-    assert!(Status::TYPE.is_enum());
+    assert_eq!(Status::CUSTOM_TYPE.name(), "Status");
+    assert!(!Status::CUSTOM_TYPE.is_object());
+    assert!(Status::CUSTOM_TYPE.is_enum());
 }
 
 #[test]
 fn test_unit_struct_derive_integration() {
     // Test unit struct
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     struct Unit;
 
-    match Unit::TYPE {
-        CustomType::Object(obj) => {
+    match Unit::CUSTOM_TYPE {
+        idl::CustomType::Object(obj) => {
             assert_eq!(obj.name(), "Unit");
 
             let fields: Vec<_> = obj.fields().collect();
@@ -91,7 +91,7 @@ fn test_unit_struct_derive_integration() {
 #[test]
 fn test_complex_struct_derive_integration() {
     // Test complex struct with various field types
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     struct Person {
         name: String,
@@ -101,8 +101,8 @@ fn test_complex_struct_derive_integration() {
         active: bool,
     }
 
-    match Person::TYPE {
-        CustomType::Object(obj) => {
+    match Person::CUSTOM_TYPE {
+        idl::CustomType::Object(obj) => {
             assert_eq!(obj.name(), "Person");
 
             let fields: Vec<_> = obj.fields().collect();
@@ -121,13 +121,13 @@ fn test_complex_struct_derive_integration() {
 
 #[test]
 fn test_const_compatibility() {
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     struct TestStruct {
         value: i32,
     }
 
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     enum TestEnum {
         Variant1,
@@ -135,37 +135,37 @@ fn test_const_compatibility() {
     }
 
     // Verify that TYPE can be used in const contexts
-    const _STRUCT_TYPE: &CustomType<'static> = TestStruct::TYPE;
-    const _ENUM_TYPE: &CustomType<'static> = TestEnum::TYPE;
+    const _STRUCT_TYPE: &idl::CustomType<'static> = TestStruct::CUSTOM_TYPE;
+    const _ENUM_TYPE: &idl::CustomType<'static> = TestEnum::CUSTOM_TYPE;
 }
 
 #[test]
 fn test_trait_and_derive_same_import() {
     // This test verifies that we can import both the trait and derive macro
     // with the same name from the custom module
-    use zlink::introspect::custom::Type;
+    use zlink::introspect::CustomType;
 
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     struct LocalType {
         field: String,
     }
 
     // Verify we can use the trait method
-    let r#type = LocalType::TYPE;
+    let r#type = LocalType::CUSTOM_TYPE;
     assert_eq!(r#type.name(), "LocalType");
 }
 
 #[test]
 fn test_single_variant_enum() {
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     enum SingleVariant {
         Only,
     }
 
-    match SingleVariant::TYPE {
-        CustomType::Enum(enm) => {
+    match SingleVariant::CUSTOM_TYPE {
+        idl::CustomType::Enum(enm) => {
             assert_eq!(enm.name(), "SingleVariant");
 
             let variants: Vec<_> = enm.variants().collect();
@@ -179,13 +179,13 @@ fn test_single_variant_enum() {
 #[test]
 fn test_type_names_preserved() {
     // Test that type names are exactly preserved as written
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code, non_camel_case_types)]
     struct snake_case_name {
         value: i32,
     }
 
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code, non_camel_case_types)]
     enum MixedCaseEnum {
         VariantOne,
@@ -193,10 +193,10 @@ fn test_type_names_preserved() {
         VARIANT_THREE,
     }
 
-    assert_eq!(snake_case_name::TYPE.name(), "snake_case_name");
-    assert_eq!(MixedCaseEnum::TYPE.name(), "MixedCaseEnum");
+    assert_eq!(snake_case_name::CUSTOM_TYPE.name(), "snake_case_name");
+    assert_eq!(MixedCaseEnum::CUSTOM_TYPE.name(), "MixedCaseEnum");
 
-    if let CustomType::Enum(enm) = MixedCaseEnum::TYPE {
+    if let idl::CustomType::Enum(enm) = MixedCaseEnum::CUSTOM_TYPE {
         let variants: Vec<_> = enm.variants().collect();
         assert_eq!(*variants[0], "VariantOne");
         assert_eq!(*variants[1], "variant_two");
@@ -207,16 +207,16 @@ fn test_type_names_preserved() {
 #[test]
 fn test_derive_macro_available_from_main_module() {
     // Verify the derive macro is available from the expected location
-    use zlink::introspect::custom::Type;
+    use zlink::introspect::CustomType;
 
-    #[derive(Type)]
+    #[derive(CustomType)]
     #[allow(dead_code)]
     struct ExportTest {
         data: String,
     }
 
     // If this compiles and we can access TYPE, the export works
-    assert_eq!(ExportTest::TYPE.name(), "ExportTest");
+    assert_eq!(ExportTest::CUSTOM_TYPE.name(), "ExportTest");
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn test_enum_variant_names_not_renamed_for_encoding() {
     // as written in the code, ignoring any serde renaming attributes
     use serde::{Deserialize, Serialize};
 
-    #[derive(Type, Serialize, Deserialize)]
+    #[derive(CustomType, Serialize, Deserialize)]
     #[serde(rename_all = "snake_case")]
     #[allow(dead_code)]
     enum DriveState {
@@ -235,8 +235,8 @@ fn test_enum_variant_names_not_renamed_for_encoding() {
         VeryBusy, // This would be "very_busy" in JSON but should be "VeryBusy" in Type
     }
 
-    match DriveState::TYPE {
-        CustomType::Enum(enm) => {
+    match DriveState::CUSTOM_TYPE {
+        idl::CustomType::Enum(enm) => {
             assert_eq!(enm.name(), "DriveState");
 
             let variants: Vec<_> = enm.variants().collect();

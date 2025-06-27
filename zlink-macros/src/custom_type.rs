@@ -27,16 +27,16 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             let (field_statics, field_refs) = generate_field_definitions(name, fields)?;
 
             quote! {
-                impl #impl_generics ::zlink::introspect::custom::Type for #name #ty_generics #where_clause {
-                    const TYPE: &'static ::zlink::idl::custom::Type<'static> = &{
+                impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
+                    const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &{
                         #(#field_statics)*
 
                         static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
                             #(#field_refs),*
                         ];
 
-                        ::zlink::idl::custom::Type::Object(
-                            ::zlink::idl::custom::Object::new(#name_str, FIELD_REFS)
+                        ::zlink::idl::CustomType::Object(
+                            ::zlink::idl::CustomObject::new(#name_str, FIELD_REFS)
                         )
                     };
                 }
@@ -46,10 +46,10 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             let variant_names = generate_enum_variant_definitions(name, data_enum)?;
 
             quote! {
-                impl #impl_generics ::zlink::introspect::custom::Type for #name #ty_generics #where_clause {
-                    const TYPE: &'static ::zlink::idl::custom::Type<'static> = &{
-                        ::zlink::idl::custom::Type::Enum(
-                            ::zlink::idl::custom::Enum::new(#name_str, &[
+                impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
+                    const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &{
+                        ::zlink::idl::CustomType::Enum(
+                            ::zlink::idl::CustomEnum::new(#name_str, &[
                                 #(#variant_names),*
                             ])
                         )

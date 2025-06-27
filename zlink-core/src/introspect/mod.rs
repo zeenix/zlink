@@ -8,7 +8,8 @@
 mod r#type;
 pub use r#type::Type;
 
-// Re-export the Type derive macro so it's available alongside the trait
-pub use zlink_macros::Type;
+mod custom_type;
+pub use custom_type::CustomType;
 
-pub mod custom;
+// Re-export the the derive macro so it's available alongside the traits.
+pub use zlink_macros::{CustomType, Type};

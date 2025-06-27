@@ -10,7 +10,14 @@ pub use list::List;
 mod r#type;
 pub use r#type::{Type, TypeRef};
 
-pub mod custom;
+mod custom_object;
+pub use custom_object::CustomObject;
+
+mod custom_enum;
+pub use custom_enum::CustomEnum;
+
+mod custom_type;
+pub use custom_type::CustomType;
 
 mod field;
 pub use field::{Field, Parameter};

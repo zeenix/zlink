@@ -1,6 +1,6 @@
 //! Tests for TypeInfo derive macro error handling and edge cases.
 
-use zlink::{idl::Type as VarlinkType, introspect::Type};
+use zlink::{idl, introspect::Type};
 
 #[test]
 fn test_unit_enum_works() {
@@ -13,7 +13,7 @@ fn test_unit_enum_works() {
     }
 
     match SimpleEnum::TYPE {
-        VarlinkType::Enum(variants) => {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 3);
             assert_eq!(*variant_vec[0], "First");
@@ -33,7 +33,7 @@ fn test_single_variant_enum_works() {
     }
 
     match SingleVariant::TYPE {
-        VarlinkType::Enum(variants) => {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 1);
             assert_eq!(*variant_vec[0], "Only");
@@ -81,7 +81,7 @@ fn test_enum_with_many_variants() {
     }
 
     match ManyVariants::TYPE {
-        VarlinkType::Enum(variants) => {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 10);
             assert_eq!(*variant_vec[0], "A");
@@ -104,7 +104,7 @@ fn test_enum_with_unusual_names() {
     }
 
     match UnusualNames::TYPE {
-        VarlinkType::Enum(variants) => {
+        idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 4);
             assert_eq!(*variant_vec[0], "CamelCase");
@@ -126,5 +126,5 @@ fn test_const_compatibility_with_enums() {
     }
 
     // This should compile at const time
-    const _: &VarlinkType<'static> = ConstTestEnum::TYPE;
+    const _: &idl::Type<'static> = ConstTestEnum::TYPE;
 }

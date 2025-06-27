@@ -4,18 +4,18 @@ use core::fmt;
 
 use serde::Serialize;
 
-use super::super::List;
+use super::List;
 
 /// An enum type definition in Varlink IDL (enum-like with named variants).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Enum<'a> {
+pub struct CustomEnum<'a> {
     /// The name of the enum type.
     name: &'a str,
     /// The variants of the enum type.
     variants: List<'a, &'a str>,
 }
 
-impl<'a> Enum<'a> {
+impl<'a> CustomEnum<'a> {
     /// Creates a new enum type with the given name and borrowed variants.
     pub const fn new(name: &'a str, variants: &'a [&'a &'a str]) -> Self {
         Self {
@@ -44,7 +44,7 @@ impl<'a> Enum<'a> {
     }
 }
 
-impl<'a> fmt::Display for Enum<'a> {
+impl<'a> fmt::Display for CustomEnum<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "type {} (", self.name)?;
         let mut first = true;
@@ -59,7 +59,7 @@ impl<'a> fmt::Display for Enum<'a> {
     }
 }
 
-impl<'a> Serialize for Enum<'a> {
+impl<'a> Serialize for CustomEnum<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
