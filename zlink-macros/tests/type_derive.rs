@@ -225,7 +225,7 @@ struct Primitives {
     text: String,
 }
 
-// Test nested struct (this will require the other struct to also have TypeInfo)
+// Test nested struct (this will require the other struct to also have Type)
 #[derive(Type)]
 #[allow(unused)]
 struct PersonWithAddress {

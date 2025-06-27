@@ -1,4 +1,4 @@
-//! Tests for TypeInfo derive macro error handling and edge cases.
+//! Tests for Type derive macro error handling and edge cases.
 
 use zlink::{idl, introspect::Type};
 
@@ -46,21 +46,21 @@ fn test_single_variant_enum_works() {
 //
 // #[derive(Type)]
 // enum TupleVariantEnum {
-//     Active(String),  // Error: TypeInfo derive macro only supports unit enum variants, not tuple
+//     Active(String),  // Error: Type derive macro only supports unit enum variants, not tuple
 // variants     Inactive,
 // }
 //
 // #[derive(Type)]
 // enum StructVariantEnum {
-//     Active { status: String },  // Error: TypeInfo derive macro only supports unit enum variants,
+//     Active { status: String },  // Error: Type derive macro only supports unit enum variants,
 // not struct variants     Inactive,
 // }
 //
 // #[derive(Type)]
 // enum MixedEnum {
 //     Unit,
-//     Tuple(i32),  // Error: TypeInfo derive macro only supports unit enum variants, not tuple
-// variants     Struct { field: String },  // Error: TypeInfo derive macro only supports unit enum
+//     Tuple(i32),  // Error: Type derive macro only supports unit enum variants, not tuple
+// variants     Struct { field: String },  // Error: Type derive macro only supports unit enum
 // variants, not struct variants }
 
 #[test]

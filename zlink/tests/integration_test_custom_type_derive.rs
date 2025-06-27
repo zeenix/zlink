@@ -1,7 +1,7 @@
-//! Integration test to verify end-to-end CustomTypeInfo derive macro functionality.
+//! Integration test to verify end-to-end CustomType derive macro functionality.
 //!
 //! This test verifies that:
-//! 1. The CustomTypeInfo derive macro is available from zlink::idl::custom
+//! 1. The CustomType derive macro is available from zlink::idl::custom
 //! 2. It generates correct custom type implementations for structs and enums
 //! 3. The generated types include proper names and work with the API
 //! 4. Both the trait and derive macro are available from the same module

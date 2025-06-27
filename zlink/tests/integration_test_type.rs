@@ -130,7 +130,7 @@ fn test_trait_and_macro_same_name() {
 
 #[test]
 fn test_enum_type_integration() {
-    // This test verifies that enum TypeInfo works with the main API
+    // This test verifies that enum Type works with the main API
     match Status::TYPE {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
