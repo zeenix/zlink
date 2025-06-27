@@ -3,7 +3,7 @@
 //! This test verifies that:
 //! 1. The Type trait and derive macro are both available from zlink::introspect
 //! 2. They work together seamlessly
-//! 3. The macro generates correct TYPE implementations
+//! 3. The macro generates correct Type implementations
 //! 4. Both simple and complex types work as expected
 
 use zlink::{idl::Type as VarlinkType, introspect::Type};

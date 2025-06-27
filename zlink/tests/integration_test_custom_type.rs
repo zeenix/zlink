@@ -3,7 +3,7 @@
 //! This test verifies that:
 //! 1. The custom::Type trait is available from zlink::introspect::custom
 //! 2. It can be implemented manually for custom types
-//! 3. It generates correct TYPE implementations with type names
+//! 3. It generates correct Type implementations with type names
 //! 4. Both object and enum custom types work as expected
 
 use zlink::{
