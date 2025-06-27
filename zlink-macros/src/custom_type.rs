@@ -18,41 +18,33 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let expanded = match &input.data {
+    let custom_type = match &input.data {
         Data::Struct(data_struct) => {
             let fields = &data_struct.fields;
             let (field_statics, field_refs) = generate_field_definitions(fields)?;
 
-            quote! {
-                impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
-                    const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &{
-                        #(#field_statics)*
+            quote!({
+                #(#field_statics)*
 
-                        static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
-                            #(#field_refs),*
-                        ];
+                static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
+                    #(#field_refs),*
+                ];
 
-                        ::zlink::idl::CustomType::Object(
-                            ::zlink::idl::CustomObject::new(#name_str, FIELD_REFS)
-                        )
-                    };
-                }
-            }
+                ::zlink::idl::CustomType::Object(
+                    ::zlink::idl::CustomObject::new(#name_str, FIELD_REFS)
+                )
+            })
         }
         Data::Enum(data_enum) => {
             let variant_names = generate_enum_variant_definitions(data_enum)?;
 
-            quote! {
-                impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
-                    const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &{
-                        ::zlink::idl::CustomType::Enum(
-                            ::zlink::idl::CustomEnum::new(#name_str, &[
-                                #(#variant_names),*
-                            ])
-                        )
-                    };
-                }
-            }
+            quote!({
+                ::zlink::idl::CustomType::Enum(
+                   ::zlink::idl::CustomEnum::new(#name_str, &[
+                        #(#variant_names),*
+                    ])
+                )
+            })
         }
         Data::Union(_) => {
             return Err(Error::new_spanned(
@@ -62,7 +54,11 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
         }
     };
 
-    Ok(expanded)
+    Ok(quote! {
+        impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
+            const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &#custom_type;
+        }
+    })
 }
 
 fn generate_field_definitions(
