@@ -2,8 +2,7 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-macros
-    * `introspect::Type` derive should support boolean `custom` attribute that makes the macro
-      generate `idl::Type::Custom` variant with just the name of the type.
+    * `introspect::CustomType` derive also generates `introspect::Type` impl.
     * `introspect::ReplyError` derive (only enums supported)
       * Re-export from `zlink_core::introspect` (similarly to `introspect::TypeInfo`)
   * zlink-core
