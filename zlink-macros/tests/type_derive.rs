@@ -1,3 +1,5 @@
+#![cfg(feature = "introspection")]
+
 use zlink::{idl, introspect::Type};
 
 // Force diagnostics refresh

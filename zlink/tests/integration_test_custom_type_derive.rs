@@ -1,3 +1,5 @@
+#![cfg(feature = "introspection")]
+
 //! Integration test to verify end-to-end CustomType derive macro functionality.
 //!
 //! This test verifies that:

@@ -4,12 +4,14 @@ use futures_util::{pin_mut, stream::StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{select, time::sleep};
 use zlink::{
-    introspect::ReplyError,
     notified,
     service::MethodReply,
     unix::{bind, connect},
     Call, Service,
 };
+
+#[cfg(feature = "introspection")]
+use zlink::introspect::ReplyError;
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
@@ -289,7 +291,8 @@ enum Replies {
 }
 
 /// The FTL service error replies.
-#[derive(Debug, Serialize, Deserialize, PartialEq, ReplyError)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "introspection", derive(ReplyError))]
 #[serde(tag = "error", content = "parameters")]
 enum Errors {
     #[serde(rename = "org.example.ftl.NotEnoughEnergy")]
@@ -331,6 +334,7 @@ impl core::fmt::Display for Errors {
 
 impl std::error::Error for Errors {}
 
+#[cfg(feature = "introspection")]
 #[test_log::test(tokio::test)]
 async fn reply_error_derive_works() {
     // Test that the ReplyError derive generates the expected variants.

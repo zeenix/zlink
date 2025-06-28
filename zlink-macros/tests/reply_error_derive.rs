@@ -1,3 +1,5 @@
+#![cfg(feature = "introspection")]
+
 use zlink::introspect::ReplyError;
 
 #[test]

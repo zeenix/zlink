@@ -1,4 +1,6 @@
-//! Integration test to verify end-to-end custom::Type functionality.
+#![cfg(feature = "introspection")]
+
+//! Integration test to verify end-to-end CustomType functionality.
 //!
 //! This test verifies that:
 //! 1. The custom::Type trait is available from zlink::introspect::custom

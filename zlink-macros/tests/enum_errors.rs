@@ -1,5 +1,7 @@
 //! Tests for Type derive macro error handling and edge cases.
 
+#![cfg(feature = "introspection")]
+
 use zlink::{idl, introspect::Type};
 
 #[test]

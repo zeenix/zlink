@@ -1,3 +1,5 @@
+#![cfg(feature = "introspection")]
+
 use zlink::introspect::ReplyError;
 
 // These tests verify that ReplyError derive properly rejects invalid tuple variants

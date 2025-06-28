@@ -1,3 +1,5 @@
+#![cfg(feature = "introspection")]
+
 //! Integration test to verify end-to-end Type functionality.
 //!
 //! This test verifies that:
