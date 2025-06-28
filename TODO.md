@@ -29,7 +29,7 @@
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
   * Handle renaming in introspection derives.
-    * Should we just use serde's attributes?
+    * Should we just use serde's attributes? (tricky for `ReplyError`)
 * zlink-core
   * cargo features to allow use of `idl` only
 * zlink-codegen (generates code from IDL)
