@@ -15,4 +15,4 @@ mod reply_error;
 pub use reply_error::ReplyError;
 
 // Re-export the the derive macro so it's available alongside the traits.
-pub use zlink_macros::{CustomType, Type};
+pub use zlink_macros::{CustomType, ReplyError, Type};

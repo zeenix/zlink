@@ -1,9 +1,6 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * zlink-macros
-    * `ReplyError` derive (only enums supported)
-      * Re-export from `zlink_core::introspect` (similarly to `introspect::Type`)
   * zlink-core
     * Add service [Introspection](https://varlink.org/Service>) API to `introspect` module
       * types for methods and errors (to be used for client and server)

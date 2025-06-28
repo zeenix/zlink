@@ -13,6 +13,9 @@ mod r#type;
 #[cfg(feature = "introspection")]
 mod custom_type;
 
+#[cfg(feature = "introspection")]
+mod reply_error;
+
 /// Derives `Type` for structs and enums, generating appropriate `Type::Object` or `Type::Enum`
 /// representation.
 ///
@@ -255,4 +258,54 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro_derive(CustomType)]
 pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     custom_type::derive_custom_type(input)
+}
+
+/// Derives `ReplyError` for enums, generating error definitions for Varlink service errors.
+///
+/// **Requires the `introspection` feature to be enabled.**
+///
+/// This macro generates implementations of the `ReplyError` trait, which provides a list of
+/// error variants that can be returned by a Varlink service method. It supports unit variants,
+/// variants with named fields, and single-field tuple variants (where the field type implements
+/// `Type` and has a `Type::Object`).
+///
+/// # Example
+///
+/// ```rust
+/// use zlink::introspect::ReplyError;
+///
+/// #[derive(ReplyError)]
+/// enum ServiceError {
+///     // Unit variant - no parameters
+///     NotFound,
+///
+///     // Named field variant - multiple parameters
+///     InvalidQuery {
+///         message: String,
+///         line: u32,
+///     },
+///
+///     // Single tuple variant - uses fields from the wrapped type
+///     ValidationFailed(ValidationDetails),
+/// }
+///
+/// // Example struct for tuple variant
+/// #[derive(zlink::introspect::Type)]
+/// struct ValidationDetails {
+///     field_name: String,
+///     expected: String,
+/// }
+///
+/// // Access the generated error variants
+/// assert_eq!(ServiceError::VARIANTS.len(), 3);
+/// assert_eq!(ServiceError::VARIANTS[0].name(), "NotFound");
+/// assert!(ServiceError::VARIANTS[0].has_no_fields());
+///
+/// assert_eq!(ServiceError::VARIANTS[1].name(), "InvalidQuery");
+/// assert!(!ServiceError::VARIANTS[1].has_no_fields());
+/// ```
+#[cfg(feature = "introspection")]
+#[proc_macro_derive(ReplyError)]
+pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    reply_error::derive_reply_error(input)
 }

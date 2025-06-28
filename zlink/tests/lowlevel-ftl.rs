@@ -4,6 +4,7 @@ use futures_util::{pin_mut, stream::StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{select, time::sleep};
 use zlink::{
+    introspect::ReplyError,
     notified,
     service::MethodReply,
     unix::{bind, connect},
@@ -288,13 +289,21 @@ enum Replies {
 }
 
 /// The FTL service error replies.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, ReplyError)]
 #[serde(tag = "error", content = "parameters")]
 enum Errors {
     #[serde(rename = "org.example.ftl.NotEnoughEnergy")]
     NotEnoughEnergy,
     #[serde(rename = "org.example.ftl.ParameterOutOfRange")]
     ParameterOutOfRange,
+    #[serde(rename = "org.example.ftl.InvalidCoordinates")]
+    InvalidCoordinates {
+        latitude: f32,
+        longitude: f32,
+        reason: String,
+    },
+    #[serde(rename = "org.example.ftl.SystemOverheat")]
+    SystemOverheat { temperature: i32 },
 }
 
 impl core::fmt::Display for Errors {
@@ -302,10 +311,53 @@ impl core::fmt::Display for Errors {
         match self {
             Errors::NotEnoughEnergy => write!(f, "Not enough energy"),
             Errors::ParameterOutOfRange => write!(f, "Parameter out of range"),
+            Errors::InvalidCoordinates {
+                latitude,
+                longitude,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Invalid coordinates ({}, {}): {}",
+                    latitude, longitude, reason
+                )
+            }
+            Errors::SystemOverheat { temperature } => {
+                write!(f, "System overheating at {} degrees", temperature)
+            }
         }
     }
 }
 
 impl std::error::Error for Errors {}
+
+#[test_log::test(tokio::test)]
+async fn reply_error_derive_works() {
+    // Test that the ReplyError derive generates the expected variants.
+    assert_eq!(Errors::VARIANTS.len(), 4);
+
+    // Unit variants
+    assert_eq!(Errors::VARIANTS[0].name(), "NotEnoughEnergy");
+    assert!(Errors::VARIANTS[0].has_no_fields());
+
+    assert_eq!(Errors::VARIANTS[1].name(), "ParameterOutOfRange");
+    assert!(Errors::VARIANTS[1].has_no_fields());
+
+    // Variant with named fields
+    assert_eq!(Errors::VARIANTS[2].name(), "InvalidCoordinates");
+    assert!(!Errors::VARIANTS[2].has_no_fields());
+    let fields: Vec<_> = Errors::VARIANTS[2].fields().collect();
+    assert_eq!(fields.len(), 3);
+    assert_eq!(fields[0].name(), "latitude");
+    assert_eq!(fields[1].name(), "longitude");
+    assert_eq!(fields[2].name(), "reason");
+
+    // Another variant with named fields
+    assert_eq!(Errors::VARIANTS[3].name(), "SystemOverheat");
+    assert!(!Errors::VARIANTS[3].has_no_fields());
+    let fields: Vec<_> = Errors::VARIANTS[3].fields().collect();
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].name(), "temperature");
+}
 
 const SOCKET_PATH: &'static str = "/tmp/zlink-lowlevel-ftl.sock";
