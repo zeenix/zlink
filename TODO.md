@@ -2,22 +2,29 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
-    * Add service [Introspection](https://varlink.org/Service>) API to `introspect` module
+    * Add service [Introspection](https://varlink.org/Service>) API under `introspect` module
+      * Under submodule `service`
       * types for methods and errors (to be used for client and server)
-        * `ServiceInfo` struct
-        * `Error` enum (make use of `ReplyError` derive)
-      * `Proxy`
+        * `Info` struct (`GetInfo` method's return type)
+        * `Error` enum
+          * contains all the errors of `Service` interface.
+          * make use of `ReplyError` derive.
+      * `Proxy` trait
         * client-side API
-        * `new` method takes a `Connection` instance.
+        * impl for `Connection`.
   * zlink
     * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
       * Make use of `zlink_core::introspect` and macros
+      * wrapper enum needed for errors
+        * `untagged` repr
+        * only the service-side and therefore only `Serialize` derive needed.
 * zlink-macros
   * `proxy` attribute macro
-    * gated behind (default)`proxy` feature
+    * gated behind (default) `proxy` feature
   * `service` attribute macro (see below)
     * gated behind `service` feature
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
+      * macro_rules macro may still be a good idea for Error types.
     * implements `Service` trait
     * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
