@@ -1,4 +1,4 @@
-use super::Error;
+use crate::idl::Error;
 
 /// Trait providing description of a interface method reply error type.
 pub trait ReplyError {

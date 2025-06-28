@@ -34,8 +34,5 @@ pub use member::Member;
 mod interface;
 pub use interface::Interface;
 
-mod reply_error;
-pub use reply_error::ReplyError;
-
 #[cfg(feature = "idl-parse")]
 mod parse;
