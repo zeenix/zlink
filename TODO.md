@@ -2,7 +2,7 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-macros
-    * `introspect::ReplyError` derive (only enums supported)
+    * `ReplyError` derive (only enums supported)
       * Re-export from `zlink_core::introspect` (similarly to `introspect::Type`)
   * zlink-core
     * Add service [Introspection](https://varlink.org/Service>) API to `introspect` module
