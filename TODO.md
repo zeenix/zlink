@@ -2,22 +2,25 @@
 
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
-    * Add service [Introspection](https://varlink.org/Service>) API under `introspect` module
-      * Under submodule `service`
+    * Add [varlink service](https://varlink.org/Service>) API
+      * module `varlink_service`
       * types for methods and errors (to be used for client and server)
         * `Info` struct (`GetInfo` method's return type)
+          * derive `introspect::Type` (if `introspection` feature is enabled)
         * `Error` enum
           * contains all the errors of `Service` interface.
-          * make use of `ReplyError` derive.
+          * Use `serde(rename)` to prepend interface name (can't use `serde-rename-all`).
+          * derive `introspect::ReplyError` (if `introspection` feature is enabled).
+          * impl `Deserialize` only if `std` feature is enabled.
       * `Proxy` trait
-        * client-side API
+        * client-side API for `org.varlink.service` interface
+        * requires `idl-parse` feature.
         * impl for `Connection`.
   * zlink
-    * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
-      * Make use of `zlink_core::introspect` and macros
+    * impl [`org.varlink.service`](https://varlink.org/Service>) interface for `lowlevel-ftl` test
+      * Make use of `introspect` and `varlink_service` API
       * wrapper enum needed for errors
         * `untagged` repr
-        * only the service-side and therefore only `Serialize` derive needed.
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature
