@@ -493,6 +493,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-prefix-all"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "301e07b2f92a4c78e05cade02eddc42f3088ec1059cdfdb701909754de5d4d1d"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -844,6 +854,7 @@ version = "0.0.1-alpha.1"
 dependencies = [
  "futures-util",
  "serde",
+ "serde-prefix-all",
  "serde_repr",
  "test-log",
  "tokio",
@@ -865,6 +876,7 @@ dependencies = [
  "pin-project-lite",
  "serde",
  "serde-json-core",
+ "serde-prefix-all",
  "serde_json",
  "tokio",
  "tracing",

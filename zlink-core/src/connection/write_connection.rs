@@ -49,16 +49,15 @@ impl<Write: WriteHalf> WriteConnection<Write> {
     ///
     /// ```rust
     /// use serde::{Serialize, Deserialize};
+    /// use serde_prefix_all::prefix_all;
     ///
+    /// #[prefix_all("org.example.ftl.")]
     /// #[derive(Debug, Serialize, Deserialize)]
     /// #[serde(tag = "method", content = "parameters")]
     /// enum MyMethods<'m> {
     ///    // The name needs to be the fully-qualified name of the error.
-    ///    #[serde(rename = "org.example.ftl.Alpha")]
     ///    Alpha { param1: u32, param2: &'m str},
-    ///    #[serde(rename = "org.example.ftl.Bravo")]
     ///    Bravo,
-    ///    #[serde(rename = "org.example.ftl.Charlie")]
     ///    Charlie { param1: &'m str },
     /// }
     /// ```

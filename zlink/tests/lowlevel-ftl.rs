@@ -2,6 +2,7 @@ use std::{pin::pin, time::Duration};
 
 use futures_util::{pin_mut, stream::StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use serde_prefix_all::prefix_all;
 use tokio::{select, time::sleep};
 use zlink::{
     notified,
@@ -269,16 +270,13 @@ impl From<Coordinate> for Replies {
 }
 
 /// The FTL service methods.
+#[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "parameters")]
 enum Methods {
-    #[serde(rename = "org.example.ftl.GetDriveCondition")]
     GetDriveCondition,
-    #[serde(rename = "org.example.ftl.SetDriveCondition")]
     SetDriveCondition { condition: DriveCondition },
-    #[serde(rename = "org.example.ftl.GetCoordinates")]
     GetCoordinates,
-    #[serde(rename = "org.example.ftl.Jump")]
     Jump { config: DriveConfiguration },
 }
 
@@ -291,22 +289,21 @@ enum Replies {
 }
 
 /// The FTL service error replies.
+#[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "introspection", derive(ReplyError))]
 #[serde(tag = "error", content = "parameters")]
 enum Errors {
-    #[serde(rename = "org.example.ftl.NotEnoughEnergy")]
     NotEnoughEnergy,
-    #[serde(rename = "org.example.ftl.ParameterOutOfRange")]
     ParameterOutOfRange,
-    #[serde(rename = "org.example.ftl.InvalidCoordinates")]
     InvalidCoordinates {
         latitude: f32,
         longitude: f32,
         reason: String,
     },
-    #[serde(rename = "org.example.ftl.SystemOverheat")]
-    SystemOverheat { temperature: i32 },
+    SystemOverheat {
+        temperature: i32,
+    },
 }
 
 impl core::fmt::Display for Errors {

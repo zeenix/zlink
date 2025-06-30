@@ -182,17 +182,17 @@ where
     /// ```no_run
     /// use zlink_core::{Connection, Call, reply};
     /// use serde::{Serialize, Deserialize};
+    /// use serde_prefix_all::prefix_all;
     /// use futures_util::{pin_mut, stream::StreamExt};
     ///
     /// # async fn example() -> zlink_core::Result<()> {
     /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
     ///
+    /// #[prefix_all("org.example.")]
     /// #[derive(Debug, Serialize, Deserialize)]
     /// #[serde(tag = "method", content = "parameters")]
     /// enum Methods {
-    ///     #[serde(rename = "org.example.GetUser")]
     ///     GetUser { id: u32 },
-    ///     #[serde(rename = "org.example.GetProject")]
     ///     GetProject { id: u32 },
     /// }
     ///
@@ -202,12 +202,11 @@ where
     /// #[derive(Debug, Deserialize)]
     /// struct Project { title: String }
     ///
+    /// #[prefix_all("org.example.")]
     /// #[derive(Debug, Deserialize)]
     /// #[serde(tag = "error", content = "parameters")]
     /// enum ApiError {
-    ///     #[serde(rename = "org.example.UserNotFound")]
     ///     UserNotFound { code: i32 },
-    ///     #[serde(rename = "org.example.ProjectNotFound")]
     ///     ProjectNotFound { code: i32 },
     /// }
     ///
@@ -239,22 +238,22 @@ where
     /// # use zlink_core::{Connection, Call, reply};
     /// # use serde::{Serialize, Deserialize};
     /// # use futures_util::{pin_mut, stream::StreamExt};
+    /// # use serde_prefix_all::prefix_all;
     /// # async fn example() -> zlink_core::Result<()> {
     /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
+    /// # #[prefix_all("org.example.")]
     /// # #[derive(Debug, Serialize, Deserialize)]
     /// # #[serde(tag = "method", content = "parameters")]
     /// # enum Methods {
-    /// #     #[serde(rename = "org.example.GetUser")]
     /// #     GetUser { id: u32 },
     /// # }
     /// # #[derive(Debug, Deserialize)]
     /// # struct User { name: String }
+    /// # #[prefix_all("org.example.")]
     /// # #[derive(Debug, Deserialize)]
     /// # #[serde(tag = "error", content = "parameters")]
     /// # enum ApiError {
-    /// #     #[serde(rename = "org.example.UserNotFound")]
     /// #     UserNotFound { code: i32 },
-    /// #     #[serde(rename = "org.example.ProjectNotFound")]
     /// #     ProjectNotFound { code: i32 },
     /// # }
     /// # let get_user = Call::new(Methods::GetUser { id: 1 });

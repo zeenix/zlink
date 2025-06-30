@@ -60,16 +60,15 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     ///
     /// ```rust
     /// use serde::{Deserialize, Serialize};
+    /// use serde_prefix_all::prefix_all;
     ///
+    /// #[prefix_all("org.example.ftl.")]
     /// #[derive(Debug, Deserialize, Serialize)]
     /// #[serde(tag = "error", content = "parameters")]
     /// enum MyError {
     ///    // The name needs to be the fully-qualified name of the error.
-    ///    #[serde(rename = "org.example.ftl.Alpha")]
     ///    Alpha { param1: u32, param2: String },
-    ///    #[serde(rename = "org.example.ftl.Bravo")]
     ///    Bravo,
-    ///    #[serde(rename = "org.example.ftl.Charlie")]
     ///    Charlie { param1: String },
     /// }
     /// ```
