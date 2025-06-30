@@ -3,15 +3,6 @@
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
     * Add [varlink service](https://varlink.org/Service>) API
-      * module `varlink_service`
-      * types for methods and errors (to be used for client and server)
-        * `Info` struct (`GetInfo` method's return type)
-          * derive `introspect::Type` (if `introspection` feature is enabled)
-        * `Error` enum
-          * contains all the errors of `Service` interface.
-          * Use `serde(rename)` to prepend interface name (can't use `serde-rename-all`).
-          * derive `introspect::ReplyError` (if `introspection` feature is enabled).
-          * impl `Deserialize` only if `std` feature is enabled.
       * `Proxy` trait
         * client-side API for `org.varlink.service` interface
         * requires `idl-parse` feature.
