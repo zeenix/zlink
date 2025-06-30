@@ -78,7 +78,7 @@ fn generate_field_definitions(
                     .as_ref()
                     .ok_or_else(|| Error::new_spanned(field, "Field must have a name"))?;
 
-                let field_type = &field.ty;
+                let field_type = utils::remove_lifetimes_from_type(&field.ty);
                 let field_name_str = field_name.to_string();
                 let static_name =
                     quote::format_ident!("FIELD_{}", field_name.to_string().to_uppercase());

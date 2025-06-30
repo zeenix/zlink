@@ -93,7 +93,8 @@ fn generate_error_definitions(
                     ));
                 }
 
-                let field_type = &fields.unnamed.first().unwrap().ty;
+                let field_type =
+                    utils::remove_lifetimes_from_type(&fields.unnamed.first().unwrap().ty);
                 let error_variant = quote! {
                     &{
                         match <#field_type as #crate_path::introspect::Type>::TYPE {
@@ -129,7 +130,7 @@ fn generate_field_definitions_for_named_variant(
             .as_ref()
             .ok_or_else(|| Error::new_spanned(field, "Field must have a name"))?;
 
-        let field_type = &field.ty;
+        let field_type = utils::remove_lifetimes_from_type(&field.ty);
         let field_name_str = field_name.to_string();
         let static_name = quote::format_ident!(
             "FIELD_{}_{}",
