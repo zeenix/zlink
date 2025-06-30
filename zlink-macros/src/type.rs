@@ -2,6 +2,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed};
 
+use crate::utils;
+
 /// Main entry point for the Type derive macro.
 pub(crate) fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
@@ -16,22 +18,23 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let name = &input.ident;
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let crate_path = utils::parse_crate_path(&input.attrs)?;
 
     let expanded = match &input.data {
         Data::Struct(data_struct) => {
             let fields = &data_struct.fields;
-            let (field_statics, field_refs) = generate_field_definitions(fields)?;
+            let (field_statics, field_refs) = generate_field_definitions(fields, &crate_path)?;
 
             quote! {
-                impl #impl_generics ::zlink::introspect::Type for #name #ty_generics #where_clause {
-                    const TYPE: &'static ::zlink::idl::Type<'static> = &{
+                impl #impl_generics #crate_path::introspect::Type for #name #ty_generics #where_clause {
+                    const TYPE: &'static #crate_path::idl::Type<'static> = &{
                         #(#field_statics)*
 
-                        static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
+                        static FIELD_REFS: &[&#crate_path::idl::Field<'static>] = &[
                             #(#field_refs),*
                         ];
 
-                        ::zlink::idl::Type::Object(::zlink::idl::List::Borrowed(FIELD_REFS))
+                        #crate_path::idl::Type::Object(#crate_path::idl::List::Borrowed(FIELD_REFS))
                     };
                 }
             }
@@ -40,9 +43,9 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             let variant_refs = generate_enum_variant_definitions(data_enum)?;
 
             quote! {
-                impl #impl_generics ::zlink::introspect::Type for #name #ty_generics #where_clause {
-                    const TYPE: &'static ::zlink::idl::Type<'static> = &{
-                        ::zlink::idl::Type::Enum(::zlink::idl::List::Borrowed(&[
+                impl #impl_generics #crate_path::introspect::Type for #name #ty_generics #where_clause {
+                    const TYPE: &'static #crate_path::idl::Type<'static> = &{
+                        #crate_path::idl::Type::Enum(#crate_path::idl::List::Borrowed(&[
                             #(#variant_refs),*
                         ]))
                     };
@@ -62,6 +65,7 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
 
 fn generate_field_definitions(
     fields: &Fields,
+    crate_path: &TokenStream2,
 ) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
     match fields {
         Fields::Named(FieldsNamed { named, .. }) => {
@@ -80,10 +84,10 @@ fn generate_field_definitions(
                     quote::format_ident!("FIELD_{}", field_name.to_string().to_uppercase());
 
                 let field_static = quote! {
-                    static #static_name: ::zlink::idl::Field<'static> =
-                        ::zlink::idl::Field::new(
+                    static #static_name: #crate_path::idl::Field<'static> =
+                        #crate_path::idl::Field::new(
                             #field_name_str,
-                            <#field_type as ::zlink::introspect::Type>::TYPE
+                            <#field_type as #crate_path::introspect::Type>::TYPE
                         );
                 };
 

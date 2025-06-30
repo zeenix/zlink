@@ -2,6 +2,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed};
 
+use crate::utils;
+
 /// Main entry point for the custom Type derive macro.
 pub(crate) fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
@@ -17,21 +19,22 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let name_str = name.to_string();
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let crate_path = utils::parse_crate_path(&input.attrs)?;
 
     let custom_type = match &input.data {
         Data::Struct(data_struct) => {
             let fields = &data_struct.fields;
-            let (field_statics, field_refs) = generate_field_definitions(fields)?;
+            let (field_statics, field_refs) = generate_field_definitions(fields, &crate_path)?;
 
             quote!({
                 #(#field_statics)*
 
-                static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
+                static FIELD_REFS: &[&#crate_path::idl::Field<'static>] = &[
                     #(#field_refs),*
                 ];
 
-                ::zlink::idl::CustomType::Object(
-                    ::zlink::idl::CustomObject::new(#name_str, FIELD_REFS)
+                #crate_path::idl::CustomType::Object(
+                    #crate_path::idl::CustomObject::new(#name_str, FIELD_REFS)
                 )
             })
         }
@@ -39,8 +42,8 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             let variant_names = generate_enum_variant_definitions(data_enum)?;
 
             quote!({
-                ::zlink::idl::CustomType::Enum(
-                   ::zlink::idl::CustomEnum::new(#name_str, &[
+                #crate_path::idl::CustomType::Enum(
+                   #crate_path::idl::CustomEnum::new(#name_str, &[
                         #(#variant_names),*
                     ])
                 )
@@ -55,18 +58,19 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     };
 
     Ok(quote! {
-        impl #impl_generics ::zlink::introspect::CustomType for #name #ty_generics #where_clause {
-            const CUSTOM_TYPE: &'static ::zlink::idl::CustomType<'static> = &#custom_type;
+        impl #impl_generics #crate_path::introspect::CustomType for #name #ty_generics #where_clause {
+            const CUSTOM_TYPE: &'static #crate_path::idl::CustomType<'static> = &#custom_type;
         }
 
-        impl #impl_generics ::zlink::introspect::Type for #name #ty_generics #where_clause {
-            const TYPE: &'static ::zlink::idl::Type<'static> = &::zlink::idl::Type::Custom(#name_str);
+        impl #impl_generics #crate_path::introspect::Type for #name #ty_generics #where_clause {
+            const TYPE: &'static #crate_path::idl::Type<'static> = &#crate_path::idl::Type::Custom(#name_str);
         }
     })
 }
 
 fn generate_field_definitions(
     fields: &Fields,
+    crate_path: &TokenStream2,
 ) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
     match fields {
         Fields::Named(FieldsNamed { named, .. }) => {
@@ -85,10 +89,10 @@ fn generate_field_definitions(
                     quote::format_ident!("FIELD_{}", field_name.to_string().to_uppercase());
 
                 let field_static = quote! {
-                    static #static_name: ::zlink::idl::Field<'static> =
-                        ::zlink::idl::Field::new(
+                    static #static_name: #crate_path::idl::Field<'static> =
+                        #crate_path::idl::Field::new(
                             #field_name_str,
-                            <#field_type as ::zlink::introspect::Type>::TYPE
+                            <#field_type as #crate_path::introspect::Type>::TYPE
                         );
                 };
 

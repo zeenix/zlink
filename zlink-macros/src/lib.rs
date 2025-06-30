@@ -8,6 +8,9 @@
 #![doc = include_str!("../README.md")]
 
 #[cfg(feature = "introspection")]
+mod utils;
+
+#[cfg(feature = "introspection")]
 mod r#type;
 
 #[cfg(feature = "introspection")]
@@ -32,6 +35,13 @@ mod reply_error;
 /// For enums, this macro only supports unit variants (variants without associated data). It will
 /// generate a `Type` implementation that creates a `Type::Enum` containing all the variant
 /// names.
+///
+/// # Supported Attributes
+///
+/// The following attributes can be used to customize the behavior of this derive macro:
+///
+/// * `#[zlink(crate = "path")]` - Specifies the crate path to use for zlink types. Defaults to
+///   `::zlink`.
 ///
 /// # Limitations
 ///
@@ -165,7 +175,7 @@ mod reply_error;
 /// }
 /// ```
 #[cfg(feature = "introspection")]
-#[proc_macro_derive(Type)]
+#[proc_macro_derive(Type, attributes(zlink))]
 pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     r#type::derive_type(input)
 }
@@ -187,6 +197,13 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// For enums, this macro only supports unit variants and generates a `custom::Type::Enum`
 /// containing the enum name and all variant names.
+///
+/// # Supported Attributes
+///
+/// The following attributes can be used to customize the behavior of this derive macro:
+///
+/// * `#[zlink(crate = "path")]` - Specifies the crate path to use for zlink types. Defaults to
+///   `::zlink`.
 ///
 /// # Examples
 ///
@@ -255,7 +272,7 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 /// ```
 #[cfg(feature = "introspection")]
-#[proc_macro_derive(CustomType)]
+#[proc_macro_derive(CustomType, attributes(zlink))]
 pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     custom_type::derive_custom_type(input)
 }
@@ -268,6 +285,13 @@ pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// error variants that can be returned by a Varlink service method. It supports unit variants,
 /// variants with named fields, and single-field tuple variants (where the field type implements
 /// `Type` and has a `Type::Object`).
+///
+/// # Supported Attributes
+///
+/// The following attributes can be used to customize the behavior of this derive macro:
+///
+/// * `#[zlink(crate = "path")]` - Specifies the crate path to use for zlink types. Defaults to
+///   `::zlink`.
 ///
 /// # Example
 ///
@@ -305,7 +329,7 @@ pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// assert!(!ServiceError::VARIANTS[1].has_no_fields());
 /// ```
 #[cfg(feature = "introspection")]
-#[proc_macro_derive(ReplyError)]
+#[proc_macro_derive(ReplyError, attributes(zlink))]
 pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     reply_error::derive_reply_error(input)
 }

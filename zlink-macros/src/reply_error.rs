@@ -2,6 +2,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DataEnum, DeriveInput, Error, Fields};
 
+use crate::utils;
+
 /// Main entry point for the ReplyError derive macro.
 pub(crate) fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
@@ -16,14 +18,15 @@ fn derive_reply_error_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let name = &input.ident;
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let crate_path = utils::parse_crate_path(&input.attrs)?;
 
     let expanded = match &input.data {
         Data::Enum(data_enum) => {
-            let error_variants = generate_error_definitions(data_enum)?;
+            let error_variants = generate_error_definitions(data_enum, &crate_path)?;
 
             quote! {
-                impl #impl_generics ::zlink::introspect::ReplyError for #name #ty_generics #where_clause {
-                    const VARIANTS: &'static [&'static ::zlink::idl::Error<'static>] = &[
+                impl #impl_generics #crate_path::introspect::ReplyError for #name #ty_generics #where_clause {
+                    const VARIANTS: &'static [&'static #crate_path::idl::Error<'static>] = &[
                         #(#error_variants),*
                     ];
                 }
@@ -46,7 +49,10 @@ fn derive_reply_error_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     Ok(expanded)
 }
 
-fn generate_error_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>, Error> {
+fn generate_error_definitions(
+    data_enum: &DataEnum,
+    crate_path: &TokenStream2,
+) -> Result<Vec<TokenStream2>, Error> {
     let mut error_variants = Vec::new();
 
     for variant in &data_enum.variants {
@@ -55,23 +61,26 @@ fn generate_error_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>,
         match &variant.fields {
             Fields::Unit => {
                 let error_variant = quote! {
-                    &::zlink::idl::Error::new(#variant_name, &[])
+                    &#crate_path::idl::Error::new(#variant_name, &[])
                 };
                 error_variants.push(error_variant);
             }
             Fields::Named(fields) => {
-                let (field_statics, field_refs) =
-                    generate_field_definitions_for_named_variant(&variant.ident, fields)?;
+                let (field_statics, field_refs) = generate_field_definitions_for_named_variant(
+                    &variant.ident,
+                    fields,
+                    crate_path,
+                )?;
 
                 let error_variant = quote! {
                     &{
                         #(#field_statics)*
 
-                        static FIELD_REFS: &[&::zlink::idl::Field<'static>] = &[
+                        static FIELD_REFS: &[&#crate_path::idl::Field<'static>] = &[
                             #(#field_refs),*
                         ];
 
-                        ::zlink::idl::Error::new(#variant_name, FIELD_REFS)
+                        #crate_path::idl::Error::new(#variant_name, FIELD_REFS)
                     }
                 };
                 error_variants.push(error_variant);
@@ -87,12 +96,12 @@ fn generate_error_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>,
                 let field_type = &fields.unnamed.first().unwrap().ty;
                 let error_variant = quote! {
                     &{
-                        match <#field_type as ::zlink::introspect::Type>::TYPE {
-                            ::zlink::idl::Type::Object(fields) => {
-                                let ::zlink::idl::List::Borrowed(field_slice) = fields else {
+                        match <#field_type as #crate_path::introspect::Type>::TYPE {
+                            #crate_path::idl::Type::Object(fields) => {
+                                let #crate_path::idl::List::Borrowed(field_slice) = fields else {
                                     panic!("Owned List not supported in const context")
                                 };
-                                ::zlink::idl::Error::new(#variant_name, field_slice)
+                                #crate_path::idl::Error::new(#variant_name, field_slice)
                             }
                             _ => panic!("Tuple variant field type must have Type::Object"),
                         }
@@ -109,6 +118,7 @@ fn generate_error_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>,
 fn generate_field_definitions_for_named_variant(
     variant_ident: &syn::Ident,
     fields: &syn::FieldsNamed,
+    crate_path: &TokenStream2,
 ) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
     let mut field_statics = Vec::new();
     let mut field_refs = Vec::new();
@@ -128,10 +138,10 @@ fn generate_field_definitions_for_named_variant(
         );
 
         let field_static = quote! {
-            static #static_name: ::zlink::idl::Field<'static> =
-                ::zlink::idl::Field::new(
+            static #static_name: #crate_path::idl::Field<'static> =
+                #crate_path::idl::Field::new(
                     #field_name_str,
-                    <#field_type as ::zlink::introspect::Type>::TYPE
+                    <#field_type as #crate_path::introspect::Type>::TYPE
                 );
         };
 
