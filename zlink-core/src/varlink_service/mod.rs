@@ -6,7 +6,7 @@
 mod info;
 pub use info::Info;
 mod error;
-pub use error::Error;
+pub use error::{Error, Result};
 
 // TODO: Implement introspection traits using derive macros once #[zlink(crate = "...")]
 // attribute support is working properly for types with lifetimes.

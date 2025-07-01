@@ -42,6 +42,9 @@ pub enum Error<'a> {
     ExpectedMore,
 }
 
+/// Result type for Varlink service methods.
+pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
+
 #[cfg(test)]
 mod tests {
     use super::*;
