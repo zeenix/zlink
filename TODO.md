@@ -3,9 +3,13 @@
 * IDL <https://varlink.org/Interface-Definition>
   * zlink-core
     * Add [varlink service](https://varlink.org/Service>) API
-      * `Proxy` trait
+      * `varlink_service::Proxy` trait
         * client-side API for `org.varlink.service` interface
+        * In `proxy` submodule
         * requires `idl-parse` feature.
+        * Methods take `&mut self`
+           * `get_info(&mut self, name: &str) -> varlink_service::Result<'_, Info<'_>>`
+           * `get_interface_description(&mut self, name: &str) -> varlink_service::Result<'_, crate::idl::interface<'_>>`
         * impl for `Connection`.
   * zlink
     * impl [`org.varlink.service`](https://varlink.org/Service>) interface for `lowlevel-ftl` test
