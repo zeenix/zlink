@@ -492,14 +492,14 @@ fn interface_def<'a>(input: &mut &'a [u8]) -> ModalResult<Interface<'a>, InputEr
     Ok(Interface::new_owned(name, members, comments))
 }
 
-/// Parse a Varlink type from a string.
-pub(super) fn parse_type(input: &str) -> Result<Type<'_>, crate::Error> {
-    parse_from_str(input, varlink_type)
-}
-
 /// Parse an interface from a string.
 pub(super) fn parse_interface(input: &str) -> Result<Interface<'_>, crate::Error> {
     parse_from_str(input, interface_def)
+}
+
+/// Parse a Varlink type from a string.
+pub(super) fn parse_type(input: &str) -> Result<Type<'_>, crate::Error> {
+    parse_from_str(input, varlink_type)
 }
 
 /// Parse a member from a string.
