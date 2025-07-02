@@ -39,12 +39,12 @@ pub(crate) fn parse_crate_path(attrs: &[Attribute]) -> Result<TokenStream2, Erro
 /// Recursively removes all lifetimes from a type.
 pub(crate) fn remove_lifetimes_from_type(ty: &Type) -> Type {
     match ty {
-        Type::Reference(type_ref) => {
-            let mut new_type_ref = type_ref.clone();
-            new_type_ref.lifetime = None;
-            new_type_ref.elem = Box::new(remove_lifetimes_from_type(&type_ref.elem));
-            Type::Reference(new_type_ref)
-        }
+        Type::Reference(type_ref) => Type::Reference(syn::TypeReference {
+            and_token: type_ref.and_token,
+            lifetime: None,
+            mutability: type_ref.mutability,
+            elem: Box::new(remove_lifetimes_from_type(&type_ref.elem)),
+        }),
         Type::Path(type_path) => {
             let mut new_type_path = type_path.clone();
             if let Some(ref mut qself) = new_type_path.qself {
