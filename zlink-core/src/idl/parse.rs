@@ -12,8 +12,8 @@ use winnow::{
 };
 
 use super::{
-    Comment, CustomObject, CustomType, Error, Field, Interface, List, Member, Method, Parameter,
-    Type, TypeRef,
+    Comment, CustomEnum, CustomObject, CustomType, Error, Field, Interface, List, Member, Method,
+    Parameter, Type, TypeRef,
 };
 
 #[cfg(feature = "std")]
@@ -355,6 +355,9 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
     whitespace_only(input)?;
 
     let mut fields = Vec::new();
+    let mut variants = Vec::new();
+    let mut has_typed_fields = false;
+    let mut has_untyped_fields = false;
 
     // Handle empty field list
     if literal::<_, _, InputError<&'a [u8]>>(")")
@@ -369,7 +372,7 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
     // Parse fields with any preceding comments
     loop {
         // Parse any preceding comments for this field
-        let comments = parse_preceding_comments(input)?;
+        let field_comments = parse_preceding_comments(input)?;
 
         // Parse the field itself
         let field_name = field_name(input)?;
@@ -382,10 +385,12 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
         {
             whitespace_only(input)?;
             let ty = varlink_type(input)?;
-            fields.push(Field::new_owned(field_name, ty, comments));
+            fields.push(Field::new_owned(field_name, ty, field_comments));
+            has_typed_fields = true;
         } else {
-            // This is an enum-like field without type - use Bool as placeholder
-            fields.push(Field::new_owned(field_name, Type::Bool, comments));
+            // This is an enum-like field without type - collect as variant
+            variants.push(field_name);
+            has_untyped_fields = true;
         }
 
         whitespace_only(input)?;
@@ -407,9 +412,23 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
             return Err(ErrMode::Backtrack(ParserError::from_input(input)));
         }
     }
-    Ok(CustomType::from(CustomObject::new_owned(
-        name, fields, comments,
-    )))
+
+    // Error if we have both typed and untyped fields (mixed custom type)
+    if has_typed_fields && has_untyped_fields {
+        return Err(ErrMode::Backtrack(ParserError::from_input(input)));
+    }
+
+    // Decide whether to create an enum or object based on whether we saw typed fields
+    if has_typed_fields {
+        Ok(CustomType::from(CustomObject::new_owned(
+            name, fields, comments,
+        )))
+    } else {
+        // All fields were untyped, so this is an enum
+        Ok(CustomType::from(CustomEnum::new_owned(
+            name, variants, comments,
+        )))
+    }
 }
 
 /// Parse a member definition (type, method, or error).
@@ -733,16 +752,38 @@ mod tests {
         );
         assert!(fields.next().is_none());
 
-        // Enum-style type definitions are now supported
+        // Enum-style type definitions are correctly parsed as enums
         let enum_type = parse_custom_type("type Color (red, green, blue)").unwrap();
         assert_eq!(enum_type.name(), "Color");
-        assert!(enum_type.is_object()); // Parsed as object with boolean fields
-        assert_eq!(enum_type.as_object().unwrap().fields().count(), 3);
-        let mut fields = enum_type.as_object().unwrap().fields();
-        assert_eq!(fields.next().unwrap().name(), "red");
-        assert_eq!(fields.next().unwrap().name(), "green");
-        assert_eq!(fields.next().unwrap().name(), "blue");
-        assert!(fields.next().is_none());
+        assert!(enum_type.is_enum()); // Correctly parsed as enum
+        assert_eq!(enum_type.as_enum().unwrap().variants().count(), 3);
+        let mut variants = enum_type.as_enum().unwrap().variants();
+        assert_eq!(*variants.next().unwrap(), "red");
+        assert_eq!(*variants.next().unwrap(), "green");
+        assert_eq!(*variants.next().unwrap(), "blue");
+        assert!(variants.next().is_none());
+    }
+
+    #[test]
+    fn test_parse_mixed_field_types() {
+        // Mixed field types (some with types, some without) should be treated as an error
+        let input = "type Mixed (field1, field2: string, field3)";
+        let result = parse_custom_type(input);
+        assert!(
+            result.is_err(),
+            "Mixed field types should be a parsing error"
+        );
+    }
+
+    #[test]
+    fn test_parse_empty_custom_type() {
+        // Empty custom types should be treated as objects
+        let input = "type Empty ()";
+        let custom_type = parse_custom_type(input).unwrap();
+        assert_eq!(custom_type.name(), "Empty");
+        assert!(custom_type.is_object()); // Should be treated as object
+        assert!(!custom_type.is_enum()); // Should not be treated as enum
+        assert_eq!(custom_type.as_object().unwrap().fields().count(), 0);
     }
 
     #[test]
