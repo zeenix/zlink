@@ -497,36 +497,6 @@ pub(super) fn parse_interface(input: &str) -> Result<Interface<'_>, crate::Error
     parse_from_str(input, interface_def)
 }
 
-/// Parse a Varlink type from a string.
-pub(super) fn parse_type(input: &str) -> Result<Type<'_>, crate::Error> {
-    parse_from_str(input, varlink_type)
-}
-
-/// Parse a member from a string.
-pub(super) fn parse_member(input: &str) -> Result<Member<'_>, crate::Error> {
-    parse_from_str(input, member_def)
-}
-
-/// Parse a method from a string.
-pub(super) fn parse_method(input: &str) -> Result<Method<'_>, crate::Error> {
-    parse_from_str(input, method_def)
-}
-
-/// Parse an error from a string.
-pub(super) fn parse_error(input: &str) -> Result<Error<'_>, crate::Error> {
-    parse_from_str(input, error_def)
-}
-
-/// Parse a custom type from a string.
-pub(super) fn parse_custom_type(input: &str) -> Result<CustomType<'_>, crate::Error> {
-    parse_from_str(input, type_def)
-}
-
-/// Parse a field from a string.
-pub(super) fn parse_field(input: &str) -> Result<Field<'_>, crate::Error> {
-    parse_from_str(input, field)
-}
-
 /// Helper function to parse from string using byte-based parsers.
 fn parse_from_str<'a, T>(
     input: &'a str,
@@ -1290,11 +1260,35 @@ method AnotherMethod() -> ()
             assert_eq!(comments[0].text(), "Leading spaces after hash");
         }
     }
-}
 
-#[test]
-fn test_method_with_parameter_comments() {
-    let input = r#"
+    /// Parse a Varlink type from a string.
+    fn parse_type(input: &str) -> Result<Type<'_>, crate::Error> {
+        parse_from_str(input, varlink_type)
+    }
+
+    /// Parse a method from a string.
+    fn parse_method(input: &str) -> Result<Method<'_>, crate::Error> {
+        parse_from_str(input, method_def)
+    }
+
+    /// Parse an error from a string.
+    fn parse_error(input: &str) -> Result<Error<'_>, crate::Error> {
+        parse_from_str(input, error_def)
+    }
+
+    /// Parse a custom type from a string.
+    fn parse_custom_type(input: &str) -> Result<CustomType<'_>, crate::Error> {
+        parse_from_str(input, type_def)
+    }
+
+    /// Parse a field from a string.
+    fn parse_field(input: &str) -> Result<Field<'_>, crate::Error> {
+        parse_from_str(input, field)
+    }
+
+    #[test]
+    fn test_method_with_parameter_comments() {
+        let input = r#"
 interface org.example.test
 
 method TestMethod(
@@ -1310,48 +1304,48 @@ message: string
 )
     "#;
 
-    let interface = parse_interface(input).unwrap();
-    let members: Vec<_> = interface.members().collect();
-    assert_eq!(members.len(), 1);
+        let interface = parse_interface(input).unwrap();
+        let members: Vec<_> = interface.members().collect();
+        assert_eq!(members.len(), 1);
 
-    let Member::Method(method) = &members[0] else {
-        panic!("Expected first member to be a method");
-    };
+        let Member::Method(method) = &members[0] else {
+            panic!("Expected first member to be a method");
+        };
 
-    assert_eq!(method.name(), "TestMethod");
+        assert_eq!(method.name(), "TestMethod");
 
-    // Check input parameters
-    let inputs: Vec<_> = method.inputs().collect();
-    assert_eq!(inputs.len(), 3);
+        // Check input parameters
+        let inputs: Vec<_> = method.inputs().collect();
+        assert_eq!(inputs.len(), 3);
 
-    assert_eq!(inputs[0].name(), "name");
-    let name_comments: Vec<_> = inputs[0].comments().collect();
-    assert_eq!(name_comments.len(), 1);
-    assert_eq!(name_comments[0].text(), "The user's name");
+        assert_eq!(inputs[0].name(), "name");
+        let name_comments: Vec<_> = inputs[0].comments().collect();
+        assert_eq!(name_comments.len(), 1);
+        assert_eq!(name_comments[0].text(), "The user's name");
 
-    assert_eq!(inputs[1].name(), "age");
-    let age_comments: Vec<_> = inputs[1].comments().collect();
-    assert_eq!(age_comments.len(), 1);
-    assert_eq!(age_comments[0].text(), "The user's age in years");
+        assert_eq!(inputs[1].name(), "age");
+        let age_comments: Vec<_> = inputs[1].comments().collect();
+        assert_eq!(age_comments.len(), 1);
+        assert_eq!(age_comments[0].text(), "The user's age in years");
 
-    assert_eq!(inputs[2].name(), "email");
-    let email_comments: Vec<_> = inputs[2].comments().collect();
-    assert_eq!(email_comments.len(), 1);
-    assert_eq!(email_comments[0].text(), "Optional email address");
+        assert_eq!(inputs[2].name(), "email");
+        let email_comments: Vec<_> = inputs[2].comments().collect();
+        assert_eq!(email_comments.len(), 1);
+        assert_eq!(email_comments[0].text(), "Optional email address");
 
-    // Check output parameters
-    let outputs: Vec<_> = method.outputs().collect();
-    assert_eq!(outputs.len(), 1);
+        // Check output parameters
+        let outputs: Vec<_> = method.outputs().collect();
+        assert_eq!(outputs.len(), 1);
 
-    assert_eq!(outputs[0].name(), "message");
-    let message_comments: Vec<_> = outputs[0].comments().collect();
-    assert_eq!(message_comments.len(), 1);
-    assert_eq!(message_comments[0].text(), "Success message");
-}
+        assert_eq!(outputs[0].name(), "message");
+        let message_comments: Vec<_> = outputs[0].comments().collect();
+        assert_eq!(message_comments.len(), 1);
+        assert_eq!(message_comments[0].text(), "Success message");
+    }
 
-#[test]
-fn test_error_with_field_comments() {
-    let input = r#"
+    #[test]
+    fn test_error_with_field_comments() {
+        let input = r#"
 interface org.example.test
 
 error TestError(
@@ -1362,33 +1356,33 @@ message: string
 )
     "#;
 
-    let interface = parse_interface(input).unwrap();
-    let members: Vec<_> = interface.members().collect();
-    assert_eq!(members.len(), 1);
+        let interface = parse_interface(input).unwrap();
+        let members: Vec<_> = interface.members().collect();
+        assert_eq!(members.len(), 1);
 
-    let Member::Error(error) = &members[0] else {
-        panic!("Expected first member to be an error");
-    };
+        let Member::Error(error) = &members[0] else {
+            panic!("Expected first member to be an error");
+        };
 
-    assert_eq!(error.name(), "TestError");
+        assert_eq!(error.name(), "TestError");
 
-    let fields: Vec<_> = error.fields().collect();
-    assert_eq!(fields.len(), 2);
+        let fields: Vec<_> = error.fields().collect();
+        assert_eq!(fields.len(), 2);
 
-    assert_eq!(fields[0].name(), "code");
-    let code_comments: Vec<_> = fields[0].comments().collect();
-    assert_eq!(code_comments.len(), 1);
-    assert_eq!(code_comments[0].text(), "Error code");
+        assert_eq!(fields[0].name(), "code");
+        let code_comments: Vec<_> = fields[0].comments().collect();
+        assert_eq!(code_comments.len(), 1);
+        assert_eq!(code_comments[0].text(), "Error code");
 
-    assert_eq!(fields[1].name(), "message");
-    let message_comments: Vec<_> = fields[1].comments().collect();
-    assert_eq!(message_comments.len(), 1);
-    assert_eq!(message_comments[0].text(), "Error message");
-}
+        assert_eq!(fields[1].name(), "message");
+        let message_comments: Vec<_> = fields[1].comments().collect();
+        assert_eq!(message_comments.len(), 1);
+        assert_eq!(message_comments[0].text(), "Error message");
+    }
 
-#[test]
-fn test_struct_type_with_field_comments() {
-    let input = r#"
+    #[test]
+    fn test_struct_type_with_field_comments() {
+        let input = r#"
 interface org.example.test
 
 type Person(
@@ -1401,41 +1395,41 @@ email: ?string
 )
     "#;
 
-    let interface = parse_interface(input).unwrap();
-    let members: Vec<_> = interface.members().collect();
-    assert_eq!(members.len(), 1);
+        let interface = parse_interface(input).unwrap();
+        let members: Vec<_> = interface.members().collect();
+        assert_eq!(members.len(), 1);
 
-    let Member::Custom(custom_type) = &members[0] else {
-        panic!("Expected first member to be a custom type");
-    };
-    let Some(object) = custom_type.as_object() else {
-        panic!("Expected custom type to be an object");
-    };
+        let Member::Custom(custom_type) = &members[0] else {
+            panic!("Expected first member to be a custom type");
+        };
+        let Some(object) = custom_type.as_object() else {
+            panic!("Expected custom type to be an object");
+        };
 
-    assert_eq!(object.name(), "Person");
+        assert_eq!(object.name(), "Person");
 
-    let fields: Vec<_> = object.fields().collect();
-    assert_eq!(fields.len(), 3);
+        let fields: Vec<_> = object.fields().collect();
+        assert_eq!(fields.len(), 3);
 
-    assert_eq!(fields[0].name(), "name");
-    let name_comments: Vec<_> = fields[0].comments().collect();
-    assert_eq!(name_comments.len(), 1);
-    assert_eq!(name_comments[0].text(), "Person's full name");
+        assert_eq!(fields[0].name(), "name");
+        let name_comments: Vec<_> = fields[0].comments().collect();
+        assert_eq!(name_comments.len(), 1);
+        assert_eq!(name_comments[0].text(), "Person's full name");
 
-    assert_eq!(fields[1].name(), "age");
-    let age_comments: Vec<_> = fields[1].comments().collect();
-    assert_eq!(age_comments.len(), 1);
-    assert_eq!(age_comments[0].text(), "Age in years");
+        assert_eq!(fields[1].name(), "age");
+        let age_comments: Vec<_> = fields[1].comments().collect();
+        assert_eq!(age_comments.len(), 1);
+        assert_eq!(age_comments[0].text(), "Age in years");
 
-    assert_eq!(fields[2].name(), "email");
-    let email_comments: Vec<_> = fields[2].comments().collect();
-    assert_eq!(email_comments.len(), 1);
-    assert_eq!(email_comments[0].text(), "Contact information");
-}
+        assert_eq!(fields[2].name(), "email");
+        let email_comments: Vec<_> = fields[2].comments().collect();
+        assert_eq!(email_comments.len(), 1);
+        assert_eq!(email_comments[0].text(), "Contact information");
+    }
 
-#[test]
-fn test_interface_with_comments() {
-    let input = r#"
+    #[test]
+    fn test_interface_with_comments() {
+        let input = r#"
 # Interface documentation - line 1
 # Interface documentation - line 2
 interface org.example.test
@@ -1443,23 +1437,23 @@ interface org.example.test
 method SimpleMethod() -> ()
     "#;
 
-    let interface = parse_interface(input).unwrap();
-    assert_eq!(interface.name(), "org.example.test");
+        let interface = parse_interface(input).unwrap();
+        assert_eq!(interface.name(), "org.example.test");
 
-    // Check interface comments
-    let comments: Vec<_> = interface.comments().collect();
-    assert_eq!(comments.len(), 2);
-    assert_eq!(comments[0].text(), "Interface documentation - line 1");
-    assert_eq!(comments[1].text(), "Interface documentation - line 2");
+        // Check interface comments
+        let comments: Vec<_> = interface.comments().collect();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].text(), "Interface documentation - line 1");
+        assert_eq!(comments[1].text(), "Interface documentation - line 2");
 
-    // Verify the interface still has its members
-    let members: Vec<_> = interface.members().collect();
-    assert_eq!(members.len(), 1);
-}
+        // Verify the interface still has its members
+        let members: Vec<_> = interface.members().collect();
+        assert_eq!(members.len(), 1);
+    }
 
-#[test]
-fn test_custom_type_with_comments() {
-    let input = r#"
+    #[test]
+    fn test_custom_type_with_comments() {
+        let input = r#"
 # Type documentation - line 1
 # Type documentation - line 2
 type Person(
@@ -1468,30 +1462,30 @@ type Person(
 )
     "#;
 
-    let custom_type = parse_custom_type(input).unwrap();
-    assert_eq!(custom_type.name(), "Person");
+        let custom_type = parse_custom_type(input).unwrap();
+        assert_eq!(custom_type.name(), "Person");
 
-    // Check that this is an object type
-    let Some(object) = custom_type.as_object() else {
-        panic!("Expected custom type to be an object");
-    };
+        // Check that this is an object type
+        let Some(object) = custom_type.as_object() else {
+            panic!("Expected custom type to be an object");
+        };
 
-    // Check type comments
-    let comments: Vec<_> = object.comments().collect();
-    assert_eq!(comments.len(), 2);
-    assert_eq!(comments[0].text(), "Type documentation - line 1");
-    assert_eq!(comments[1].text(), "Type documentation - line 2");
+        // Check type comments
+        let comments: Vec<_> = object.comments().collect();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].text(), "Type documentation - line 1");
+        assert_eq!(comments[1].text(), "Type documentation - line 2");
 
-    // Verify the type still has its fields
-    let fields: Vec<_> = object.fields().collect();
-    assert_eq!(fields.len(), 2);
-    assert_eq!(fields[0].name(), "name");
-    assert_eq!(fields[1].name(), "age");
-}
+        // Verify the type still has its fields
+        let fields: Vec<_> = object.fields().collect();
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].name(), "name");
+        assert_eq!(fields[1].name(), "age");
+    }
 
-#[test]
-fn test_interface_and_type_comments_integration() {
-    let input = r#"
+    #[test]
+    fn test_interface_and_type_comments_integration() {
+        let input = r#"
 # Main interface documentation
 # Describes the core API
 interface org.example.core
@@ -1510,51 +1504,52 @@ type User(
 method GetUser(id: int) -> (user: User)
     "#;
 
-    let interface = parse_interface(input).unwrap();
-    assert_eq!(interface.name(), "org.example.core");
+        let interface = parse_interface(input).unwrap();
+        assert_eq!(interface.name(), "org.example.core");
 
-    // Check interface comments
-    let interface_comments: Vec<_> = interface.comments().collect();
-    assert_eq!(interface_comments.len(), 2);
-    assert_eq!(interface_comments[0].text(), "Main interface documentation");
-    assert_eq!(interface_comments[1].text(), "Describes the core API");
+        // Check interface comments
+        let interface_comments: Vec<_> = interface.comments().collect();
+        assert_eq!(interface_comments.len(), 2);
+        assert_eq!(interface_comments[0].text(), "Main interface documentation");
+        assert_eq!(interface_comments[1].text(), "Describes the core API");
 
-    // Check members
-    let members: Vec<_> = interface.members().collect();
-    assert_eq!(members.len(), 2); // 1 type + 1 method
+        // Check members
+        let members: Vec<_> = interface.members().collect();
+        assert_eq!(members.len(), 2); // 1 type + 1 method
 
-    // Check the custom type member and its comments
-    let Member::Custom(custom_type) = &members[0] else {
-        panic!("Expected first member to be a custom type");
-    };
-    let Some(object) = custom_type.as_object() else {
-        panic!("Expected custom type to be an object");
-    };
+        // Check the custom type member and its comments
+        let Member::Custom(custom_type) = &members[0] else {
+            panic!("Expected first member to be a custom type");
+        };
+        let Some(object) = custom_type.as_object() else {
+            panic!("Expected custom type to be an object");
+        };
 
-    let type_comments: Vec<_> = object.comments().collect();
-    assert_eq!(type_comments.len(), 2);
-    assert_eq!(type_comments[0].text(), "User data structure");
-    assert_eq!(type_comments[1].text(), "Contains basic user information");
+        let type_comments: Vec<_> = object.comments().collect();
+        assert_eq!(type_comments.len(), 2);
+        assert_eq!(type_comments[0].text(), "User data structure");
+        assert_eq!(type_comments[1].text(), "Contains basic user information");
 
-    // Check field comments
-    let fields: Vec<_> = object.fields().collect();
-    assert_eq!(fields.len(), 2);
+        // Check field comments
+        let fields: Vec<_> = object.fields().collect();
+        assert_eq!(fields.len(), 2);
 
-    let name_comments: Vec<_> = fields[0].comments().collect();
-    assert_eq!(name_comments.len(), 1);
-    assert_eq!(name_comments[0].text(), "User's display name");
+        let name_comments: Vec<_> = fields[0].comments().collect();
+        assert_eq!(name_comments.len(), 1);
+        assert_eq!(name_comments[0].text(), "User's display name");
 
-    let email_comments: Vec<_> = fields[1].comments().collect();
-    assert_eq!(email_comments.len(), 1);
-    assert_eq!(email_comments[0].text(), "User's email address");
+        let email_comments: Vec<_> = fields[1].comments().collect();
+        assert_eq!(email_comments.len(), 1);
+        assert_eq!(email_comments[0].text(), "User's email address");
 
-    // Check the method member and its comments
-    let Member::Method(method) = &members[1] else {
-        panic!("Expected second member to be a method");
-    };
+        // Check the method member and its comments
+        let Member::Method(method) = &members[1] else {
+            panic!("Expected second member to be a method");
+        };
 
-    let method_comments: Vec<_> = method.comments().collect();
-    assert_eq!(method_comments.len(), 2);
-    assert_eq!(method_comments[0].text(), "Get user information");
-    assert_eq!(method_comments[1].text(), "Returns user details by ID");
+        let method_comments: Vec<_> = method.comments().collect();
+        assert_eq!(method_comments.len(), 2);
+        assert_eq!(method_comments[0].text(), "Get user information");
+        assert_eq!(method_comments[1].text(), "Returns user details by ID");
+    }
 }
