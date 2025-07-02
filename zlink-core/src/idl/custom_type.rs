@@ -72,8 +72,8 @@ impl<'a> From<CustomEnum<'a>> for CustomType<'a> {
 impl<'a> fmt::Display for CustomType<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CustomType::Object(obj) => write!(f, "{}", obj),
-            CustomType::Enum(enm) => write!(f, "{}", enm),
+            CustomType::Object(obj) => write!(f, "{obj}"),
+            CustomType::Enum(enm) => write!(f, "{enm}"),
         }
     }
 }

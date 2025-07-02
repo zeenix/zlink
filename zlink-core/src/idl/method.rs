@@ -94,7 +94,7 @@ impl<'a> fmt::Display for Method<'a> {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "{}", param)?;
+            write!(f, "{param}")?;
         }
         write!(f, ")")?;
 
@@ -106,7 +106,7 @@ impl<'a> fmt::Display for Method<'a> {
                     write!(f, ", ")?;
                 }
                 first = false;
-                write!(f, "{}", param)?;
+                write!(f, "{param}")?;
             }
             write!(f, ")")?;
         }

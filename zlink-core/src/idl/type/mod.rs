@@ -46,10 +46,10 @@ impl<'a> fmt::Display for Type<'a> {
             Type::Float => write!(f, "float"),
             Type::String => write!(f, "string"),
             Type::ForeignObject => write!(f, "object"),
-            Type::Optional(optional) => write!(f, "?{}", optional),
-            Type::Array(array) => write!(f, "[]{}", array),
-            Type::Map(map) => write!(f, "[string]{}", map),
-            Type::Custom(name) => write!(f, "{}", name),
+            Type::Optional(optional) => write!(f, "?{optional}"),
+            Type::Array(array) => write!(f, "[]{array}"),
+            Type::Map(map) => write!(f, "[string]{map}"),
+            Type::Custom(name) => write!(f, "{name}"),
             Type::Enum(variants) => {
                 write!(f, "(")?;
                 let mut first = true;
@@ -58,7 +58,7 @@ impl<'a> fmt::Display for Type<'a> {
                         write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{}", variant)?;
+                    write!(f, "{variant}")?;
                 }
                 write!(f, ")")
             }
@@ -70,7 +70,7 @@ impl<'a> fmt::Display for Type<'a> {
                         write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{}", field)?;
+                    write!(f, "{field}")?;
                 }
                 write!(f, ")")
             }

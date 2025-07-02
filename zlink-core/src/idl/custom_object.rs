@@ -70,7 +70,7 @@ impl<'a> fmt::Display for CustomObject<'a> {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "{}", field)?;
+            write!(f, "{field}")?;
         }
         write!(f, ")")
     }

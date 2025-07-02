@@ -70,7 +70,7 @@ impl<'a> fmt::Display for CustomEnum<'a> {
                 write!(f, ", ")?;
             }
             first = false;
-            write!(f, "{}", variant)?;
+            write!(f, "{variant}")?;
         }
         write!(f, ")")
     }

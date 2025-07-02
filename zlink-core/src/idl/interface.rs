@@ -100,7 +100,7 @@ impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "interface {}", self.name)?;
         for member in self.members.iter() {
-            write!(f, "\n\n{}", member)?;
+            write!(f, "\n\n{member}")?;
         }
         Ok(())
     }

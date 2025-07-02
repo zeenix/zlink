@@ -34,9 +34,9 @@ impl<'a> Member<'a> {
 impl<'a> fmt::Display for Member<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Member::Custom(custom) => write!(f, "{}", custom),
-            Member::Method(method) => write!(f, "{}", method),
-            Member::Error(error) => write!(f, "{}", error),
+            Member::Custom(custom) => write!(f, "{custom}"),
+            Member::Method(method) => write!(f, "{method}"),
+            Member::Error(error) => write!(f, "{error}"),
         }
     }
 }
