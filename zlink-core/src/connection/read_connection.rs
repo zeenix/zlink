@@ -154,6 +154,15 @@ impl<Read: ReadHalf> ReadConnection<Read> {
             }
             self.read_pos += bytes_read;
 
+            #[cfg(feature = "std")]
+            if self.read_pos == self.buffer.len() {
+                if self.read_pos >= MAX_BUFFER_SIZE {
+                    return Err(crate::Error::BufferOverflow);
+                }
+
+                self.buffer.extend(core::iter::repeat_n(0, BUFFER_SIZE));
+            }
+
             // This marks end of all messages. After this loop is finished, we'll have 2 consecutive
             // null bytes at the end. This is then used by the callers to determine that they've
             // read all messages and can now reset the `read_pos`.
@@ -162,15 +171,6 @@ impl<Read: ReadHalf> ReadConnection<Read> {
             if self.buffer[self.read_pos - 1] == b'\0' {
                 // One or more full messages were read.
                 break;
-            }
-
-            #[cfg(feature = "std")]
-            if self.read_pos == self.buffer.len() {
-                if self.read_pos >= MAX_BUFFER_SIZE {
-                    return Err(crate::Error::BufferOverflow);
-                }
-
-                self.buffer.extend(core::iter::repeat_n(0, BUFFER_SIZE));
             }
         }
 
