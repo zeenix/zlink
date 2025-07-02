@@ -43,7 +43,7 @@ pub enum Error<'a> {
 }
 
 /// Result type for Varlink service methods.
-pub type Result<'a, T> = std::result::Result<T, Error<'a>>;
+pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
 
 #[cfg(test)]
 mod tests {
