@@ -61,7 +61,7 @@ fn generate_error_definitions(
         match &variant.fields {
             Fields::Unit => {
                 let error_variant = quote! {
-                    &#crate_path::idl::Error::new(#variant_name, &[])
+                    &#crate_path::idl::Error::new(#variant_name, &[], &[])
                 };
                 error_variants.push(error_variant);
             }
@@ -80,7 +80,7 @@ fn generate_error_definitions(
                             #(#field_refs),*
                         ];
 
-                        #crate_path::idl::Error::new(#variant_name, FIELD_REFS)
+                        #crate_path::idl::Error::new(#variant_name, FIELD_REFS, &[])
                     }
                 };
                 error_variants.push(error_variant);
@@ -102,7 +102,7 @@ fn generate_error_definitions(
                                 let #crate_path::idl::List::Borrowed(field_slice) = fields else {
                                     panic!("Owned List not supported in const context")
                                 };
-                                #crate_path::idl::Error::new(#variant_name, field_slice)
+                                #crate_path::idl::Error::new(#variant_name, field_slice, &[])
                             }
                             _ => panic!("Tuple variant field type must have Type::Object"),
                         }
@@ -142,7 +142,8 @@ fn generate_field_definitions_for_named_variant(
             static #static_name: #crate_path::idl::Field<'static> =
                 #crate_path::idl::Field::new(
                     #field_name_str,
-                    <#field_type as #crate_path::introspect::Type>::TYPE
+                    <#field_type as #crate_path::introspect::Type>::TYPE,
+                    &[]
                 );
         };
 

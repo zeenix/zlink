@@ -87,7 +87,8 @@ fn generate_field_definitions(
                     static #static_name: #crate_path::idl::Field<'static> =
                         #crate_path::idl::Field::new(
                             #field_name_str,
-                            <#field_type as #crate_path::introspect::Type>::TYPE
+                            <#field_type as #crate_path::introspect::Type>::TYPE,
+                            &[]
                         );
                 };
 

@@ -13,23 +13,35 @@ pub struct CustomObject<'a> {
     name: &'a str,
     /// The fields of the object type.
     fields: List<'a, Field<'a>>,
+    /// The comments associated with this object type.
+    comments: List<'a, super::Comment<'a>>,
 }
 
 impl<'a> CustomObject<'a> {
-    /// Creates a new object type with the given name and borrowed fields.
-    pub const fn new(name: &'a str, fields: &'a [&'a Field<'a>]) -> Self {
+    /// Creates a new object type with the given name, borrowed fields, and comments.
+    pub const fn new(
+        name: &'a str,
+        fields: &'a [&'a Field<'a>],
+        comments: &'a [&'a super::Comment<'a>],
+    ) -> Self {
         Self {
             name,
             fields: List::Borrowed(fields),
+            comments: List::Borrowed(comments),
         }
     }
 
-    /// Creates a new object type with the given name and owned fields.
+    /// Creates a new object type with the given name, owned fields, and comments.
     #[cfg(feature = "std")]
-    pub fn new_owned(name: &'a str, fields: Vec<Field<'a>>) -> Self {
+    pub fn new_owned(
+        name: &'a str,
+        fields: Vec<Field<'a>>,
+        comments: Vec<super::Comment<'a>>,
+    ) -> Self {
         Self {
             name,
-            fields: List::Owned(fields),
+            fields: List::from(fields),
+            comments: List::from(comments),
         }
     }
 
@@ -41,6 +53,11 @@ impl<'a> CustomObject<'a> {
     /// Returns an iterator over the fields of the object type.
     pub fn fields(&self) -> impl Iterator<Item = &Field<'a>> {
         self.fields.iter()
+    }
+
+    /// Returns an iterator over the comments associated with this object type.
+    pub fn comments(&self) -> impl Iterator<Item = &super::Comment<'a>> {
+        self.comments.iter()
     }
 }
 

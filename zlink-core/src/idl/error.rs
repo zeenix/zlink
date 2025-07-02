@@ -7,7 +7,7 @@ use serde::Serialize;
 #[cfg(feature = "idl-parse")]
 use serde::Deserialize;
 
-use super::{Field, List};
+use super::{Comment, Field, List};
 
 /// An error definition in Varlink IDL.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,23 +16,32 @@ pub struct Error<'a> {
     name: &'a str,
     /// The fields of the error.
     fields: List<'a, Field<'a>>,
+    /// Comments associated with this error.
+    comments: List<'a, Comment<'a>>,
 }
 
 impl<'a> Error<'a> {
-    /// Creates a new error with the given name and borrowed fields.
-    pub const fn new(name: &'a str, fields: &'a [&'a Field<'a>]) -> Self {
+    /// Creates a new error with the given name, borrowed fields, and comments.
+    pub const fn new(
+        name: &'a str,
+        fields: &'a [&'a Field<'a>],
+        comments: &'a [&'a Comment<'a>],
+    ) -> Self {
         Self {
             name,
             fields: List::Borrowed(fields),
+            comments: List::Borrowed(comments),
         }
     }
 
-    /// Creates a new error with the given name and owned fields.
+    /// Creates a new error with the given name, owned fields, and comments.
+    /// Same as `new` but takes `fields` by value.
     #[cfg(feature = "std")]
-    pub fn new_owned(name: &'a str, fields: Vec<Field<'a>>) -> Self {
+    pub fn new_owned(name: &'a str, fields: Vec<Field<'a>>, comments: Vec<Comment<'a>>) -> Self {
         Self {
             name,
-            fields: List::Owned(fields),
+            fields: List::from(fields),
+            comments: List::from(comments),
         }
     }
 
@@ -49,6 +58,11 @@ impl<'a> Error<'a> {
     /// Returns true if the error has no fields.
     pub fn has_no_fields(&self) -> bool {
         self.fields.is_empty()
+    }
+
+    /// Returns the comments associated with this error.
+    pub fn comments(&self) -> impl Iterator<Item = &Comment<'a>> {
+        self.comments.iter()
     }
 }
 
@@ -97,11 +111,11 @@ mod tests {
 
     #[test]
     fn error_creation() {
-        let message_field = Field::new("message", &Type::String);
-        let code_field = Field::new("code", &Type::Int);
+        let message_field = Field::new("message", &Type::String, &[]);
+        let code_field = Field::new("code", &Type::Int, &[]);
         let fields = [&message_field, &code_field];
 
-        let error = Error::new("InvalidInput", &fields);
+        let error = Error::new("InvalidInput", &fields, &[]);
         assert_eq!(error.name(), "InvalidInput");
         assert_eq!(error.fields().count(), 2);
         assert!(!error.has_no_fields());
@@ -116,18 +130,18 @@ mod tests {
 
     #[test]
     fn error_no_fields() {
-        let error = Error::new("UnknownError", &[]);
+        let error = Error::new("UnknownError", &[], &[]);
         assert_eq!(error.name(), "UnknownError");
         assert!(error.has_no_fields());
     }
 
     #[test]
     fn error_serialization() {
-        let message_field = Field::new("message", &Type::String);
-        let details_field = Field::new("details", &Type::ForeignObject);
+        let message_field = Field::new("message", &Type::String, &[]);
+        let details_field = Field::new("details", &Type::ForeignObject, &[]);
         let fields = [&message_field, &details_field];
 
-        let error = Error::new("ValidationError", &fields);
+        let error = Error::new("ValidationError", &fields, &[]);
 
         // Check the fields individually - order and values.
         let fields_vec: mayheap::Vec<_, 8> = error.fields().collect();

@@ -15,7 +15,7 @@ mod tests {
         // Test with a type that implements ReplyErrors.
         struct MyType;
 
-        const MY_ERROR: Error<'static> = Error::new("MyError", &[]);
+        const MY_ERROR: Error<'static> = Error::new("MyError", &[], &[]);
 
         impl ReplyError for MyType {
             const VARIANTS: &'static [&'static Error<'static>] = &[&MY_ERROR];

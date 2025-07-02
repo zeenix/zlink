@@ -71,12 +71,12 @@ mod tests {
 
     #[test]
     fn member_custom_type() {
-        let vendor_field = Field::new("vendor", &Type::String);
-        let product_field = Field::new("product", &Type::String);
-        let version_field = Field::new("version", &Type::String);
+        let vendor_field = Field::new("vendor", &Type::String, &[]);
+        let product_field = Field::new("product", &Type::String, &[]);
+        let version_field = Field::new("version", &Type::String, &[]);
         let fields = [&vendor_field, &product_field, &version_field];
 
-        let custom = CustomType::from(CustomObject::new("ServiceInfo", &fields));
+        let custom = CustomType::from(CustomObject::new("ServiceInfo", &fields, &[]));
         let member = Member::Custom(custom);
 
         assert_eq!(member.name(), "ServiceInfo");
@@ -97,13 +97,13 @@ mod tests {
             use crate::idl::TypeRef;
             let interfaces_type = Type::Array(TypeRef::new(&Type::String));
             let outputs = vec![
-                Parameter::new("vendor", &Type::String),
-                Parameter::new("product", &Type::String),
-                Parameter::new("version", &Type::String),
-                Parameter::new("url", &Type::String),
-                Parameter::new("interfaces", &interfaces_type),
+                Parameter::new("vendor", &Type::String, &[]),
+                Parameter::new("product", &Type::String, &[]),
+                Parameter::new("version", &Type::String, &[]),
+                Parameter::new("url", &Type::String, &[]),
+                Parameter::new("interfaces", &interfaces_type, &[]),
             ];
-            let method = Method::new_owned("GetInfo", vec![], outputs);
+            let method = Method::new_owned("GetInfo", vec![], outputs, vec![]);
             let member = Member::Method(method);
 
             assert_eq!(member.name(), "GetInfo");
@@ -118,13 +118,13 @@ mod tests {
 
         #[cfg(not(feature = "std"))]
         {
-            let vendor_param = Parameter::new("vendor", &Type::String);
-            let product_param = Parameter::new("product", &Type::String);
-            let version_param = Parameter::new("version", &Type::String);
-            let url_param = Parameter::new("url", &Type::String);
+            let vendor_param = Parameter::new("vendor", &Type::String, &[]);
+            let product_param = Parameter::new("product", &Type::String, &[]);
+            let version_param = Parameter::new("version", &Type::String, &[]);
+            let url_param = Parameter::new("url", &Type::String, &[]);
             let outputs = [&vendor_param, &product_param, &version_param, &url_param];
 
-            let method = Method::new("GetInfo", &[], &outputs);
+            let method = Method::new("GetInfo", &[], &outputs, &[]);
             let member = Member::Method(method);
 
             assert_eq!(member.name(), "GetInfo");
@@ -140,10 +140,10 @@ mod tests {
 
     #[test]
     fn member_error() {
-        let interface_field = Field::new("interface", &Type::String);
+        let interface_field = Field::new("interface", &Type::String, &[]);
         let fields = [&interface_field];
 
-        let error = Error::new("InterfaceNotFound", &fields);
+        let error = Error::new("InterfaceNotFound", &fields, &[]);
         let member = Member::Error(error);
 
         assert_eq!(member.name(), "InterfaceNotFound");
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn member_serialization() {
-        let error = Error::new("PermissionDenied", &[]);
+        let error = Error::new("PermissionDenied", &[], &[]);
         let member = Member::Error(error);
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&member).unwrap();

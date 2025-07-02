@@ -7,7 +7,7 @@ use serde::Serialize;
 #[cfg(feature = "idl-parse")]
 use serde::Deserialize;
 
-use super::{Type, TypeRef};
+use super::{Comment, List, Type, TypeRef};
 
 /// A field in a custom type or method parameter.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,26 +16,31 @@ pub struct Field<'a> {
     name: &'a str,
     /// The type of the field.
     ty: TypeRef<'a>,
+    /// Comments associated with this field.
+    comments: List<'a, Comment<'a>>,
 }
 
 /// Type alias for method parameters, which have the same structure as fields.
 pub type Parameter<'a> = Field<'a>;
 
 impl<'a> Field<'a> {
-    /// Creates a new field with the given name and type.
-    pub const fn new(name: &'a str, ty: &'a Type<'a>) -> Self {
+    /// Creates a new field with the given name, borrowed type, and comments.
+    pub const fn new(name: &'a str, ty: &'a Type<'a>, comments: &'a [&'a Comment<'a>]) -> Self {
         Self {
             name,
             ty: TypeRef::new(ty),
+            comments: List::Borrowed(comments),
         }
     }
 
     /// Same as `new` but takes `ty` by value.
+    /// Creates a new field with the given name, owned type, and comments.
     #[cfg(feature = "std")]
-    pub fn new_owned(name: &'a str, ty: Type<'a>) -> Self {
+    pub fn new_owned(name: &'a str, ty: Type<'a>, comments: Vec<Comment<'a>>) -> Self {
         Self {
             name,
             ty: TypeRef::new_owned(ty),
+            comments: List::from(comments),
         }
     }
 
@@ -47,6 +52,11 @@ impl<'a> Field<'a> {
     /// Returns the type of the field.
     pub fn ty(&self) -> &Type<'a> {
         self.ty.inner()
+    }
+
+    /// Returns the comments associated with this field.
+    pub fn comments(&self) -> impl Iterator<Item = &Comment<'a>> {
+        self.comments.iter()
     }
 }
 
@@ -86,14 +96,14 @@ mod tests {
 
     #[test]
     fn field_creation() {
-        let field = Field::new("age", &Type::Int);
+        let field = Field::new("age", &Type::Int, &[]);
         assert_eq!(field.name(), "age");
         assert_eq!(field.ty(), &Type::Int);
     }
 
     #[test]
     fn field_serialization() {
-        let field = Field::new("count", &Type::Int);
+        let field = Field::new("count", &Type::Int, &[]);
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&field).unwrap();
         #[cfg(feature = "embedded")]
@@ -108,7 +118,7 @@ mod tests {
 
     #[test]
     fn parameter_alias() {
-        let param: Parameter<'_> = Field::new("input", &Type::String);
+        let param: Parameter<'_> = Field::new("input", &Type::String, &[]);
         assert_eq!(param.name(), "input");
         assert_eq!(param.ty(), &Type::String);
     }

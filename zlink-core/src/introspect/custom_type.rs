@@ -18,11 +18,11 @@
 ///
 /// impl CustomType for Point {
 ///     const CUSTOM_TYPE: &'static idl::CustomType<'static> = &{
-///         static FIELD_X: Field<'static> = Field::new("x", &zlink_core::idl::Type::Float);
-///         static FIELD_Y: Field<'static> = Field::new("y", &zlink_core::idl::Type::Float);
+///         static FIELD_X: Field<'static> = Field::new("x", &zlink_core::idl::Type::Float, &[]);
+///         static FIELD_Y: Field<'static> = Field::new("y", &zlink_core::idl::Type::Float, &[]);
 ///         static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 ///
-///         idl::CustomType::Object(CustomObject::new("Point", FIELDS))
+///         idl::CustomType::Object(CustomObject::new("Point", FIELDS, &[]))
 ///     };
 /// }
 /// ```
@@ -44,11 +44,11 @@ mod tests {
 
     impl CustomType for TestPoint {
         const CUSTOM_TYPE: &'static idl::CustomType<'static> = &{
-            static FIELD_X: Field<'static> = Field::new("x", <f64 as introspect::Type>::TYPE);
-            static FIELD_Y: Field<'static> = Field::new("y", <f64 as introspect::Type>::TYPE);
+            static FIELD_X: Field<'static> = Field::new("x", <f64 as introspect::Type>::TYPE, &[]);
+            static FIELD_Y: Field<'static> = Field::new("y", <f64 as introspect::Type>::TYPE, &[]);
             static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 
-            idl::CustomType::Object(CustomObject::new("Point", FIELDS))
+            idl::CustomType::Object(CustomObject::new("Point", FIELDS, &[]))
         };
     }
 
@@ -63,7 +63,7 @@ mod tests {
             static VARIANTS: &[&'static &'static str] =
                 &[&VARIANT_ACTIVE, &VARIANT_INACTIVE, &VARIANT_PENDING];
 
-            idl::CustomType::Enum(CustomEnum::new("Status", VARIANTS))
+            idl::CustomType::Enum(CustomEnum::new("Status", VARIANTS, &[]))
         };
     }
 

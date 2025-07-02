@@ -28,6 +28,9 @@ pub use method::Method;
 mod error;
 pub use error::Error;
 
+mod comment;
+pub use comment::Comment;
+
 mod member;
 pub use member::Member;
 

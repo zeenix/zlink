@@ -183,8 +183,8 @@ mod tests {
 
             // Test inline struct
             let struct_type = Type::Object(List::from(vec![
-                Field::new("first", &Type::Int),
-                Field::new("second", &Type::String),
+                Field::new("first", &Type::Int, &[]),
+                Field::new("second", &Type::String, &[]),
             ]));
             assert_eq!(struct_type.to_string(), "(first: int, second: string)");
         }

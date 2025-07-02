@@ -34,7 +34,7 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
                 ];
 
                 #crate_path::idl::CustomType::Object(
-                    #crate_path::idl::CustomObject::new(#name_str, FIELD_REFS)
+                    #crate_path::idl::CustomObject::new(#name_str, FIELD_REFS, &[])
                 )
             })
         }
@@ -45,7 +45,7 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
                 #crate_path::idl::CustomType::Enum(
                    #crate_path::idl::CustomEnum::new(#name_str, &[
                         #(#variant_names),*
-                    ])
+                    ], &[])
                 )
             })
         }
@@ -92,7 +92,8 @@ fn generate_field_definitions(
                     static #static_name: #crate_path::idl::Field<'static> =
                         #crate_path::idl::Field::new(
                             #field_name_str,
-                            <#field_type as #crate_path::introspect::Type>::TYPE
+                            <#field_type as #crate_path::introspect::Type>::TYPE,
+                            &[]
                         );
                 };
 

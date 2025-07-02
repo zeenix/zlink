@@ -18,11 +18,11 @@ struct Point;
 
 impl CustomType for Point {
     const CUSTOM_TYPE: &'static idl::CustomType<'static> = &{
-        static FIELD_X: Field = Field::new("x", &idl::Type::Float);
-        static FIELD_Y: Field = Field::new("y", &idl::Type::Float);
+        static FIELD_X: Field = Field::new("x", &idl::Type::Float, &[]);
+        static FIELD_Y: Field = Field::new("y", &idl::Type::Float, &[]);
         static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 
-        idl::CustomType::Object(CustomObject::new("Point", FIELDS))
+        idl::CustomType::Object(CustomObject::new("Point", FIELDS, &[]))
     };
 }
 
@@ -40,7 +40,7 @@ impl CustomType for Color {
         static VARIANT_BLUE: &str = "Blue";
         static VARIANTS: &[&'static &'static str] = &[&VARIANT_RED, &VARIANT_GREEN, &VARIANT_BLUE];
 
-        idl::CustomType::Enum(CustomEnum::new("Color", VARIANTS))
+        idl::CustomType::Enum(CustomEnum::new("Color", VARIANTS, &[]))
     };
 }
 
@@ -49,12 +49,12 @@ struct Person;
 
 impl CustomType for Person {
     const CUSTOM_TYPE: &'static idl::CustomType<'static> = &{
-        static FIELD_NAME: Field = Field::new("name", &idl::Type::String);
-        static FIELD_AGE: Field = Field::new("age", &idl::Type::Int);
-        static FIELD_ACTIVE: Field = Field::new("active", &idl::Type::Bool);
+        static FIELD_NAME: Field = Field::new("name", &idl::Type::String, &[]);
+        static FIELD_AGE: Field = Field::new("age", &idl::Type::Int, &[]);
+        static FIELD_ACTIVE: Field = Field::new("active", &idl::Type::Bool, &[]);
         static FIELDS: &[&Field<'static>] = &[&FIELD_NAME, &FIELD_AGE, &FIELD_ACTIVE];
 
-        idl::CustomType::Object(CustomObject::new("Person", FIELDS))
+        idl::CustomType::Object(CustomObject::new("Person", FIELDS, &[]))
     };
 }
 

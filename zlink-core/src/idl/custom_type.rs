@@ -110,11 +110,11 @@ mod tests {
 
     #[test]
     fn object_creation() {
-        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE);
-        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE);
+        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE, &[]);
+        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE, &[]);
         let fields = [&field_x, &field_y];
 
-        let custom_obj = CustomObject::new("Point", &fields);
+        let custom_obj = CustomObject::new("Point", &fields, &[]);
         assert_eq!(custom_obj.name(), "Point");
         assert_eq!(custom_obj.fields().count(), 2);
 
@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn enum_creation() {
-        let custom_enum = CustomEnum::new("Color", &[&"red", &"green", &"blue"]);
+        let custom_enum = CustomEnum::new("Color", &[&"red", &"green", &"blue"], &[]);
 
         assert_eq!(custom_enum.name(), "Color");
         assert_eq!(custom_enum.variants().count(), 3);
@@ -142,11 +142,11 @@ mod tests {
 
     #[test]
     fn type_from_object() {
-        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE);
-        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE);
+        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE, &[]);
+        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE, &[]);
         let fields = [&field_x, &field_y];
 
-        let custom_obj = CustomObject::new("Point", &fields);
+        let custom_obj = CustomObject::new("Point", &fields, &[]);
         let custom_type = idl::CustomType::from(custom_obj);
 
         assert_eq!(custom_type.name(), "Point");
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn type_from_enum() {
-        let custom_enum = CustomEnum::new("Color", &[&"red", &"green", &"blue"]);
+        let custom_enum = CustomEnum::new("Color", &[&"red", &"green", &"blue"], &[]);
         let custom_type = idl::CustomType::from(custom_enum);
 
         assert_eq!(custom_type.name(), "Color");
@@ -170,11 +170,11 @@ mod tests {
 
     #[test]
     fn object_serialization() {
-        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE);
-        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE);
+        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE, &[]);
+        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE, &[]);
         let fields = [&field_x, &field_y];
 
-        let custom_obj = CustomObject::new("Point", &fields);
+        let custom_obj = CustomObject::new("Point", &fields, &[]);
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&custom_obj).unwrap();
         #[cfg(feature = "embedded")]
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn enum_serialization() {
-        let custom_enum = CustomEnum::new("Status", &[&"active", &"inactive", &"pending"]);
+        let custom_enum = CustomEnum::new("Status", &[&"active", &"inactive", &"pending"], &[]);
 
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&custom_enum).unwrap();
@@ -206,10 +206,10 @@ mod tests {
     #[test]
     fn type_display() {
         // Test object display
-        let field_x = Field::new("x", <i64 as introspect::Type>::TYPE);
-        let field_y = Field::new("y", <i64 as introspect::Type>::TYPE);
+        let field_x = Field::new("x", <i64 as introspect::Type>::TYPE, &[]);
+        let field_y = Field::new("y", <i64 as introspect::Type>::TYPE, &[]);
         let fields = [&field_x, &field_y];
-        let custom_obj = CustomObject::new("Point", &fields);
+        let custom_obj = CustomObject::new("Point", &fields, &[]);
         let custom_type = idl::CustomType::from(custom_obj);
         use core::fmt::Write;
         let mut buf = mayheap::String::<64>::new();
@@ -217,7 +217,8 @@ mod tests {
         assert_eq!(buf.as_str(), "type Point (x: int, y: int)");
 
         // Test enum display
-        let custom_enum = CustomEnum::new("Direction", &[&"north", &"south", &"east", &"west"]);
+        let custom_enum =
+            CustomEnum::new("Direction", &[&"north", &"south", &"east", &"west"], &[]);
         let custom_type = idl::CustomType::from(custom_enum);
         let mut buf = mayheap::String::<128>::new();
         write!(buf, "{}", custom_type).unwrap();
@@ -229,10 +230,10 @@ mod tests {
     fn owned_types() {
         // Test owned object
         let fields = vec![
-            Field::new("name", <&str as introspect::Type>::TYPE),
-            Field::new("age", <i64 as introspect::Type>::TYPE),
+            Field::new("name", <&str as introspect::Type>::TYPE, &[]),
+            Field::new("age", <i64 as introspect::Type>::TYPE, &[]),
         ];
-        let custom_obj = CustomObject::new_owned("Person", fields);
+        let custom_obj = CustomObject::new_owned("Person", fields, vec![]);
         assert_eq!(custom_obj.name(), "Person");
         use core::fmt::Write;
         let mut buf = mayheap::String::<64>::new();
@@ -240,7 +241,7 @@ mod tests {
         assert_eq!(buf.as_str(), "type Person (name: string, age: int)");
 
         // Test owned enum
-        let custom_enum = CustomEnum::new_owned("Size", vec!["small", "medium", "large"]);
+        let custom_enum = CustomEnum::new_owned("Size", vec!["small", "medium", "large"], vec![]);
         assert_eq!(custom_enum.name(), "Size");
         let mut buf = mayheap::String::<64>::new();
         write!(buf, "{}", custom_enum).unwrap();
