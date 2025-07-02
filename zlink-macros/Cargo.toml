@@ -7,4 +7,21 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+proc-macro = true
+
+[features]
+introspection = ["zlink/introspection"]
+
 [dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", default-features = false, features = [
+    "derive",
+    "parsing",
+    "printing",
+    "proc-macro",
+] }
+
+[dev-dependencies]
+zlink = { path = "../zlink", default-features = false, features = ["tokio"] }

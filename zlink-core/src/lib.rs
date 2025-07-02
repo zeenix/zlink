@@ -30,3 +30,7 @@ pub mod reply;
 pub use reply::Reply;
 #[cfg(feature = "idl")]
 pub mod idl;
+#[cfg(feature = "introspection")]
+pub mod introspect;
+#[cfg(feature = "introspection")]
+pub mod varlink_service;

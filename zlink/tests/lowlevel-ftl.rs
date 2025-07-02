@@ -2,6 +2,7 @@ use std::{pin::pin, time::Duration};
 
 use futures_util::{pin_mut, stream::StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use serde_prefix_all::prefix_all;
 use tokio::{select, time::sleep};
 use zlink::{
     notified,
@@ -9,6 +10,9 @@ use zlink::{
     unix::{bind, connect},
     Call, Service,
 };
+
+#[cfg(feature = "introspection")]
+use zlink::introspect::ReplyError;
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
@@ -266,16 +270,13 @@ impl From<Coordinate> for Replies {
 }
 
 /// The FTL service methods.
+#[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "parameters")]
 enum Methods {
-    #[serde(rename = "org.example.ftl.GetDriveCondition")]
     GetDriveCondition,
-    #[serde(rename = "org.example.ftl.SetDriveCondition")]
     SetDriveCondition { condition: DriveCondition },
-    #[serde(rename = "org.example.ftl.GetCoordinates")]
     GetCoordinates,
-    #[serde(rename = "org.example.ftl.Jump")]
     Jump { config: DriveConfiguration },
 }
 
@@ -288,13 +289,21 @@ enum Replies {
 }
 
 /// The FTL service error replies.
+#[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "introspection", derive(ReplyError))]
 #[serde(tag = "error", content = "parameters")]
 enum Errors {
-    #[serde(rename = "org.example.ftl.NotEnoughEnergy")]
     NotEnoughEnergy,
-    #[serde(rename = "org.example.ftl.ParameterOutOfRange")]
     ParameterOutOfRange,
+    InvalidCoordinates {
+        latitude: f32,
+        longitude: f32,
+        reason: String,
+    },
+    SystemOverheat {
+        temperature: i32,
+    },
 }
 
 impl core::fmt::Display for Errors {
@@ -302,10 +311,54 @@ impl core::fmt::Display for Errors {
         match self {
             Errors::NotEnoughEnergy => write!(f, "Not enough energy"),
             Errors::ParameterOutOfRange => write!(f, "Parameter out of range"),
+            Errors::InvalidCoordinates {
+                latitude,
+                longitude,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Invalid coordinates ({}, {}): {}",
+                    latitude, longitude, reason
+                )
+            }
+            Errors::SystemOverheat { temperature } => {
+                write!(f, "System overheating at {} degrees", temperature)
+            }
         }
     }
 }
 
 impl std::error::Error for Errors {}
+
+#[cfg(feature = "introspection")]
+#[test_log::test(tokio::test)]
+async fn reply_error_derive_works() {
+    // Test that the ReplyError derive generates the expected variants.
+    assert_eq!(Errors::VARIANTS.len(), 4);
+
+    // Unit variants
+    assert_eq!(Errors::VARIANTS[0].name(), "NotEnoughEnergy");
+    assert!(Errors::VARIANTS[0].has_no_fields());
+
+    assert_eq!(Errors::VARIANTS[1].name(), "ParameterOutOfRange");
+    assert!(Errors::VARIANTS[1].has_no_fields());
+
+    // Variant with named fields
+    assert_eq!(Errors::VARIANTS[2].name(), "InvalidCoordinates");
+    assert!(!Errors::VARIANTS[2].has_no_fields());
+    let fields: Vec<_> = Errors::VARIANTS[2].fields().collect();
+    assert_eq!(fields.len(), 3);
+    assert_eq!(fields[0].name(), "latitude");
+    assert_eq!(fields[1].name(), "longitude");
+    assert_eq!(fields[2].name(), "reason");
+
+    // Another variant with named fields
+    assert_eq!(Errors::VARIANTS[3].name(), "SystemOverheat");
+    assert!(!Errors::VARIANTS[3].has_no_fields());
+    let fields: Vec<_> = Errors::VARIANTS[3].fields().collect();
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].name(), "temperature");
+}
 
 const SOCKET_PATH: &'static str = "/tmp/zlink-lowlevel-ftl.sock";

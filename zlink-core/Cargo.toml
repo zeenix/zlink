@@ -19,10 +19,11 @@ io-buffer-1mb = []
 # IDL and introspection support
 idl = []
 idl-parse = ["idl", "dep:winnow", "std"]
-introspection = ["idl-parse"]
+introspection = ["idl", "zlink-macros/introspection"]
 
 [dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }
+zlink-macros = { path = "../zlink-macros", version = "0.0.1-alpha.1" }
 serde_json = { version = "1.0.139", optional = true }
 serde-json-core = { version = "0.6.0", default-features = false, features = [
     "heapless",
@@ -44,6 +45,7 @@ winnow = { version = "0.7", default-features = false, features = [
 
 [dev-dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["alloc"] }
+serde-prefix-all = "0.1.0"
 tokio = { version = "1.44.0", features = [
     "macros",
     "rt",

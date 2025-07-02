@@ -2,10 +2,8 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
 #[cfg(feature = "idl-parse")]
-use serde::Deserialize;
+use crate::Error;
 
 use super::{List, Member};
 
@@ -16,23 +14,35 @@ pub struct Interface<'a> {
     name: &'a str,
     /// The members of the interface (types, methods, errors).
     members: List<'a, Member<'a>>,
+    /// The comments associated with this interface.
+    comments: List<'a, super::Comment<'a>>,
 }
 
 impl<'a> Interface<'a> {
-    /// Creates a new interface with the given name and borrowed members.
-    pub const fn new(name: &'a str, members: &'a [&'a Member<'a>]) -> Self {
+    /// Creates a new interface with the given name, borrowed members, and comments.
+    pub const fn new(
+        name: &'a str,
+        members: &'a [&'a Member<'a>],
+        comments: &'a [&'a super::Comment<'a>],
+    ) -> Self {
         Self {
             name,
             members: List::Borrowed(members),
+            comments: List::Borrowed(comments),
         }
     }
 
-    /// Creates a new interface with the given name and owned members.
+    /// Creates a new interface with the given name, owned members, and comments.
     #[cfg(feature = "std")]
-    pub fn new_owned(name: &'a str, members: Vec<Member<'a>>) -> Self {
+    pub fn new_owned(
+        name: &'a str,
+        members: Vec<Member<'a>>,
+        comments: Vec<super::Comment<'a>>,
+    ) -> Self {
         Self {
             name,
             members: List::Owned(members),
+            comments: List::from(comments),
         }
     }
 
@@ -44,6 +54,11 @@ impl<'a> Interface<'a> {
     /// Returns an iterator over the members of the interface.
     pub fn members(&self) -> impl Iterator<Item = &Member<'a>> {
         self.members.iter()
+    }
+
+    /// Returns an iterator over the comments associated with this interface.
+    pub fn comments(&self) -> impl Iterator<Item = &super::Comment<'a>> {
+        self.comments.iter()
     }
 
     /// Returns true if the interface has no members.
@@ -80,39 +95,25 @@ impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "interface {}", self.name)?;
         for member in self.members.iter() {
-            write!(f, "\n\n{}", member)?;
+            write!(f, "\n\n{member}")?;
         }
         Ok(())
     }
 }
 
-impl<'a> Serialize for Interface<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
 #[cfg(feature = "idl-parse")]
-impl<'de, 'a> Deserialize<'de> for Interface<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        super::parse::parse_interface(s).map_err(serde::de::Error::custom)
+impl<'a> TryFrom<&'a str> for Interface<'a> {
+    type Error = Error;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        super::parse::parse_interface(value)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::idl::{Error, Field, Method, Parameter, Type, TypeInfo};
+    use crate::idl::{Error, Field, Method, Parameter, Type};
 
     #[test]
     fn org_varlink_service_interface() {
@@ -121,36 +122,37 @@ mod tests {
         // Build the org.varlink.service interface as our test case
         let interfaces_type = Type::Array(TypeRef::new(&Type::String));
         let get_info_outputs = [
-            &Parameter::new("vendor", <&str>::TYPE_INFO),
-            &Parameter::new("product", <&str>::TYPE_INFO),
-            &Parameter::new("version", <&str>::TYPE_INFO),
-            &Parameter::new("url", <&str>::TYPE_INFO),
-            &Parameter::new("interfaces", &interfaces_type),
+            &Parameter::new("vendor", &Type::String, &[]),
+            &Parameter::new("product", &Type::String, &[]),
+            &Parameter::new("version", &Type::String, &[]),
+            &Parameter::new("url", &Type::String, &[]),
+            &Parameter::new("interfaces", &interfaces_type, &[]),
         ];
-        let get_info = Method::new("GetInfo", &[], &get_info_outputs);
+        let get_info = Method::new("GetInfo", &[], &get_info_outputs, &[]);
 
-        let get_interface_desc_inputs = [&Parameter::new("interface", <&str>::TYPE_INFO)];
-        let get_interface_desc_outputs = [&Parameter::new("description", <&str>::TYPE_INFO)];
+        let get_interface_desc_inputs = [&Parameter::new("interface", &Type::String, &[])];
+        let get_interface_desc_outputs = [&Parameter::new("description", &Type::String, &[])];
         let get_interface_desc = Method::new(
             "GetInterfaceDescription",
             &get_interface_desc_inputs,
             &get_interface_desc_outputs,
+            &[],
         );
 
-        let interface_not_found_fields = [&Field::new("interface", <&str>::TYPE_INFO)];
-        let interface_not_found = Error::new("InterfaceNotFound", &interface_not_found_fields);
+        let interface_not_found_fields = [&Field::new("interface", &Type::String, &[])];
+        let interface_not_found = Error::new("InterfaceNotFound", &interface_not_found_fields, &[]);
 
-        let method_not_found_fields = [&Field::new("method", <&str>::TYPE_INFO)];
-        let method_not_found = Error::new("MethodNotFound", &method_not_found_fields);
+        let method_not_found_fields = [&Field::new("method", &Type::String, &[])];
+        let method_not_found = Error::new("MethodNotFound", &method_not_found_fields, &[]);
 
-        let method_not_impl_fields = [&Field::new("method", <&str>::TYPE_INFO)];
-        let method_not_impl = Error::new("MethodNotImplemented", &method_not_impl_fields);
+        let method_not_impl_fields = [&Field::new("method", &Type::String, &[])];
+        let method_not_impl = Error::new("MethodNotImplemented", &method_not_impl_fields, &[]);
 
-        let invalid_param_fields = [&Field::new("parameter", <&str>::TYPE_INFO)];
-        let invalid_param = Error::new("InvalidParameter", &invalid_param_fields);
+        let invalid_param_fields = [&Field::new("parameter", &Type::String, &[])];
+        let invalid_param = Error::new("InvalidParameter", &invalid_param_fields, &[]);
 
-        let permission_denied = Error::new("PermissionDenied", &[]);
-        let expected_more = Error::new("ExpectedMore", &[]);
+        let permission_denied = Error::new("PermissionDenied", &[], &[]);
+        let expected_more = Error::new("ExpectedMore", &[], &[]);
 
         let members = &[
             &Member::Method(get_info),
@@ -163,7 +165,7 @@ mod tests {
             &Member::Error(expected_more),
         ];
 
-        let interface = Interface::new("org.varlink.service", members);
+        let interface = Interface::new("org.varlink.service", members, &[]);
 
         assert_eq!(interface.name(), "org.varlink.service");
         assert_eq!(interface.members().count(), 8);
@@ -228,26 +230,8 @@ error ExpectedMore ()
     }
 
     #[test]
-    fn interface_serialization() {
-        let simple_method = Method::new("Ping", &[], &[]);
-
-        let members = [&Member::Method(simple_method)];
-        let interface = Interface::new("com.example.ping", &members);
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&interface).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 64];
-            let len = serde_json_core::to_slice(&interface, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 64>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<64>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""interface com.example.ping\n\nmethod Ping()""#);
-    }
-
-    #[test]
     fn empty_interface() {
-        let interface = Interface::new("com.example.empty", &[]);
+        let interface = Interface::new("com.example.empty", &[], &[]);
         assert!(interface.is_empty());
         assert_eq!(interface.methods().count(), 0);
         assert_eq!(interface.errors().count(), 0);
@@ -257,7 +241,7 @@ error ExpectedMore ()
     #[cfg(feature = "idl-parse")]
     #[test]
     fn systemd_resolved_interface_parsing() {
-        use crate::idl::{parse, CustomType, TypeRef};
+        use crate::idl::{parse, CustomObject, CustomType, TypeRef};
 
         // Manually construct the systemd-resolved interface for comparison.
 
@@ -269,38 +253,51 @@ error ExpectedMore ()
 
         // Build ResolvedAddress custom type.
         let resolved_address_fields = [
-            &Field::new("ifindex", &optional_int_type),
-            &Field::new("family", <i64>::TYPE_INFO),
-            &Field::new("address", &int_array_type),
+            &Field::new("ifindex", &optional_int_type, &[]),
+            &Field::new("family", &Type::Int, &[]),
+            &Field::new("address", &int_array_type, &[]),
         ];
-        let resolved_address = CustomType::new("ResolvedAddress", &resolved_address_fields);
+        let resolved_address = CustomType::from(CustomObject::new(
+            "ResolvedAddress",
+            &resolved_address_fields,
+            &[],
+        ));
 
         // Build ResolvedName custom type.
         let resolved_name_fields = [
-            &Field::new("ifindex", &optional_int_type),
-            &Field::new("name", <&str>::TYPE_INFO),
+            &Field::new("ifindex", &optional_int_type, &[]),
+            &Field::new("name", &Type::String, &[]),
         ];
-        let resolved_name = CustomType::new("ResolvedName", &resolved_name_fields);
+        let resolved_name = CustomType::from(CustomObject::new(
+            "ResolvedName",
+            &resolved_name_fields,
+            &[],
+        ));
 
         // Build ResourceKey custom type.
         let resource_key_fields = [
-            &Field::new("class", <i64>::TYPE_INFO),
-            &Field::new("type", <i64>::TYPE_INFO),
-            &Field::new("name", <&str>::TYPE_INFO),
+            &Field::new("class", &Type::Int, &[]),
+            &Field::new("type", &Type::Int, &[]),
+            &Field::new("name", &Type::String, &[]),
         ];
-        let resource_key = CustomType::new("ResourceKey", &resource_key_fields);
+        let resource_key =
+            CustomType::from(CustomObject::new("ResourceKey", &resource_key_fields, &[]));
 
         // Build ResourceRecord custom type (references ResourceKey).
         let resource_key_type = Type::Custom("ResourceKey");
         let resource_record_fields = [
-            &Field::new("key", &resource_key_type),
-            &Field::new("priority", &optional_int_type),
-            &Field::new("weight", &optional_int_type),
-            &Field::new("port", &optional_int_type),
-            &Field::new("name", &optional_string_type),
-            &Field::new("address", &optional_int_array_type),
+            &Field::new("key", &resource_key_type, &[]),
+            &Field::new("priority", &optional_int_type, &[]),
+            &Field::new("weight", &optional_int_type, &[]),
+            &Field::new("port", &optional_int_type, &[]),
+            &Field::new("name", &optional_string_type, &[]),
+            &Field::new("address", &optional_int_array_type, &[]),
         ];
-        let resource_record = CustomType::new("ResourceRecord", &resource_record_fields);
+        let resource_record = CustomType::from(CustomObject::new(
+            "ResourceRecord",
+            &resource_record_fields,
+            &[],
+        ));
 
         // Build methods.
         let resolved_address_array_type =
@@ -308,56 +305,61 @@ error ExpectedMore ()
         let resolved_name_array_type = Type::Array(TypeRef::new(&Type::Custom("ResolvedName")));
 
         let resolve_hostname_inputs = [
-            &Parameter::new("ifindex", &optional_int_type),
-            &Parameter::new("name", <&str>::TYPE_INFO),
-            &Parameter::new("family", &optional_int_type),
-            &Parameter::new("flags", &optional_int_type),
+            &Parameter::new("ifindex", &optional_int_type, &[]),
+            &Parameter::new("name", &Type::String, &[]),
+            &Parameter::new("family", &optional_int_type, &[]),
+            &Parameter::new("flags", &optional_int_type, &[]),
         ];
         let resolve_hostname_outputs = [
-            &Parameter::new("addresses", &resolved_address_array_type),
-            &Parameter::new("name", <&str>::TYPE_INFO),
-            &Parameter::new("flags", <i64>::TYPE_INFO),
+            &Parameter::new("addresses", &resolved_address_array_type, &[]),
+            &Parameter::new("name", &Type::String, &[]),
+            &Parameter::new("flags", &Type::Int, &[]),
         ];
         let resolve_hostname = Method::new(
             "ResolveHostname",
             &resolve_hostname_inputs,
             &resolve_hostname_outputs,
+            &[],
         );
 
         let resolve_address_inputs = [
-            &Parameter::new("ifindex", &optional_int_type),
-            &Parameter::new("family", <i64>::TYPE_INFO),
-            &Parameter::new("address", &int_array_type),
-            &Parameter::new("flags", &optional_int_type),
+            &Parameter::new("ifindex", &optional_int_type, &[]),
+            &Parameter::new("family", &Type::Int, &[]),
+            &Parameter::new("address", &int_array_type, &[]),
+            &Parameter::new("flags", &optional_int_type, &[]),
         ];
         let resolve_address_outputs = [
-            &Parameter::new("names", &resolved_name_array_type),
-            &Parameter::new("flags", <i64>::TYPE_INFO),
+            &Parameter::new("names", &resolved_name_array_type, &[]),
+            &Parameter::new("flags", &Type::Int, &[]),
         ];
         let resolve_address = Method::new(
             "ResolveAddress",
             &resolve_address_inputs,
             &resolve_address_outputs,
+            &[],
         );
 
         // Build errors.
-        let no_name_servers = Error::new("NoNameServers", &[]);
-        let query_timed_out = Error::new("QueryTimedOut", &[]);
+        let no_name_servers = Error::new("NoNameServers", &[], &[]);
+        let query_timed_out = Error::new("QueryTimedOut", &[], &[]);
 
         let dnssec_validation_failed_fields = [
-            &Field::new("result", <&str>::TYPE_INFO),
-            &Field::new("extendedDNSErrorCode", &optional_int_type),
-            &Field::new("extendedDNSErrorMessage", &optional_string_type),
+            &Field::new("result", &Type::String, &[]),
+            &Field::new("extendedDNSErrorCode", &optional_int_type, &[]),
+            &Field::new("extendedDNSErrorMessage", &optional_string_type, &[]),
         ];
-        let dnssec_validation_failed =
-            Error::new("DNSSECValidationFailed", &dnssec_validation_failed_fields);
+        let dnssec_validation_failed = Error::new(
+            "DNSSECValidationFailed",
+            &dnssec_validation_failed_fields,
+            &[],
+        );
 
         let dns_error_fields = [
-            &Field::new("rcode", <i64>::TYPE_INFO),
-            &Field::new("extendedDNSErrorCode", &optional_int_type),
-            &Field::new("extendedDNSErrorMessage", &optional_string_type),
+            &Field::new("rcode", &Type::Int, &[]),
+            &Field::new("extendedDNSErrorCode", &optional_int_type, &[]),
+            &Field::new("extendedDNSErrorMessage", &optional_string_type, &[]),
         ];
-        let dns_error = Error::new("DNSError", &dns_error_fields);
+        let dns_error = Error::new("DNSError", &dns_error_fields, &[]);
 
         // Build the complete interface.
         let members = &[
@@ -373,7 +375,7 @@ error ExpectedMore ()
             &Member::Error(dns_error),
         ];
 
-        let interface = Interface::new("io.systemd.Resolve", members);
+        let interface = Interface::new("io.systemd.Resolve", members, &[]);
 
         // Test parsing the IDL and compare with manually constructed interface.
         const SYSTEMD_RESOLVED_IDL: &str = r#"interface io.systemd.Resolve
@@ -475,8 +477,16 @@ error DNSError(
             .expect("ResolvedAddress type should exist in manual interface");
 
         // Verify field types in ResolvedAddress.
-        let parsed_fields: Vec<_> = parsed_resolved_address.fields().collect();
-        let manual_fields: Vec<_> = manual_resolved_address.fields().collect();
+        let parsed_fields: Vec<_> = parsed_resolved_address
+            .as_object()
+            .unwrap()
+            .fields()
+            .collect();
+        let manual_fields: Vec<_> = manual_resolved_address
+            .as_object()
+            .unwrap()
+            .fields()
+            .collect();
         assert_eq!(parsed_fields.len(), manual_fields.len());
 
         assert_eq!(parsed_fields[0].name(), "ifindex");

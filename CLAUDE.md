@@ -7,11 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Testing
 ```bash
 # Run the full test suite, including doc tests and compile-tests
-cargo test --all-features
-
-# Run tests for a specific package
-cargo test -p zlink-core
-cargo test -p zlink-tokio
+cargo test --features introspection,idl-parse
+# For embedded
+cargo test -p zlink-core --no-default-features --features embedded,introspection
 ```
 
 ### Code Quality
@@ -23,7 +21,9 @@ cargo +nightly fmt --all
 cargo clippy -- -D warnings
 
 # Check all features compile
-cargo check --all-features
+cargo check --features introspection,idl-parse
+# For embedded
+cargo check -p zlink-core --no-default-features --features embedded,introspection
 ```
 
 ### Git Hooks Setup
@@ -58,6 +58,7 @@ This is a Rust workspace implementing an asynchronous no-std-compatible Varlink 
 - Supports both std and no_std environments through feature flags
 - Leverages mayheap for heap/heapless abstraction
 - Uses pin-project-lite for async/await support
+- Only enable needed features of dependencies
 
 ### Code Style
 - Follows GNOME commit message guidelines with emoji prefixes

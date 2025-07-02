@@ -10,6 +10,12 @@ pub use list::List;
 mod r#type;
 pub use r#type::{Type, TypeRef};
 
+mod custom_object;
+pub use custom_object::CustomObject;
+
+mod custom_enum;
+pub use custom_enum::CustomEnum;
+
 mod custom_type;
 pub use custom_type::CustomType;
 
@@ -22,17 +28,14 @@ pub use method::Method;
 mod error;
 pub use error::Error;
 
+mod comment;
+pub use comment::Comment;
+
 mod member;
 pub use member::Member;
 
 mod interface;
 pub use interface::Interface;
-
-mod type_info;
-pub use type_info::TypeInfo;
-
-mod reply_errors;
-pub use reply_errors::ReplyErrors;
 
 #[cfg(feature = "idl-parse")]
 mod parse;

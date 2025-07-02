@@ -4,10 +4,6 @@ mod type_ref;
 pub use type_ref::TypeRef;
 
 use core::fmt;
-use serde::Serialize;
-
-#[cfg(feature = "idl-parse")]
-use serde::Deserialize;
 
 use super::{Field, List};
 
@@ -23,7 +19,7 @@ pub enum Type<'a> {
     /// UTF-8 string.
     String,
     /// Foreign untyped object.
-    Object,
+    ForeignObject,
     /// Optional/nullable type.
     Optional(TypeRef<'a>),
     /// Array type.
@@ -35,7 +31,7 @@ pub enum Type<'a> {
     /// Inline enum type.
     Enum(List<'a, &'a str>),
     /// Inline struct type.
-    Struct(List<'a, Field<'a>>),
+    Object(List<'a, Field<'a>>),
 }
 
 impl<'a> fmt::Display for Type<'a> {
@@ -45,11 +41,11 @@ impl<'a> fmt::Display for Type<'a> {
             Type::Int => write!(f, "int"),
             Type::Float => write!(f, "float"),
             Type::String => write!(f, "string"),
-            Type::Object => write!(f, "object"),
-            Type::Optional(optional) => write!(f, "?{}", optional),
-            Type::Array(array) => write!(f, "[]{}", array),
-            Type::Map(map) => write!(f, "[string]{}", map),
-            Type::Custom(name) => write!(f, "{}", name),
+            Type::ForeignObject => write!(f, "object"),
+            Type::Optional(optional) => write!(f, "?{optional}"),
+            Type::Array(array) => write!(f, "[]{array}"),
+            Type::Map(map) => write!(f, "[string]{map}"),
+            Type::Custom(name) => write!(f, "{name}"),
             Type::Enum(variants) => {
                 write!(f, "(")?;
                 let mut first = true;
@@ -58,11 +54,11 @@ impl<'a> fmt::Display for Type<'a> {
                         write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{}", variant)?;
+                    write!(f, "{variant}")?;
                 }
                 write!(f, ")")
             }
-            Type::Struct(fields) => {
+            Type::Object(fields) => {
                 write!(f, "(")?;
                 let mut first = true;
                 for field in fields.iter() {
@@ -70,7 +66,7 @@ impl<'a> fmt::Display for Type<'a> {
                         write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{}", field)?;
+                    write!(f, "{field}")?;
                 }
                 write!(f, ")")
             }
@@ -81,29 +77,6 @@ impl<'a> fmt::Display for Type<'a> {
 impl<'a> PartialEq<TypeRef<'a>> for Type<'a> {
     fn eq(&self, other: &TypeRef<'a>) -> bool {
         self == other.inner()
-    }
-}
-
-impl<'a> Serialize for Type<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-#[cfg(feature = "idl-parse")]
-impl<'de, 'a> Deserialize<'de> for Type<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        super::parse::parse_type(s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -133,7 +106,7 @@ mod tests {
         assert_eq!(buf, "string");
 
         buf.clear();
-        write!(buf, "{}", Type::Object).unwrap();
+        write!(buf, "{}", Type::ForeignObject).unwrap();
         assert_eq!(buf, "object");
     }
 
@@ -182,26 +155,11 @@ mod tests {
             assert_eq!(enum_type.to_string(), "(one, two, three)");
 
             // Test inline struct
-            let struct_type = Type::Struct(List::from(vec![
-                Field::new("first", &Type::Int),
-                Field::new("second", &Type::String),
+            let struct_type = Type::Object(List::from(vec![
+                Field::new("first", &Type::Int, &[]),
+                Field::new("second", &Type::String, &[]),
             ]));
             assert_eq!(struct_type.to_string(), "(first: int, second: string)");
         }
-    }
-
-    #[test]
-    fn type_serialization() {
-        let ty = Type::Array(TypeRef::new(&Type::Int));
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&ty).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 16];
-            let len = serde_json_core::to_slice(&ty, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 16>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<16>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""[]int""#);
     }
 }

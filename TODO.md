@@ -1,34 +1,29 @@
 # TODO
 
 * IDL <https://varlink.org/Interface-Definition>
-  * zlink-core
-    * `introspect` module containing [Introspection](https://varlink.org/Service>) API
-      * structs for methods and errors (to be used for client and server)
-        * impl Serialize+Deserialize in such a way that it can be used as return value of service and
-        connection (for client-side)
-      * Make use of zlink-macros' derives
-      * `IntrospectionProxy`
-        * client-side API
-    * cargo features to allow use of `idl` only
-  * zlink-macros
-    * Provide introspection derives
-      * `TypeInfo`
-      * `ReplyErrors`
   * zlink
-    * impl [`Service`](https://varlink.org/Service>) interface for lowlevel-ftl test
-      * Make use of `zlink_core::introspect` and `zlink-macros`
+    * impl [`org.varlink.service`](https://varlink.org/Service>) interface for `lowlevel-ftl` test
+      * Make use of `introspect` and `varlink_service` API
+      * wrapper enum needed for errors
+        * `untagged` repr
 * zlink-macros
   * `proxy` attribute macro
-    * gated behind (default)`proxy` feature
+    * gated behind (default) `proxy` feature
   * `service` attribute macro (see below)
     * gated behind `service` feature
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
+      * macro_rules macro may still be a good idea for Error types.
     * implements `Service` trait
     * handle multiple replies (not covered in the snippet yet)
     * introspection <https://varlink.org/Service>
       * Add required API to `Service` trait first
+      * will require all custom types to be declared in an attribute
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
+  * Handle renaming in introspection derives.
+    * Should we just use serde's attributes? (tricky for `ReplyError`)
+* zlink-core
+  * cargo features to allow use of `idl` only
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
 * zlink-usb

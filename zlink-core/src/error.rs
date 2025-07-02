@@ -24,6 +24,9 @@ pub enum Error {
     /// An I/O error.
     #[cfg(feature = "std")]
     Io(std::io::Error),
+    /// An error occurred while parsing IDL.
+    #[cfg(feature = "idl-parse")]
+    IdlParse(String),
 }
 
 /// The Result type for the zlink crate.
@@ -41,6 +44,8 @@ impl core::error::Error for Error {
             #[cfg(feature = "std")]
             Error::Io(e) => Some(e),
             Error::InvalidUtf8(e) => Some(e),
+            #[cfg(feature = "idl-parse")]
+            Error::IdlParse(_) => None,
             _ => None,
         }
     }
@@ -98,6 +103,8 @@ impl core::fmt::Display for Error {
             Error::JsonDeserialize(e) => write!(f, "Error deserializing from JSON: {e}"),
             #[cfg(feature = "std")]
             Error::Io(e) => write!(f, "I/O error: {e}"),
+            #[cfg(feature = "idl-parse")]
+            Error::IdlParse(e) => write!(f, "IDL parse error: {e}"),
         }
     }
 }
@@ -124,6 +131,8 @@ impl defmt::Format for Error {
             Error::JsonDeserialize(_) => defmt::write!(fmt, "Error deserializing from JSON"),
             #[cfg(feature = "std")]
             Error::Io(_) => defmt::write!(fmt, "I/O error"),
+            #[cfg(feature = "idl-parse")]
+            Error::IdlParse(_) => defmt::write!(fmt, "IDL parse error"),
         }
     }
 }
