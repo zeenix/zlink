@@ -7,3 +7,8 @@ mod info;
 pub use info::Info;
 mod error;
 pub use error::{Error, Result};
+
+#[cfg(feature = "idl-parse")]
+mod proxy;
+#[cfg(feature = "idl-parse")]
+pub use proxy::{InterfaceDescription, Proxy};
