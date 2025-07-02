@@ -2,11 +2,6 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
-#[cfg(feature = "idl-parse")]
-use serde::Deserialize;
-
 #[cfg(feature = "idl-parse")]
 use crate::Error;
 
@@ -103,29 +98,6 @@ impl<'a> fmt::Display for Interface<'a> {
             write!(f, "\n\n{member}")?;
         }
         Ok(())
-    }
-}
-
-impl<'a> Serialize for Interface<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-#[cfg(feature = "idl-parse")]
-impl<'de, 'a> Deserialize<'de> for Interface<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        super::parse::parse_interface(s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -255,24 +227,6 @@ error ExpectedMore ()
             // Compare the parsed interface with our manually constructed one
             assert_eq!(parsed_interface, interface);
         }
-    }
-
-    #[test]
-    fn interface_serialization() {
-        let simple_method = Method::new("Ping", &[], &[], &[]);
-
-        let members = [&Member::Method(simple_method)];
-        let interface = Interface::new("com.example.ping", &members, &[]);
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&interface).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 64];
-            let len = serde_json_core::to_slice(&interface, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 64>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<64>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""interface com.example.ping\n\nmethod Ping()""#);
     }
 
     #[test]

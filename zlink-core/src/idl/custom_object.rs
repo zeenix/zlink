@@ -2,8 +2,6 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
 use super::{Field, List};
 
 /// An object type definition in Varlink IDL (struct-like with named fields).
@@ -73,14 +71,5 @@ impl<'a> fmt::Display for CustomObject<'a> {
             write!(f, "{field}")?;
         }
         write!(f, ")")
-    }
-}
-
-impl<'a> Serialize for CustomObject<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
     }
 }

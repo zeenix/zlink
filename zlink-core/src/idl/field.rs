@@ -2,11 +2,6 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
-#[cfg(feature = "idl-parse")]
-use serde::Deserialize;
-
 use super::{Comment, List, Type, TypeRef};
 
 /// A field in a custom type or method parameter.
@@ -66,29 +61,6 @@ impl<'a> fmt::Display for Field<'a> {
     }
 }
 
-impl<'a> Serialize for Field<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-#[cfg(feature = "idl-parse")]
-impl<'de, 'a> Deserialize<'de> for Field<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        super::parse::parse_field(s).map_err(serde::de::Error::custom)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,21 +71,6 @@ mod tests {
         let field = Field::new("age", &Type::Int, &[]);
         assert_eq!(field.name(), "age");
         assert_eq!(field.ty(), &Type::Int);
-    }
-
-    #[test]
-    fn field_serialization() {
-        let field = Field::new("count", &Type::Int, &[]);
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&field).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 16];
-            let len = serde_json_core::to_slice(&field, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 16>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<16>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""count: int""#);
     }
 
     #[test]

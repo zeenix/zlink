@@ -2,11 +2,6 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
-#[cfg(feature = "idl-parse")]
-use serde::Deserialize;
-
 use super::{CustomEnum, CustomObject};
 
 /// A custom type definition in Varlink IDL.
@@ -78,28 +73,6 @@ impl<'a> fmt::Display for CustomType<'a> {
     }
 }
 
-impl<'a> Serialize for CustomType<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-#[cfg(feature = "idl-parse")]
-impl<'de, 'a> Deserialize<'de> for CustomType<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        super::parse::parse_custom_type(s).map_err(serde::de::Error::custom)
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,41 +139,6 @@ mod tests {
         assert!(custom_type.is_enum());
         assert!(custom_type.as_object().is_none());
         assert!(custom_type.as_enum().is_some());
-    }
-
-    #[test]
-    fn object_serialization() {
-        let field_x = Field::new("x", <f64 as introspect::Type>::TYPE, &[]);
-        let field_y = Field::new("y", <f64 as introspect::Type>::TYPE, &[]);
-        let fields = [&field_x, &field_y];
-
-        let custom_obj = CustomObject::new("Point", &fields, &[]);
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&custom_obj).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 64];
-            let len = serde_json_core::to_slice(&custom_obj, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 64>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<64>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""type Point (x: float, y: float)""#);
-    }
-
-    #[test]
-    fn enum_serialization() {
-        let custom_enum = CustomEnum::new("Status", &[&"active", &"inactive", &"pending"], &[]);
-
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&custom_enum).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 64];
-            let len = serde_json_core::to_slice(&custom_enum, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 64>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<64>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""type Status (active, inactive, pending)""#);
     }
 
     #[test]

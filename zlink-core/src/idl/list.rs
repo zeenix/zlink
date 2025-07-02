@@ -1,10 +1,5 @@
 //! List type for holding either borrowed or owned collections.
 
-use serde::Serialize;
-
-#[cfg(feature = "idl-parse")]
-use serde::Deserialize;
-
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
@@ -62,38 +57,6 @@ impl<'a, T> Iterator for ListIter<'a, T> {
             #[cfg(feature = "std")]
             ListIter::Owned(iter) => iter.next(),
         }
-    }
-}
-
-impl<'a, T> Serialize for List<'a, T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeSeq;
-
-        let mut seq = serializer.serialize_seq(Some(self.len()))?;
-        for item in self.iter() {
-            seq.serialize_element(item)?;
-        }
-        seq.end()
-    }
-}
-
-#[cfg(feature = "idl-parse")]
-impl<'de, 'a, T> Deserialize<'de> for List<'a, T>
-where
-    T: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let vec = Vec::<T>::deserialize(deserializer)?;
-        Ok(List::Owned(vec))
     }
 }
 
@@ -170,36 +133,6 @@ mod tests {
 
         let collected: Vec<_> = list.iter().map(|s| s.as_str()).collect();
         assert_eq!(collected, vec!["one", "two", "three"]);
-    }
-
-    #[test]
-    fn serialization() {
-        static REFS: [&i32; 3] = [&1, &2, &3];
-        let list: List<'_, i32> = List::Borrowed(&REFS);
-
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&list).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 16];
-            let len = serde_json_core::to_slice(&list, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 16>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<16>::from_utf8(vec).unwrap()
-        };
-
-        assert_eq!(json, "[1,2,3]");
-    }
-
-    #[cfg(feature = "idl-parse")]
-    #[test]
-    fn deserialization() {
-        let json = "[1,2,3]";
-        let list: List<'_, i32> = serde_json::from_str(json).unwrap();
-
-        match list {
-            List::Owned(vec) => assert_eq!(vec, vec![1, 2, 3]),
-            _ => panic!("Expected owned list"),
-        }
     }
 
     #[test]

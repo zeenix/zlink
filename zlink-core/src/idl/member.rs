@@ -2,11 +2,6 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
-#[cfg(feature = "idl-parse")]
-use serde::Deserialize;
-
 use super::{CustomType, Error, Method};
 
 /// A member of a Varlink interface.
@@ -38,29 +33,6 @@ impl<'a> fmt::Display for Member<'a> {
             Member::Method(method) => write!(f, "{method}"),
             Member::Error(error) => write!(f, "{error}"),
         }
-    }
-}
-
-impl<'a> Serialize for Member<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-#[cfg(feature = "idl-parse")]
-impl<'de, 'a> Deserialize<'de> for Member<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        super::parse::parse_member(s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -152,21 +124,5 @@ mod tests {
         let mut buf = mayheap::String::<64>::new();
         write!(buf, "{}", member).unwrap();
         assert_eq!(buf.as_str(), "error InterfaceNotFound (interface: string)");
-    }
-
-    #[test]
-    fn member_serialization() {
-        let error = Error::new("PermissionDenied", &[], &[]);
-        let member = Member::Error(error);
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&member).unwrap();
-        #[cfg(feature = "embedded")]
-        let json = {
-            let mut buffer = [0u8; 64];
-            let len = serde_json_core::to_slice(&member, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 64>::from_slice(&buffer[..len]).unwrap();
-            mayheap::String::<64>::from_utf8(vec).unwrap()
-        };
-        assert_eq!(json, r#""error PermissionDenied ()""#);
     }
 }

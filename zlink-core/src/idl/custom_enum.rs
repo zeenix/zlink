@@ -2,8 +2,6 @@
 
 use core::fmt;
 
-use serde::Serialize;
-
 use super::List;
 
 /// An enum type definition in Varlink IDL (enum-like with named variants).
@@ -73,14 +71,5 @@ impl<'a> fmt::Display for CustomEnum<'a> {
             write!(f, "{variant}")?;
         }
         write!(f, ")")
-    }
-}
-
-impl<'a> Serialize for CustomEnum<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_str(self)
     }
 }

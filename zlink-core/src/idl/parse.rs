@@ -841,39 +841,6 @@ error NotFound(id: int)
     }
 
     #[test]
-    fn test_deserialize_functionality() {
-        // Test that serde_json deserialization works correctly
-        let method_json = r#""method GetInfo() -> (info: string)""#;
-        let method: Method<'_> = serde_json::from_str(method_json).unwrap();
-        assert_eq!(method.name(), "GetInfo");
-        assert_eq!(method.inputs().count(), 0);
-        assert_eq!(method.outputs().count(), 1);
-
-        let error_json = r#""error NotFound(id: int)""#;
-        let error: Error<'_> = serde_json::from_str(error_json).unwrap();
-        assert_eq!(error.name(), "NotFound");
-        let mut fields = error.fields();
-        assert_eq!(fields.next().unwrap(), &Field::new("id", &Type::Int, &[]));
-        assert!(fields.next().is_none());
-
-        let custom_type_json = r#""type Person (name: string, age: int)""#;
-        let custom_type: CustomType<'_> = serde_json::from_str(custom_type_json).unwrap();
-        assert_eq!(custom_type.name(), "Person");
-        let mut fields = custom_type.as_object().unwrap().fields();
-        assert_eq!(
-            fields.next().unwrap(),
-            &Field::new("name", &Type::String, &[])
-        );
-        assert_eq!(fields.next().unwrap(), &Field::new("age", &Type::Int, &[]));
-        assert!(fields.next().is_none());
-
-        let field_json = r#""name: string""#;
-        let field: Field<'_> = serde_json::from_str(field_json).unwrap();
-        assert_eq!(field.name(), "name");
-        assert_eq!(field.ty(), &Type::String);
-    }
-
-    #[test]
     fn parse_error_messages() {
         // Test with invalid syntax
         let invalid_interface = "invalid syntax here";
