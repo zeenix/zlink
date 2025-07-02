@@ -352,7 +352,7 @@ fn parse_from_str<'a, T>(
 ) -> Result<T, crate::Error> {
     let input_bytes = input.trim().as_bytes();
     if input_bytes.is_empty() {
-        return Err(crate::Error::BufferOverflow);
+        return Err(crate::Error::IdlParse("Input is empty".to_string()));
     }
 
     let mut input_mut = input_bytes;
@@ -362,10 +362,13 @@ fn parse_from_str<'a, T>(
             if input_mut.is_empty() {
                 Ok(result)
             } else {
-                Err(crate::Error::BufferOverflow)
+                Err(crate::Error::IdlParse(format!(
+                    "Unexpected remaining input: {:?}",
+                    core::str::from_utf8(input_mut).map_or("<invalid UTF-8>", |s| s)
+                )))
             }
         }
-        Err(_) => Err(crate::Error::BufferOverflow),
+        Err(err) => Err(crate::Error::IdlParse(format!("Parse error: {err}"))),
     }
 }
 
