@@ -95,7 +95,7 @@ enum Method<'a> {
 /// The raw interface description string.
 ///
 /// Use [`InterfaceDescription::parse`] to get the [`Interface`].
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InterfaceDescription {
     description: String,
 }
