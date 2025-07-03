@@ -40,7 +40,7 @@ futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",
 ] }
 clap = { version = "4.0", features = ["derive"] }
-colored = "2.0"
+colored = "3.0"
 
 [[example]]
 name = "varlink-inspect"
