@@ -39,6 +39,24 @@ impl<'a, T> List<'a, T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// The borrowed slice of references if this list is borrowed.
+    pub const fn as_borrowed(&self) -> Option<&[&T]> {
+        match self {
+            List::Borrowed(slice) => Some(slice),
+            #[cfg(feature = "std")]
+            List::Owned(_) => None,
+        }
+    }
+
+    /// The owned vector of values if this list is owned.
+    #[cfg(feature = "std")]
+    pub fn as_owned(&self) -> Option<&Vec<T>> {
+        match self {
+            List::Borrowed(_) => None,
+            List::Owned(vec) => Some(vec),
+        }
+    }
 }
 
 /// Iterator over list items.
