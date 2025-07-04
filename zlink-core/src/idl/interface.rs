@@ -5,43 +5,55 @@ use core::fmt;
 #[cfg(feature = "idl-parse")]
 use crate::Error;
 
-use super::{List, Member};
+use super::List;
 
 /// A Varlink interface definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Interface<'a> {
     /// The name of the interface in reverse-domain notation.
     name: &'a str,
-    /// The members of the interface (types, methods, errors).
-    members: List<'a, Member<'a>>,
+    /// The methods of the interface.
+    methods: List<'a, super::Method<'a>>,
+    /// The custom types of the interface.
+    custom_types: List<'a, super::CustomType<'a>>,
+    /// The errors of the interface.
+    errors: List<'a, super::Error<'a>>,
     /// The comments associated with this interface.
     comments: List<'a, super::Comment<'a>>,
 }
 
 impl<'a> Interface<'a> {
-    /// Creates a new interface with the given name, borrowed members, and comments.
+    /// Creates a new interface with the given name, borrowed collections, and comments.
     pub const fn new(
         name: &'a str,
-        members: &'a [&'a Member<'a>],
+        methods: &'a [&'a super::Method<'a>],
+        custom_types: &'a [&'a super::CustomType<'a>],
+        errors: &'a [&'a super::Error<'a>],
         comments: &'a [&'a super::Comment<'a>],
     ) -> Self {
         Self {
             name,
-            members: List::Borrowed(members),
+            methods: List::Borrowed(methods),
+            custom_types: List::Borrowed(custom_types),
+            errors: List::Borrowed(errors),
             comments: List::Borrowed(comments),
         }
     }
 
-    /// Creates a new interface with the given name, owned members, and comments.
+    /// Creates a new interface with the given name, owned collections, and comments.
     #[cfg(feature = "std")]
     pub fn new_owned(
         name: &'a str,
-        members: Vec<Member<'a>>,
+        methods: Vec<super::Method<'a>>,
+        custom_types: Vec<super::CustomType<'a>>,
+        errors: Vec<super::Error<'a>>,
         comments: Vec<super::Comment<'a>>,
     ) -> Self {
         Self {
             name,
-            members: List::Owned(members),
+            methods: List::Owned(methods),
+            custom_types: List::Owned(custom_types),
+            errors: List::Owned(errors),
             comments: List::from(comments),
         }
     }
@@ -51,9 +63,19 @@ impl<'a> Interface<'a> {
         self.name
     }
 
-    /// Returns an iterator over the members of the interface.
-    pub fn members(&self) -> impl Iterator<Item = &Member<'a>> {
-        self.members.iter()
+    /// Returns an iterator over the methods of the interface.
+    pub fn methods(&self) -> impl Iterator<Item = &super::Method<'a>> {
+        self.methods.iter()
+    }
+
+    /// Returns an iterator over the custom types of the interface.
+    pub fn custom_types(&self) -> impl Iterator<Item = &super::CustomType<'a>> {
+        self.custom_types.iter()
+    }
+
+    /// Returns an iterator over the errors of the interface.
+    pub fn errors(&self) -> impl Iterator<Item = &super::Error<'a>> {
+        self.errors.iter()
     }
 
     /// Returns an iterator over the comments associated with this interface.
@@ -63,39 +85,21 @@ impl<'a> Interface<'a> {
 
     /// Returns true if the interface has no members.
     pub fn is_empty(&self) -> bool {
-        self.members.is_empty()
-    }
-
-    /// Returns an iterator over the methods in this interface.
-    pub fn methods(&self) -> impl Iterator<Item = &super::Method<'a>> {
-        self.members.iter().filter_map(|member| match member {
-            Member::Method(method) => Some(method),
-            _ => None,
-        })
-    }
-
-    /// Returns an iterator over the custom types in this interface.
-    pub fn custom_types(&self) -> impl Iterator<Item = &super::CustomType<'a>> {
-        self.members.iter().filter_map(|member| match member {
-            Member::Custom(custom) => Some(custom),
-            _ => None,
-        })
-    }
-
-    /// Returns an iterator over the errors in this interface.
-    pub fn errors(&self) -> impl Iterator<Item = &super::Error<'a>> {
-        self.members.iter().filter_map(|member| match member {
-            Member::Error(error) => Some(error),
-            _ => None,
-        })
+        self.methods.is_empty() && self.custom_types.is_empty() && self.errors.is_empty()
     }
 }
 
 impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "interface {}", self.name)?;
-        for member in self.members.iter() {
-            write!(f, "\n\n{member}")?;
+        for custom_type in self.custom_types.iter() {
+            write!(f, "\n\n{custom_type}")?;
+        }
+        for method in self.methods.iter() {
+            write!(f, "\n\n{method}")?;
+        }
+        for error in self.errors.iter() {
+            write!(f, "\n\n{error}")?;
         }
         Ok(())
     }
@@ -154,21 +158,21 @@ mod tests {
         let permission_denied = Error::new("PermissionDenied", &[], &[]);
         let expected_more = Error::new("ExpectedMore", &[], &[]);
 
-        let members = &[
-            &Member::Method(get_info),
-            &Member::Method(get_interface_desc),
-            &Member::Error(interface_not_found),
-            &Member::Error(method_not_found),
-            &Member::Error(method_not_impl),
-            &Member::Error(invalid_param),
-            &Member::Error(permission_denied),
-            &Member::Error(expected_more),
+        let methods = &[&get_info, &get_interface_desc];
+        let errors = &[
+            &interface_not_found,
+            &method_not_found,
+            &method_not_impl,
+            &invalid_param,
+            &permission_denied,
+            &expected_more,
         ];
 
-        let interface = Interface::new("org.varlink.service", members, &[]);
+        let interface = Interface::new("org.varlink.service", methods, &[], errors, &[]);
 
         assert_eq!(interface.name(), "org.varlink.service");
-        assert_eq!(interface.members().count(), 8);
+        assert_eq!(interface.methods().count(), 2);
+        assert_eq!(interface.errors().count(), 6);
         assert!(!interface.is_empty());
 
         // Check method count
@@ -231,7 +235,7 @@ error ExpectedMore ()
 
     #[test]
     fn empty_interface() {
-        let interface = Interface::new("com.example.empty", &[], &[]);
+        let interface = Interface::new("com.example.empty", &[], &[], &[], &[]);
         assert!(interface.is_empty());
         assert_eq!(interface.methods().count(), 0);
         assert_eq!(interface.errors().count(), 0);
@@ -362,20 +366,21 @@ error ExpectedMore ()
         let dns_error = Error::new("DNSError", &dns_error_fields, &[]);
 
         // Build the complete interface.
-        let members = &[
-            &Member::Custom(resolved_address),
-            &Member::Custom(resolved_name),
-            &Member::Custom(resource_key),
-            &Member::Custom(resource_record),
-            &Member::Method(resolve_hostname),
-            &Member::Method(resolve_address),
-            &Member::Error(no_name_servers),
-            &Member::Error(query_timed_out),
-            &Member::Error(dnssec_validation_failed),
-            &Member::Error(dns_error),
+        let custom_types = &[
+            &resolved_address,
+            &resolved_name,
+            &resource_key,
+            &resource_record,
+        ];
+        let methods = &[&resolve_hostname, &resolve_address];
+        let errors = &[
+            &no_name_servers,
+            &query_timed_out,
+            &dnssec_validation_failed,
+            &dns_error,
         ];
 
-        let interface = Interface::new("io.systemd.Resolve", members, &[]);
+        let interface = Interface::new("io.systemd.Resolve", methods, custom_types, errors, &[]);
 
         // Test parsing the IDL and compare with manually constructed interface.
         const SYSTEMD_RESOLVED_IDL: &str = r#"interface io.systemd.Resolve
@@ -449,10 +454,6 @@ error DNSError(
 
         // Verify basic interface properties match.
         assert_eq!(parsed_interface.name(), interface.name());
-        assert_eq!(
-            parsed_interface.members().count(),
-            interface.members().count()
-        );
         assert_eq!(
             parsed_interface.custom_types().count(),
             interface.custom_types().count()
