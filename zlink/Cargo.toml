@@ -28,6 +28,7 @@ tokio = { version = "1.44.0", features = [
     "rt-multi-thread",
     "test-util",
     "fs",
+    "net",
 ] }
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }
 serde_repr = "0.1.20"
@@ -41,6 +42,9 @@ futures-util = { version = "0.3.31", default-features = false, features = [
 ] }
 clap = { version = "4.0", features = ["derive"] }
 colored = "3.0"
+tempfile = "3.8"
+serde_json = "1.0"
+mayheap = { git = "https://github.com/zeenix/mayheap", version = "0.2.0" }
 
 [[example]]
 name = "varlink-inspect"
