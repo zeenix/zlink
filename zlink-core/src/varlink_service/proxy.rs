@@ -113,3 +113,11 @@ impl InterfaceDescription {
         &self.description
     }
 }
+
+impl From<&Interface<'_>> for InterfaceDescription {
+    fn from(description: &Interface<'_>) -> Self {
+        Self {
+            description: description.to_string(),
+        }
+    }
+}
