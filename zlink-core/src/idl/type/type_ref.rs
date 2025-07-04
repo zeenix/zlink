@@ -20,7 +20,7 @@ impl<'a> TypeRef<'a> {
     }
 
     /// Returns a reference to the inner type.
-    pub fn inner(&self) -> &Type<'a> {
+    pub const fn inner(&self) -> &Type<'a> {
         self.0.ty()
     }
 }
@@ -54,7 +54,7 @@ enum TypeRefInner<'a> {
 
 impl<'a> TypeRefInner<'a> {
     /// A reference to the inner type.
-    fn ty(&self) -> &Type<'a> {
+    const fn ty(&self) -> &Type<'a> {
         match self {
             TypeRefInner::Borrowed(inner) => inner,
             #[cfg(feature = "std")]
