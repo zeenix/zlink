@@ -63,7 +63,11 @@ pub(crate) fn remove_lifetimes_from_type(ty: &Type) -> Type {
                                     ));
                                 }
                                 GenericArgument::Lifetime(_) => {
-                                    // Remove lifetime arguments entirely
+                                    // Replace with elided lifetime '_
+                                    new_args.push(GenericArgument::Lifetime(syn::Lifetime::new(
+                                        "'_",
+                                        proc_macro2::Span::call_site(),
+                                    )));
                                 }
                                 other => {
                                     new_args.push(other.clone());
