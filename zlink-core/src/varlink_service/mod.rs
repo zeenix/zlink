@@ -11,4 +11,7 @@ pub use error::{Error, Result};
 #[cfg(feature = "idl-parse")]
 mod proxy;
 #[cfg(feature = "idl-parse")]
-pub use proxy::{InterfaceDescription, Proxy};
+pub use proxy::Proxy;
+
+mod interface_description;
+pub use interface_description::InterfaceDescription;

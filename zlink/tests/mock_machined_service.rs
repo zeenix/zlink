@@ -91,7 +91,7 @@ pub enum MockMethod<'a> {
 #[serde(untagged)]
 pub enum MockReply {
     Info(Info<'static>),
-    InterfaceDescription(InterfaceDescription),
+    InterfaceDescription(InterfaceDescription<'static>),
 }
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
