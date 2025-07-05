@@ -6,6 +6,8 @@
       * Make use of `introspect` and `varlink_service` API
       * wrapper enum needed for errors
         * `untagged` repr
+* zlink-core
+  * Make idl::List have `str` as type so `CustomEnum` can contain `&st` instead of `&&str`
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature
