@@ -5,7 +5,7 @@ use core::fmt;
 use super::List;
 
 /// An enum type definition in Varlink IDL (enum-like with named variants).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct CustomEnum<'a> {
     /// The name of the enum type.
     name: &'a str,
@@ -71,5 +71,11 @@ impl<'a> fmt::Display for CustomEnum<'a> {
             write!(f, "{variant}")?;
         }
         write!(f, ")")
+    }
+}
+
+impl<'a> PartialEq for CustomEnum<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.variants == other.variants
     }
 }

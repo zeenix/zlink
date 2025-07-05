@@ -5,7 +5,7 @@ use core::fmt;
 use super::{Comment, List, Type, TypeRef};
 
 /// A field in a custom type or method parameter.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct Field<'a> {
     /// The name of the field.
     name: &'a str,
@@ -58,6 +58,12 @@ impl<'a> Field<'a> {
 impl<'a> fmt::Display for Field<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.name, self.ty)
+    }
+}
+
+impl<'a> PartialEq for Field<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.ty == other.ty
     }
 }
 

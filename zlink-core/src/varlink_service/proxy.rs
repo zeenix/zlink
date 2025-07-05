@@ -8,6 +8,7 @@ use core::{fmt::Debug, future::Future};
 use crate::{
     connection::{socket::Socket, Connection},
     idl::Interface,
+    introspect::Type,
     Call,
 };
 use serde::{Deserialize, Serialize};
@@ -95,7 +96,8 @@ enum Method<'a> {
 /// The raw interface description string.
 ///
 /// Use [`InterfaceDescription::parse`] to get the [`Interface`].
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Type)]
+#[zlink(crate = "crate")]
 pub struct InterfaceDescription {
     description: String,
 }
@@ -109,5 +111,13 @@ impl InterfaceDescription {
     /// The raw interface description.
     pub fn as_str(&self) -> &str {
         &self.description
+    }
+}
+
+impl From<&Interface<'_>> for InterfaceDescription {
+    fn from(description: &Interface<'_>) -> Self {
+        Self {
+            description: description.to_string(),
+        }
     }
 }

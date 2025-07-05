@@ -5,7 +5,7 @@ use core::fmt;
 use super::{Comment, List, Parameter};
 
 /// A method definition in Varlink IDL.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct Method<'a> {
     /// The name of the method.
     name: &'a str,
@@ -93,20 +93,24 @@ impl<'a> fmt::Display for Method<'a> {
         }
         write!(f, ")")?;
 
-        if !self.has_no_outputs() {
-            write!(f, " -> (")?;
-            let mut first = true;
-            for param in self.outputs.iter() {
-                if !first {
-                    write!(f, ", ")?;
-                }
-                first = false;
-                write!(f, "{param}")?;
+        write!(f, " -> (")?;
+        let mut first = true;
+        for param in self.outputs.iter() {
+            if !first {
+                write!(f, ", ")?;
             }
-            write!(f, ")")?;
+            first = false;
+            write!(f, "{param}")?;
         }
+        write!(f, ")")?;
 
         Ok(())
+    }
+}
+
+impl PartialEq for Method<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.inputs == other.inputs && self.outputs == other.outputs
     }
 }
 
@@ -145,5 +149,23 @@ mod tests {
         assert_eq!(method.name(), "Ping");
         assert!(method.has_no_inputs());
         assert!(method.has_no_outputs());
+    }
+
+    #[test]
+    fn method_display_with_no_outputs() {
+        use core::fmt::Write;
+
+        let method = Method::new("Ping", &[], &[], &[]);
+        let mut displayed = mayheap::String::<64>::new();
+        write!(&mut displayed, "{}", method).unwrap();
+        assert_eq!(displayed, "method Ping() -> ()");
+
+        let name_param = Parameter::new("name", &Type::String, &[]);
+        let id_param = Parameter::new("id", &Type::String, &[]);
+        let params = [&name_param, &id_param];
+        let method = Method::new("Register", &params, &[], &[]);
+        let mut displayed = mayheap::String::<64>::new();
+        write!(&mut displayed, "{}", method).unwrap();
+        assert_eq!(displayed, "method Register(name: string, id: string) -> ()");
     }
 }

@@ -11,7 +11,7 @@ pub struct Comment<'a> {
 
 impl<'a> Comment<'a> {
     /// Creates a new comment with the given text content (without # prefix).
-    pub fn new(content: &'a str) -> Self {
+    pub const fn new(content: &'a str) -> Self {
         Self { content }
     }
 

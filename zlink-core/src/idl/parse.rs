@@ -12,7 +12,7 @@ use winnow::{
 };
 
 use super::{
-    Comment, CustomEnum, CustomObject, CustomType, Error, Field, Interface, List, Member, Method,
+    Comment, CustomEnum, CustomObject, CustomType, Error, Field, Interface, List, Method,
     Parameter, Type, TypeRef,
 };
 
@@ -472,15 +472,6 @@ fn comment_def<'a>(input: &mut &'a [u8]) -> ModalResult<Comment<'a>, InputError<
     Ok(Comment::new(comment_text))
 }
 
-fn member_def<'a>(input: &mut &'a [u8]) -> ModalResult<Member<'a>, InputError<&'a [u8]>> {
-    alt((
-        type_def.map(Member::Custom),
-        method_def.map(Member::Method),
-        error_def.map(Member::Error),
-    ))
-    .parse_next(input)
-}
-
 /// Parse an interface definition.
 fn interface_def<'a>(input: &mut &'a [u8]) -> ModalResult<Interface<'a>, InputError<&'a [u8]>> {
     let comments = parse_preceding_comments(input)?;
@@ -491,7 +482,9 @@ fn interface_def<'a>(input: &mut &'a [u8]) -> ModalResult<Interface<'a>, InputEr
     whitespace_only(input)?;
 
     // Parse members separated by whitespace/newlines
-    let mut members = Vec::new();
+    let mut methods = Vec::new();
+    let mut custom_types = Vec::new();
+    let mut errors = Vec::new();
 
     while !input.is_empty() {
         whitespace_only(input)?;
@@ -500,15 +493,34 @@ fn interface_def<'a>(input: &mut &'a [u8]) -> ModalResult<Interface<'a>, InputEr
             break;
         }
 
-        match member_def(input) {
-            Ok(member) => {
-                members.push(member);
-            }
+        enum ParsedMember<'a> {
+            Custom(CustomType<'a>),
+            Method(Method<'a>),
+            Error(Error<'a>),
+        }
+
+        let result = alt((
+            type_def.map(ParsedMember::Custom),
+            method_def.map(ParsedMember::Method),
+            error_def.map(ParsedMember::Error),
+        ))
+        .parse_next(input);
+
+        match result {
+            Ok(ParsedMember::Custom(custom_type)) => custom_types.push(custom_type),
+            Ok(ParsedMember::Method(method)) => methods.push(method),
+            Ok(ParsedMember::Error(error)) => errors.push(error),
             Err(_) => break,
         }
     }
 
-    Ok(Interface::new_owned(name, members, comments))
+    Ok(Interface::new_owned(
+        name,
+        methods,
+        custom_types,
+        errors,
+        comments,
+    ))
 }
 
 /// Parse an interface from a string.
@@ -848,7 +860,9 @@ error NotFound(id: int)
 
         let interface = parse_interface(input).unwrap();
         assert_eq!(interface.name(), "org.example.test");
-        assert_eq!(interface.members().count(), 3);
+        assert_eq!(interface.custom_types().count(), 1);
+        assert_eq!(interface.methods().count(), 1);
+        assert_eq!(interface.errors().count(), 1);
     }
 
     #[test]
@@ -914,34 +928,29 @@ error NotFound(id: int)
         let interface = parse_interface(input).unwrap();
         assert_eq!(interface.name(), "org.example.test");
 
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 3); // 3 actual members, comments are attached to them
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.custom_types().count(), 1);
+        assert_eq!(interface.methods().count(), 1);
+        assert_eq!(interface.errors().count(), 1);
 
-        // Check that members have comments attached
-        if let Member::Custom(custom_type) = &members[0] {
-            assert_eq!(custom_type.name(), "Person");
-            // TODO: Check custom type comments when CustomType supports them
-        } else {
-            panic!("Expected first member to be a custom type");
-        }
+        // Check custom type
+        let custom_types: Vec<_> = interface.custom_types().collect();
+        assert_eq!(custom_types[0].name(), "Person");
+        // TODO: Check custom type comments when CustomType supports comments
 
-        if let Member::Method(method) = &members[1] {
-            assert_eq!(method.name(), "GetPerson");
-            let comments: Vec<_> = method.comments().collect();
-            assert_eq!(comments.len(), 1);
-            assert_eq!(comments[0].text(), "Another comment");
-        } else {
-            panic!("Expected second member to be a method");
-        }
+        // Check method
+        let methods: Vec<_> = interface.methods().collect();
+        assert_eq!(methods[0].name(), "GetPerson");
+        let comments: Vec<_> = methods[0].comments().collect();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text(), "Another comment");
 
-        if let Member::Error(error) = &members[2] {
-            assert_eq!(error.name(), "NotFound");
-            let comments: Vec<_> = error.comments().collect();
-            assert_eq!(comments.len(), 1);
-            assert_eq!(comments[0].text(), "Final comment");
-        } else {
-            panic!("Expected third member to be an error");
-        }
+        // Check error
+        let errors: Vec<_> = interface.errors().collect();
+        assert_eq!(errors[0].name(), "NotFound");
+        let comments: Vec<_> = errors[0].comments().collect();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text(), "Final comment");
     }
 
     #[test]
@@ -1056,32 +1065,26 @@ error SimpleError()
         let interface = parse_interface(input).unwrap();
         assert_eq!(interface.name(), "org.example.test");
 
-        let members: Vec<_> = interface.members().collect();
         // Should have: method + error = 2 members (comments attached to them)
-        assert_eq!(members.len(), 2);
+        assert_eq!(interface.methods().count(), 1);
+        assert_eq!(interface.errors().count(), 1);
 
         // Verify method has multiple comments attached
-        if let Member::Method(method) = &members[0] {
-            assert_eq!(method.name(), "SimpleMethod");
-            let comments: Vec<_> = method.comments().collect();
-            assert_eq!(comments.len(), 3);
-            assert_eq!(comments[0].text(), "First comment");
-            assert_eq!(comments[1].text(), "Second comment");
-            assert_eq!(comments[2].text(), "Third comment");
-        } else {
-            panic!("Expected first member to be a method");
-        }
+        let methods: Vec<_> = interface.methods().collect();
+        assert_eq!(methods[0].name(), "SimpleMethod");
+        let comments: Vec<_> = methods[0].comments().collect();
+        assert_eq!(comments.len(), 3);
+        assert_eq!(comments[0].text(), "First comment");
+        assert_eq!(comments[1].text(), "Second comment");
+        assert_eq!(comments[2].text(), "Third comment");
 
         // Verify error has multiple comments attached
-        if let Member::Error(error) = &members[1] {
-            assert_eq!(error.name(), "SimpleError");
-            let comments: Vec<_> = error.comments().collect();
-            assert_eq!(comments.len(), 2);
-            assert_eq!(comments[0].text(), "Fourth comment");
-            assert_eq!(comments[1].text(), "Fifth comment");
-        } else {
-            panic!("Expected second member to be an error");
-        }
+        let errors: Vec<_> = interface.errors().collect();
+        assert_eq!(errors[0].name(), "SimpleError");
+        let comments: Vec<_> = errors[0].comments().collect();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].text(), "Fourth comment");
+        assert_eq!(comments[1].text(), "Fifth comment");
     }
 
     #[test]
@@ -1100,28 +1103,30 @@ error NotFound(id: int)
         "#;
 
         let interface = parse_interface(input).unwrap();
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 3);
 
-        // Check that each member has its documentation comment
-        if let Member::Custom(custom_type) = &members[0] {
-            assert_eq!(custom_type.name(), "Person");
-            // Note: CustomType doesn't support comments yet, this will be implemented later
-        }
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.custom_types().count(), 1);
+        assert_eq!(interface.methods().count(), 1);
+        assert_eq!(interface.errors().count(), 1);
 
-        if let Member::Method(method) = &members[1] {
-            assert_eq!(method.name(), "GetPerson");
-            let comments: Vec<_> = method.comments().collect();
-            assert_eq!(comments.len(), 1);
-            assert_eq!(comments[0].text(), "Documentation for GetPerson method");
-        }
+        // Check custom type
+        let custom_types: Vec<_> = interface.custom_types().collect();
+        assert_eq!(custom_types[0].name(), "Person");
+        // Note: CustomType doesn't support comments yet, this will be implemented later
 
-        if let Member::Error(error) = &members[2] {
-            assert_eq!(error.name(), "NotFound");
-            let comments: Vec<_> = error.comments().collect();
-            assert_eq!(comments.len(), 1);
-            assert_eq!(comments[0].text(), "Documentation for NotFound error");
-        }
+        // Check method
+        let methods: Vec<_> = interface.methods().collect();
+        assert_eq!(methods[0].name(), "GetPerson");
+        let comments: Vec<_> = methods[0].comments().collect();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text(), "Documentation for GetPerson method");
+
+        // Check error
+        let errors: Vec<_> = interface.errors().collect();
+        assert_eq!(errors[0].name(), "NotFound");
+        let comments: Vec<_> = errors[0].comments().collect();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text(), "Documentation for NotFound error");
     }
 
     #[test]
@@ -1157,13 +1162,14 @@ method GetStatus() -> (status: string)
         let interface = parse_interface(input).unwrap();
         assert_eq!(interface.name(), "org.example.comprehensive");
 
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 5); // type + 3 methods + 1 error
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.custom_types().count(), 1);
+        assert_eq!(interface.methods().count(), 3);
+        assert_eq!(interface.errors().count(), 1);
 
         // Check that the type was parsed correctly (comments ignored for now)
-        let Member::Custom(custom_type) = &members[0] else {
-            panic!("Expected first member to be a custom type");
-        };
+        let custom_types: Vec<_> = interface.custom_types().collect();
+        let custom_type = custom_types[0];
         assert_eq!(custom_type.name(), "Config");
         let object = custom_type.as_object().unwrap();
         let fields: Vec<_> = object.fields().collect();
@@ -1183,9 +1189,8 @@ method GetStatus() -> (status: string)
         assert_eq!(field2_comments[0].text(), "Enable/disable flag");
 
         // Check that the method has attached comments
-        let Member::Method(method) = &members[1] else {
-            panic!("Expected second member to be a method");
-        };
+        let methods: Vec<_> = interface.methods().collect();
+        let method = methods[0];
         assert_eq!(method.name(), "Configure");
         let comments: Vec<_> = method.comments().collect();
         assert_eq!(comments.len(), 3);
@@ -1200,9 +1205,8 @@ method GetStatus() -> (status: string)
         assert_eq!(outputs[0].comments().count(), 0);
 
         // Check that the error has attached comments
-        let Member::Error(error) = &members[2] else {
-            panic!("Expected third member to be an error");
-        };
+        let errors: Vec<_> = interface.errors().collect();
+        let error = errors[0];
         assert_eq!(error.name(), "ConfigurationError");
         let comments: Vec<_> = error.comments().collect();
         assert_eq!(comments.len(), 1);
@@ -1217,10 +1221,8 @@ method GetStatus() -> (status: string)
         assert_eq!(fields[1].comments().count(), 0);
 
         // Check Reset method with single comment
-        // Check that the fourth member (Reset method) has attached comments
-        let Member::Method(method) = &members[3] else {
-            panic!("Expected fourth member to be a method");
-        };
+        // Check that the second method (Reset method) has attached comments
+        let method = methods[1];
         assert_eq!(method.name(), "Reset");
         let comments: Vec<_> = method.comments().collect();
         assert_eq!(comments.len(), 1);
@@ -1231,9 +1233,7 @@ method GetStatus() -> (status: string)
         assert!(method.has_no_outputs());
 
         // Check GetStatus method with single comment
-        let Member::Method(method) = &members[4] else {
-            panic!("Expected fifth member to be a method");
-        };
+        let method = methods[2];
         assert_eq!(method.name(), "GetStatus");
         let comments: Vec<_> = method.comments().collect();
         assert_eq!(comments.len(), 1);
@@ -1266,40 +1266,38 @@ method AnotherMethod() -> ()
         "#;
 
         let interface = parse_interface(input).unwrap();
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 3);
+
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.methods().count(), 2);
+        assert_eq!(interface.errors().count(), 1);
 
         // Check method with special characters in comments
-        if let Member::Method(method) = &members[0] {
-            assert_eq!(method.name(), "SpecialMethod");
-            let comments: Vec<_> = method.comments().collect();
-            assert_eq!(comments.len(), 3);
-            assert_eq!(
-                comments[0].text(),
-                "Comment with special characters: !@#$%^&*()"
-            );
-            assert_eq!(comments[1].text(), "Comment with unicode: 🚀 UTF-8 тест");
-            assert_eq!(
-                comments[2].text(),
-                "Comment with whitespace:   spaces   and   tabs"
-            );
-        }
-
-        // Check error with no space after hash
-        if let Member::Error(error) = &members[1] {
-            assert_eq!(error.name(), "SpecialError");
-            let comments: Vec<_> = error.comments().collect();
-            assert_eq!(comments.len(), 1);
-            assert_eq!(comments[0].text(), "No space after hash");
-        }
+        let methods: Vec<_> = interface.methods().collect();
+        assert_eq!(methods[0].name(), "SpecialMethod");
+        let comments: Vec<_> = methods[0].comments().collect();
+        assert_eq!(comments.len(), 3);
+        assert_eq!(
+            comments[0].text(),
+            "Comment with special characters: !@#$%^&*()"
+        );
+        assert_eq!(comments[1].text(), "Comment with unicode: 🚀 UTF-8 тест");
+        assert_eq!(
+            comments[2].text(),
+            "Comment with whitespace:   spaces   and   tabs"
+        );
 
         // Check method with leading spaces after hash
-        if let Member::Method(method) = &members[2] {
-            assert_eq!(method.name(), "AnotherMethod");
-            let comments: Vec<_> = method.comments().collect();
-            assert_eq!(comments.len(), 1);
-            assert_eq!(comments[0].text(), "Leading spaces after hash");
-        }
+        assert_eq!(methods[1].name(), "AnotherMethod");
+        let comments: Vec<_> = methods[1].comments().collect();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text(), "Leading spaces after hash");
+
+        // Check error with no space after hash
+        let errors: Vec<_> = interface.errors().collect();
+        assert_eq!(errors[0].name(), "SpecialError");
+        let comments: Vec<_> = errors[0].comments().collect();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(comments[0].text(), "No space after hash");
     }
 
     /// Parse a Varlink type from a string.
@@ -1346,12 +1344,12 @@ message: string
     "#;
 
         let interface = parse_interface(input).unwrap();
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 1);
 
-        let Member::Method(method) = &members[0] else {
-            panic!("Expected first member to be a method");
-        };
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.methods().count(), 1);
+
+        let methods: Vec<_> = interface.methods().collect();
+        let method = methods[0];
 
         assert_eq!(method.name(), "TestMethod");
 
@@ -1398,12 +1396,12 @@ message: string
     "#;
 
         let interface = parse_interface(input).unwrap();
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 1);
 
-        let Member::Error(error) = &members[0] else {
-            panic!("Expected first member to be an error");
-        };
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.errors().count(), 1);
+
+        let errors: Vec<_> = interface.errors().collect();
+        let error = errors[0];
 
         assert_eq!(error.name(), "TestError");
 
@@ -1437,12 +1435,12 @@ email: ?string
     "#;
 
         let interface = parse_interface(input).unwrap();
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 1);
 
-        let Member::Custom(custom_type) = &members[0] else {
-            panic!("Expected first member to be a custom type");
-        };
+        // Check that we have the expected number of each type of member
+        assert_eq!(interface.custom_types().count(), 1);
+
+        let custom_types: Vec<_> = interface.custom_types().collect();
+        let custom_type = custom_types[0];
         let Some(object) = custom_type.as_object() else {
             panic!("Expected custom type to be an object");
         };
@@ -1488,8 +1486,7 @@ method SimpleMethod() -> ()
         assert_eq!(comments[1].text(), "Interface documentation - line 2");
 
         // Verify the interface still has its members
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 1);
+        assert_eq!(interface.methods().count(), 1);
     }
 
     #[test]
@@ -1555,13 +1552,12 @@ method GetUser(id: int) -> (user: User)
         assert_eq!(interface_comments[1].text(), "Describes the core API");
 
         // Check members
-        let members: Vec<_> = interface.members().collect();
-        assert_eq!(members.len(), 2); // 1 type + 1 method
+        assert_eq!(interface.custom_types().count(), 1);
+        assert_eq!(interface.methods().count(), 1);
 
         // Check the custom type member and its comments
-        let Member::Custom(custom_type) = &members[0] else {
-            panic!("Expected first member to be a custom type");
-        };
+        let custom_types: Vec<_> = interface.custom_types().collect();
+        let custom_type = custom_types[0];
         let Some(object) = custom_type.as_object() else {
             panic!("Expected custom type to be an object");
         };
@@ -1584,9 +1580,8 @@ method GetUser(id: int) -> (user: User)
         assert_eq!(email_comments[0].text(), "User's email address");
 
         // Check the method member and its comments
-        let Member::Method(method) = &members[1] else {
-            panic!("Expected second member to be a method");
-        };
+        let methods: Vec<_> = interface.methods().collect();
+        let method = methods[0];
 
         let method_comments: Vec<_> = method.comments().collect();
         assert_eq!(method_comments.len(), 2);

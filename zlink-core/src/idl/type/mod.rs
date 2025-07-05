@@ -34,6 +34,56 @@ pub enum Type<'a> {
     Object(List<'a, Field<'a>>),
 }
 
+impl<'a> Type<'a> {
+    /// The child type if this type is optional.
+    pub const fn as_optional(&self) -> Option<&TypeRef<'a>> {
+        match self {
+            Type::Optional(optional) => Some(optional),
+            _ => None,
+        }
+    }
+
+    /// The array element type if this type is an array.
+    pub const fn as_array(&self) -> Option<&TypeRef<'a>> {
+        match self {
+            Type::Array(array) => Some(array),
+            _ => None,
+        }
+    }
+
+    /// The map value type if this type is a map.
+    pub const fn as_map(&self) -> Option<&TypeRef<'a>> {
+        match self {
+            Type::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    /// The custom type name if this type is a custom type.
+    pub const fn as_custom(&self) -> Option<&'a str> {
+        match self {
+            Type::Custom(custom) => Some(custom),
+            _ => None,
+        }
+    }
+
+    /// The enum variants if this type is an enum.
+    pub const fn as_enum(&self) -> Option<&List<'a, &'a str>> {
+        match self {
+            Type::Enum(variants) => Some(variants),
+            _ => None,
+        }
+    }
+
+    /// The object fields if this type is an object.
+    pub const fn as_object(&self) -> Option<&List<'a, Field<'a>>> {
+        match self {
+            Type::Object(fields) => Some(fields),
+            _ => None,
+        }
+    }
+}
+
 impl<'a> fmt::Display for Type<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

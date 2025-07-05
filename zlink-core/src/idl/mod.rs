@@ -31,9 +31,6 @@ pub use error::Error;
 mod comment;
 pub use comment::Comment;
 
-mod member;
-pub use member::Member;
-
 mod interface;
 pub use interface::Interface;
 
