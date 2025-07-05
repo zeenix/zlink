@@ -5,7 +5,7 @@ use core::fmt;
 use super::{Comment, Field, List};
 
 /// An error definition in Varlink IDL.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct Error<'a> {
     /// The name of the error.
     name: &'a str,
@@ -73,6 +73,12 @@ impl<'a> fmt::Display for Error<'a> {
             write!(f, "{field}")?;
         }
         write!(f, ")")
+    }
+}
+
+impl<'a> PartialEq for Error<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.fields == other.fields
     }
 }
 

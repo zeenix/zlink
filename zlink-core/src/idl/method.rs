@@ -5,7 +5,7 @@ use core::fmt;
 use super::{Comment, List, Parameter};
 
 /// A method definition in Varlink IDL.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct Method<'a> {
     /// The name of the method.
     name: &'a str,
@@ -107,6 +107,12 @@ impl<'a> fmt::Display for Method<'a> {
         }
 
         Ok(())
+    }
+}
+
+impl PartialEq for Method<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.inputs == other.inputs && self.outputs == other.outputs
     }
 }
 

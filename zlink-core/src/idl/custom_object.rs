@@ -5,7 +5,7 @@ use core::fmt;
 use super::{Field, List};
 
 /// An object type definition in Varlink IDL (struct-like with named fields).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct CustomObject<'a> {
     /// The name of the object type.
     name: &'a str,
@@ -71,5 +71,11 @@ impl<'a> fmt::Display for CustomObject<'a> {
             write!(f, "{field}")?;
         }
         write!(f, ")")
+    }
+}
+
+impl<'a> PartialEq for CustomObject<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.fields == other.fields
     }
 }

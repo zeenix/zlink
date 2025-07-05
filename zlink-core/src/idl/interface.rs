@@ -8,7 +8,7 @@ use crate::Error;
 use super::List;
 
 /// A Varlink interface definition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct Interface<'a> {
     /// The name of the interface in reverse-domain notation.
     name: &'a str,
@@ -111,6 +111,15 @@ impl<'a> TryFrom<&'a str> for Interface<'a> {
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         super::parse::parse_interface(value)
+    }
+}
+
+impl PartialEq for Interface<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.custom_types == other.custom_types
+            && self.methods == other.methods
+            && self.errors == other.errors
     }
 }
 
