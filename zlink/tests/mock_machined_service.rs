@@ -7,7 +7,7 @@ use zlink::{
     idl::{self, Comment, Interface, Parameter, Type::Optional, TypeRef},
     introspect::{ReplyError, Type},
     service::MethodReply,
-    varlink_service::{Error, Info, InterfaceDescription},
+    varlink_service::{self, Error, Info, InterfaceDescription},
     Call, Service,
 };
 
@@ -59,7 +59,7 @@ impl Service for MockMachinedService {
             MockMethod::GetInterfaceDescription { interface } => {
                 let description = match *interface {
                     "org.varlink.service" => {
-                        InterfaceDescription::from(VARLINK_SERVICE_DESCRIPTION)
+                        InterfaceDescription::from(varlink_service::DESCRIPTION)
                     }
                     "io.systemd.Machine" => InterfaceDescription::from(MACHINE_SERVICE_DESCRIPTION),
                     _ => {
@@ -126,39 +126,6 @@ pub enum MachinedError {
     /// There is no IPC service (such as system bus or varlink) in the container.
     NoIPC,
 }
-
-pub const VARLINK_SERVICE_DESCRIPTION: &Interface<'static> = &{
-    const INTERFACE_PARAM: &Parameter<'static> =
-        &Parameter::new("interface", &idl::Type::String, &[]);
-    const METHODS: &[&idl::Method<'static>] = &[
-        &idl::Method::new(
-            "GetInfo",
-            &[],
-            Info::TYPE.as_object().unwrap().as_borrowed().unwrap(),
-            &[&Comment::new(
-                "Get basic information about the Varlink service",
-            )],
-        ),
-        &idl::Method::new(
-            "GetInterfaceDescription",
-            &[INTERFACE_PARAM],
-            &InterfaceDescription::TYPE
-                .as_object()
-                .unwrap()
-                .as_borrowed()
-                .unwrap(),
-            &[&Comment::new("Get the description of an interface")],
-        ),
-    ];
-
-    Interface::new(
-        "org.varlink.service",
-        METHODS,
-        &[],
-        Error::VARIANTS,
-        &[&Comment::new("Varlink service interface")],
-    )
-};
 
 /// Interface definition for io.systemd.Machine matching the actual systemd-machined service.
 const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
