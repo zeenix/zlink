@@ -50,7 +50,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serialization() {
+    fn error_serialization() {
         let err = Error::InterfaceNotFound {
             interface: "com.example.missing",
         };
@@ -87,7 +87,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     #[test]
-    fn deserialization() {
+    fn error_deserialization() {
         // Test error with parameter
         let json = r#"{"error":"org.varlink.service.InterfaceNotFound","parameters":{"interface":"com.example.missing"}}"#;
 
@@ -130,7 +130,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     #[test]
-    fn round_trip_serialization() {
+    fn error_round_trip_serialization() {
         // Test with error that has parameters
         let original = Error::InterfaceNotFound {
             interface: "com.example.missing",
