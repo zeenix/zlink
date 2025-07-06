@@ -73,6 +73,38 @@ pub enum Error<'a> {
     ExpectedMore,
 }
 
+#[cfg(feature = "std")]
+impl std::error::Error for Error<'_> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+
+impl core::fmt::Display for Error<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::InterfaceNotFound { interface } => {
+                write!(f, "Interface not found: {}", interface)
+            }
+            Error::MethodNotFound { method } => {
+                write!(f, "Method not found: {}", method)
+            }
+            Error::InvalidParameter { parameter } => {
+                write!(f, "Invalid parameter: {}", parameter)
+            }
+            Error::PermissionDenied => {
+                write!(f, "Permission denied")
+            }
+            Error::ExpectedMore => {
+                write!(f, "Expected more")
+            }
+            Error::MethodNotImplemented { method } => {
+                write!(f, "Method not implemented: {}", method)
+            }
+        }
+    }
+}
+
 /// Result type for Varlink service methods.
 pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
 
