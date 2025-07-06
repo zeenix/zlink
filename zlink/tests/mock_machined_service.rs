@@ -23,8 +23,8 @@ impl MockMachinedService {
 impl Service for MockMachinedService {
     type MethodCall<'de> = MockMethod<'de>;
     type ReplyParams<'ser> = MockReply;
-    type ReplyStream = futures_util::stream::Empty<zlink::Reply<MockReply>>;
-    type ReplyStreamParams = MockReply;
+    type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
+    type ReplyStreamParams = ();
     type ReplyError<'ser> = MockError<'ser>;
 
     async fn handle<'ser>(
