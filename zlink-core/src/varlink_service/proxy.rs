@@ -7,13 +7,11 @@ use core::{fmt::Debug, future::Future};
 
 use crate::{
     connection::{socket::Socket, Connection},
-    idl::Interface,
-    introspect::Type,
     Call,
 };
 use serde::{Deserialize, Serialize};
 
-use super::{Error, Info};
+use super::{Error, Info, InterfaceDescription};
 
 /// Client-side proxy for the `org.varlink.service` interface.
 ///
@@ -38,11 +36,11 @@ pub trait Proxy {
     ///
     /// Two-layer result: outer for connection errors, inner for method errors. On success, contains
     /// the unparsed interface definition as a [`InterfaceDescription`]. Use
-    /// [`InterfaceDescription::parse`] to parse it into an [`Interface`].
+    /// [`InterfaceDescription::parse`] to parse it.
     fn get_interface_description(
         &mut self,
         interface: &str,
-    ) -> impl Future<Output = crate::Result<Result<InterfaceDescription, Error<'_>>>>;
+    ) -> impl Future<Output = crate::Result<Result<InterfaceDescription<'static>, Error<'_>>>>;
 }
 
 impl<S> Proxy for Connection<S>
@@ -65,10 +63,10 @@ where
     async fn get_interface_description(
         &mut self,
         interface: &str,
-    ) -> crate::Result<Result<InterfaceDescription, Error<'_>>> {
+    ) -> crate::Result<Result<InterfaceDescription<'static>, Error<'_>>> {
         let call = Call::new(Method::GetInterfaceDescription { interface });
         let result = self
-            .call_method::<_, InterfaceDescription, Error<'_>>(&call)
+            .call_method::<_, InterfaceDescription<'static>, Error<'_>>(&call)
             .await?;
 
         match result {
@@ -91,33 +89,4 @@ enum Method<'a> {
     GetInfo,
     #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
     GetInterfaceDescription { interface: &'a str },
-}
-
-/// The raw interface description string.
-///
-/// Use [`InterfaceDescription::parse`] to get the [`Interface`].
-#[derive(Debug, Serialize, Deserialize, Type)]
-#[zlink(crate = "crate")]
-pub struct InterfaceDescription {
-    description: String,
-}
-
-impl InterfaceDescription {
-    /// Parse the interface description as an [`Interface`].
-    pub fn parse(&self) -> crate::Result<Interface<'_>> {
-        self.description.as_str().try_into()
-    }
-
-    /// The raw interface description.
-    pub fn as_str(&self) -> &str {
-        &self.description
-    }
-}
-
-impl From<&Interface<'_>> for InterfaceDescription {
-    fn from(description: &Interface<'_>) -> Self {
-        Self {
-            description: description.to_string(),
-        }
-    }
 }

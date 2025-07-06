@@ -23,8 +23,8 @@ impl MockMachinedService {
 impl Service for MockMachinedService {
     type MethodCall<'de> = MockMethod<'de>;
     type ReplyParams<'ser> = MockReply;
-    type ReplyStream = futures_util::stream::Empty<zlink::Reply<MockReply>>;
-    type ReplyStreamParams = MockReply;
+    type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
+    type ReplyStreamParams = ();
     type ReplyError<'ser> = MockError<'ser>;
 
     async fn handle<'ser>(
@@ -91,7 +91,7 @@ pub enum MockMethod<'a> {
 #[serde(untagged)]
 pub enum MockReply {
     Info(Info<'static>),
-    InterfaceDescription(InterfaceDescription),
+    InterfaceDescription(InterfaceDescription<'static>),
 }
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
