@@ -2,6 +2,7 @@
 
 use mayheap::Vec;
 use serde::{Deserialize, Serialize};
+use serde_prefix_all::prefix_all;
 use zlink::{
     idl::{self, Comment, Interface, Parameter, Type::Optional, TypeRef},
     introspect::{ReplyError, Type},
@@ -77,12 +78,11 @@ impl Service for MockMachinedService {
 }
 
 /// Mock method calls for the systemd-machined service.
+#[prefix_all("org.varlink.service.")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "parameters")]
 pub enum MockMethod<'a> {
-    #[serde(rename = "org.varlink.service.GetInfo")]
     GetInfo,
-    #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
     GetInterfaceDescription { interface: &'a str },
 }
 
@@ -102,34 +102,27 @@ pub enum MockError<'a> {
 }
 
 /// Errors that can be returned by the `io.systemd.Machine` interface.
+#[prefix_all("io.systemd.Machine.")]
 #[derive(Debug, Clone, PartialEq, Serialize, ReplyError)]
 #[zlink(crate = "zlink")]
 #[serde(tag = "error", content = "parameters")]
 #[allow(unused)]
 pub enum MachinedError {
     /// No matching machine currently running.
-    #[serde(rename = "io.systemd.Machine.NoSuchMachine")]
     NoSuchMachine,
     /// Machine already exists.
-    #[serde(rename = "io.systemd.Machine.MachineExists")]
     MachineExists,
     /// Machine does not use private networking.
-    #[serde(rename = "io.systemd.Machine.NoPrivateNetworking")]
     NoPrivateNetworking,
     /// Machine does not contain OS release information.
-    #[serde(rename = "io.systemd.Machine.NoOSReleaseInformation")]
     NoOSReleaseInformation,
     /// Machine uses a complex UID/GID mapping, cannot determine shift.
-    #[serde(rename = "io.systemd.Machine.NoUIDShift")]
     NoUIDShift,
     /// Requested information is not available.
-    #[serde(rename = "io.systemd.Machine.NotAvailable")]
     NotAvailable,
     /// Requested operation is not supported.
-    #[serde(rename = "io.systemd.Machine.NotSupported")]
     NotSupported,
     /// There is no IPC service (such as system bus or varlink) in the container.
-    #[serde(rename = "io.systemd.Machine.NoIPC")]
     NoIPC,
 }
 
