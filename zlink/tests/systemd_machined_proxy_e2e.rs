@@ -1,6 +1,6 @@
 //! End-to-end tests for varlink_service::Proxy trait using systemd-machined service.
 
-#![cfg(all(target_os = "linux", feature = "introspection", feature = "idl-parse"))]
+#![cfg(all(feature = "introspection", feature = "idl-parse"))]
 
 mod mock_machined_service;
 
