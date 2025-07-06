@@ -55,9 +55,9 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
     let mut conn = connect(SOCKET_PATH).await?;
-    let call = Call::new(Methods::GetDriveCondition).set_more(Some(true));
+    let call = Call::new(FtlMethod::GetDriveCondition).set_more(Some(true));
     let mut drive_monitor_stream = pin!(
-        conn.chain_call::<Methods, Replies, Errors>(&call)?
+        conn.chain_call::<FtlMethod, FtlReply, FtlError>(&call)?
             .send()
             .await?
     );
@@ -67,14 +67,14 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let mut conn = connect(SOCKET_PATH).await?;
 
         // Ask for the drive condition, then set them and then ask again.
-        let get_drive_cond = Methods::GetDriveCondition.into();
-        let set_drive_cond = Methods::SetDriveCondition {
+        let get_drive_cond = FtlMethod::GetDriveCondition.into();
+        let set_drive_cond = FtlMethod::SetDriveCondition {
             condition: conditions[1],
         }
         .into();
 
         let replies = conn
-            .chain_call::<Methods, Replies, Errors>(&get_drive_cond)?
+            .chain_call::<FtlMethod, FtlReply, FtlError>(&get_drive_cond)?
             .append(&set_drive_cond)?
             .append(&get_drive_cond)?
             .send()
@@ -87,7 +87,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
             for i in 0..3 {
                 let reply = replies.next().await.unwrap()?.unwrap();
                 match reply.into_parameters().unwrap() {
-                    Replies::DriveCondition(drive_condition) => {
+                    FtlReply::DriveCondition(drive_condition) => {
                         assert_eq!(drive_condition, conditions[i]);
                     }
                     _ => panic!("Unexpected reply"),
@@ -100,8 +100,8 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let replies = conn
             // Let's try to jump to a new coordinate but first requiring more tylium
             // than we have.
-            .chain_call::<_, Replies, Errors>(
-                &Methods::Jump {
+            .chain_call::<_, FtlReply, FtlError>(
+                &FtlMethod::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed,
                         trajectory: 1,
@@ -112,7 +112,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
             )?
             // Now let's try to jump with a valid speed.
             .append(
-                &Methods::Jump {
+                &FtlMethod::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed - 1,
                         trajectory: 1,
@@ -126,13 +126,13 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         pin_mut!(replies);
         let e = replies.try_next().await?.unwrap().unwrap_err();
         // The first call should fail because we didn't have enough energy.
-        assert_eq!(e, Errors::NotEnoughEnergy);
+        assert_eq!(e, FtlError::NotEnoughEnergy);
 
         // The second call should succeed.
         let reply = replies.try_next().await?.unwrap()?;
         assert_eq!(
             reply.parameters(),
-            Some(&Replies::Coordinates(Coordinate {
+            Some(&FtlReply::Coordinates(Coordinate {
                 longitude: 1.0,
                 latitude: 0.0,
                 distance: 10,
@@ -143,7 +143,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
     // `drive_monitor_conn` should have received the drive condition changes.
     let drive_cond = drive_monitor_stream.try_next().await?.unwrap()?;
     match drive_cond.parameters().unwrap() {
-        Replies::DriveCondition(condition) => {
+        FtlReply::DriveCondition(condition) => {
             assert_eq!(condition, &conditions[1]);
         }
         _ => panic!("Expected DriveCondition reply"),
@@ -154,7 +154,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
 
 // The FTL service.
 struct Ftl {
-    drive_condition: notified::State<DriveCondition, Replies>,
+    drive_condition: notified::State<DriveCondition, FtlReply>,
     coordinates: Coordinate,
 }
 
@@ -172,41 +172,41 @@ impl Ftl {
 }
 
 impl Service for Ftl {
-    type MethodCall<'de> = Methods;
-    type ReplyParams<'ser> = Replies;
+    type MethodCall<'de> = FtlMethod;
+    type ReplyParams<'ser> = FtlReply;
     type ReplyStream = notified::Stream<Self::ReplyStreamParams>;
-    type ReplyStreamParams = Replies;
-    type ReplyError<'ser> = Errors;
+    type ReplyStreamParams = FtlReply;
+    type ReplyError<'ser> = FtlError;
 
     async fn handle<'ser>(
         &'ser mut self,
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            Methods::GetDriveCondition if call.more().unwrap_or_default() => {
+            FtlMethod::GetDriveCondition if call.more().unwrap_or_default() => {
                 MethodReply::Multi(self.drive_condition.stream())
             }
-            Methods::GetDriveCondition => {
+            FtlMethod::GetDriveCondition => {
                 MethodReply::Single(Some(self.drive_condition.get().into()))
             }
-            Methods::SetDriveCondition { condition } => {
+            FtlMethod::SetDriveCondition { condition } => {
                 if call.more().unwrap_or_default() {
-                    return MethodReply::Error(Errors::ParameterOutOfRange);
+                    return MethodReply::Error(FtlError::ParameterOutOfRange);
                 }
                 self.drive_condition.set(*condition);
                 MethodReply::Single(Some(self.drive_condition.get().into()))
             }
-            Methods::GetCoordinates => {
-                MethodReply::Single(Some(Replies::Coordinates(self.coordinates)))
+            FtlMethod::GetCoordinates => {
+                MethodReply::Single(Some(FtlReply::Coordinates(self.coordinates)))
             }
-            Methods::Jump { config } => {
+            FtlMethod::Jump { config } => {
                 if call.more().unwrap_or_default() {
-                    return MethodReply::Error(Errors::ParameterOutOfRange);
+                    return MethodReply::Error(FtlError::ParameterOutOfRange);
                 }
                 let tylium_required = config.speed * config.duration;
                 let mut condition = self.drive_condition.get();
                 if tylium_required > condition.tylium_level {
-                    return MethodReply::Error(Errors::NotEnoughEnergy);
+                    return MethodReply::Error(FtlError::NotEnoughEnergy);
                 }
                 let current_coords = self.coordinates;
                 let config = *config;
@@ -223,7 +223,7 @@ impl Service for Ftl {
                 self.drive_condition.set(condition);
                 self.coordinates = coords;
 
-                MethodReply::Single(Some(Replies::Coordinates(coords)))
+                MethodReply::Single(Some(FtlReply::Coordinates(coords)))
             }
         }
     }
@@ -235,9 +235,9 @@ struct DriveCondition {
     tylium_level: i64,
 }
 
-impl From<DriveCondition> for Replies {
+impl From<DriveCondition> for FtlReply {
     fn from(drive_condition: DriveCondition) -> Self {
-        Replies::DriveCondition(drive_condition)
+        FtlReply::DriveCondition(drive_condition)
     }
 }
 
@@ -263,9 +263,9 @@ struct Coordinate {
     distance: i64,
 }
 
-impl From<Coordinate> for Replies {
+impl From<Coordinate> for FtlReply {
     fn from(coordinate: Coordinate) -> Self {
-        Replies::Coordinates(coordinate)
+        FtlReply::Coordinates(coordinate)
     }
 }
 
@@ -273,7 +273,7 @@ impl From<Coordinate> for Replies {
 #[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "parameters")]
-enum Methods {
+enum FtlMethod {
     GetDriveCondition,
     SetDriveCondition { condition: DriveCondition },
     GetCoordinates,
@@ -283,7 +283,7 @@ enum Methods {
 /// The FTL service replies.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-enum Replies {
+enum FtlReply {
     DriveCondition(DriveCondition),
     Coordinates(Coordinate),
 }
@@ -293,7 +293,7 @@ enum Replies {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "introspection", derive(ReplyError))]
 #[serde(tag = "error", content = "parameters")]
-enum Errors {
+enum FtlError {
     NotEnoughEnergy,
     ParameterOutOfRange,
     InvalidCoordinates {
@@ -306,12 +306,12 @@ enum Errors {
     },
 }
 
-impl core::fmt::Display for Errors {
+impl core::fmt::Display for FtlError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Errors::NotEnoughEnergy => write!(f, "Not enough energy"),
-            Errors::ParameterOutOfRange => write!(f, "Parameter out of range"),
-            Errors::InvalidCoordinates {
+            FtlError::NotEnoughEnergy => write!(f, "Not enough energy"),
+            FtlError::ParameterOutOfRange => write!(f, "Parameter out of range"),
+            FtlError::InvalidCoordinates {
                 latitude,
                 longitude,
                 reason,
@@ -322,41 +322,41 @@ impl core::fmt::Display for Errors {
                     latitude, longitude, reason
                 )
             }
-            Errors::SystemOverheat { temperature } => {
+            FtlError::SystemOverheat { temperature } => {
                 write!(f, "System overheating at {} degrees", temperature)
             }
         }
     }
 }
 
-impl std::error::Error for Errors {}
+impl std::error::Error for FtlError {}
 
 #[cfg(feature = "introspection")]
 #[test_log::test(tokio::test)]
 async fn reply_error_derive_works() {
     // Test that the ReplyError derive generates the expected variants.
-    assert_eq!(Errors::VARIANTS.len(), 4);
+    assert_eq!(FtlError::VARIANTS.len(), 4);
 
     // Unit variants
-    assert_eq!(Errors::VARIANTS[0].name(), "NotEnoughEnergy");
-    assert!(Errors::VARIANTS[0].has_no_fields());
+    assert_eq!(FtlError::VARIANTS[0].name(), "NotEnoughEnergy");
+    assert!(FtlError::VARIANTS[0].has_no_fields());
 
-    assert_eq!(Errors::VARIANTS[1].name(), "ParameterOutOfRange");
-    assert!(Errors::VARIANTS[1].has_no_fields());
+    assert_eq!(FtlError::VARIANTS[1].name(), "ParameterOutOfRange");
+    assert!(FtlError::VARIANTS[1].has_no_fields());
 
     // Variant with named fields
-    assert_eq!(Errors::VARIANTS[2].name(), "InvalidCoordinates");
-    assert!(!Errors::VARIANTS[2].has_no_fields());
-    let fields: Vec<_> = Errors::VARIANTS[2].fields().collect();
+    assert_eq!(FtlError::VARIANTS[2].name(), "InvalidCoordinates");
+    assert!(!FtlError::VARIANTS[2].has_no_fields());
+    let fields: Vec<_> = FtlError::VARIANTS[2].fields().collect();
     assert_eq!(fields.len(), 3);
     assert_eq!(fields[0].name(), "latitude");
     assert_eq!(fields[1].name(), "longitude");
     assert_eq!(fields[2].name(), "reason");
 
     // Another variant with named fields
-    assert_eq!(Errors::VARIANTS[3].name(), "SystemOverheat");
-    assert!(!Errors::VARIANTS[3].has_no_fields());
-    let fields: Vec<_> = Errors::VARIANTS[3].fields().collect();
+    assert_eq!(FtlError::VARIANTS[3].name(), "SystemOverheat");
+    assert!(!FtlError::VARIANTS[3].has_no_fields());
+    let fields: Vec<_> = FtlError::VARIANTS[3].fields().collect();
     assert_eq!(fields.len(), 1);
     assert_eq!(fields[0].name(), "temperature");
 }
