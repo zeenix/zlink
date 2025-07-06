@@ -8,6 +8,7 @@
         * `untagged` repr
 * zlink-core
   * Make idl::List have `str` as type so `CustomEnum` can contain `&st` instead of `&&str`
+  * `varlink_service::Proxy` methods should allow chaining.
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature

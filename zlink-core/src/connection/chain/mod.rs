@@ -21,18 +21,18 @@ use reply_stream::ReplyStream;
 /// Oneway calls (where `Call::oneway() == Some(true)`) do not expect replies and are handled
 /// automatically by the chain.
 #[derive(Debug)]
-pub struct Chain<'c, S: Socket, Method, Params, ReplyError> {
+pub struct Chain<'c, S: Socket, Method, ReplyParams, ReplyError> {
     pub(super) connection: &'c mut Connection<S>,
     pub(super) call_count: usize,
     pub(super) reply_count: usize,
-    _phantom: core::marker::PhantomData<(Method, Params, ReplyError)>,
+    _phantom: core::marker::PhantomData<(Method, ReplyParams, ReplyError)>,
 }
 
-impl<'c, S, Method, Params, ReplyError> Chain<'c, S, Method, Params, ReplyError>
+impl<'c, S, Method, ReplyParams, ReplyError> Chain<'c, S, Method, ReplyParams, ReplyError>
 where
     S: Socket,
     Method: Serialize + Debug,
-    Params: Deserialize<'c> + Debug,
+    ReplyParams: Deserialize<'c> + Debug,
     ReplyError: Deserialize<'c> + Debug,
 {
     /// Create a new chain with the first call.
@@ -69,9 +69,9 @@ where
     /// that allows reading the replies.
     pub async fn send(
         self,
-    ) -> Result<impl Stream<Item = Result<reply::Result<Params, ReplyError>>> + 'c>
+    ) -> Result<impl Stream<Item = Result<reply::Result<ReplyParams, ReplyError>>> + 'c>
     where
-        Params: 'c,
+        ReplyParams: 'c,
         ReplyError: 'c,
     {
         // Flush all enqueued calls.
@@ -79,7 +79,7 @@ where
 
         Ok(ReplyStream::new(
             self.connection.read_mut(),
-            |conn| conn.receive_reply::<Params, ReplyError>(),
+            |conn| conn.receive_reply::<ReplyParams, ReplyError>(),
             self.reply_count,
         ))
     }
