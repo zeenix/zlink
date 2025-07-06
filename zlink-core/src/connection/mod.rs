@@ -97,11 +97,11 @@ where
     /// Receives a method call reply.
     ///
     /// Convenience wrapper around [`ReadConnection::receive_reply`].
-    pub async fn receive_reply<'r, Params, ReplyError>(
+    pub async fn receive_reply<'r, ReplyParams, ReplyError>(
         &'r mut self,
-    ) -> Result<reply::Result<Params, ReplyError>>
+    ) -> Result<reply::Result<ReplyParams, ReplyError>>
     where
-        Params: Deserialize<'r> + Debug,
+        ReplyParams: Deserialize<'r> + Debug,
         ReplyError: Deserialize<'r> + Debug,
     {
         self.read.receive_reply().await
@@ -111,13 +111,13 @@ where
     ///
     /// This is a convenience method that combines [`Connection::send_call`] and
     /// [`Connection::receive_reply`].
-    pub async fn call_method<'r, Method, Params, ReplyError>(
+    pub async fn call_method<'r, Method, ReplyParams, ReplyError>(
         &'r mut self,
         call: &Call<Method>,
-    ) -> Result<reply::Result<Params, ReplyError>>
+    ) -> Result<reply::Result<ReplyParams, ReplyError>>
     where
         Method: Serialize + Debug,
-        Params: Deserialize<'r> + Debug,
+        ReplyParams: Deserialize<'r> + Debug,
         ReplyError: Deserialize<'r> + Debug,
     {
         self.send_call(call).await?;
@@ -137,9 +137,9 @@ where
     /// Send a reply over the socket.
     ///
     /// Convenience wrapper around [`WriteConnection::send_reply`].
-    pub async fn send_reply<Params>(&mut self, reply: &Reply<Params>) -> Result<()>
+    pub async fn send_reply<ReplyParams>(&mut self, reply: &Reply<ReplyParams>) -> Result<()>
     where
-        Params: Serialize + Debug,
+        ReplyParams: Serialize + Debug,
     {
         self.write.send_reply(reply).await
     }
@@ -284,13 +284,13 @@ where
     ///
     /// Instead of multiple write operations, the chain sends all calls in a single
     /// write operation, reducing context switching and therefore minimizing latency.
-    pub fn chain_call<'c, Method, Params, ReplyError>(
+    pub fn chain_call<'c, Method, ReplyParams, ReplyError>(
         &'c mut self,
         call: &Call<Method>,
-    ) -> Result<Chain<'c, S, Method, Params, ReplyError>>
+    ) -> Result<Chain<'c, S, Method, ReplyParams, ReplyError>>
     where
         Method: Serialize + Debug,
-        Params: Deserialize<'c> + Debug,
+        ReplyParams: Deserialize<'c> + Debug,
         ReplyError: Deserialize<'c> + Debug,
     {
         Chain::new(self, call)

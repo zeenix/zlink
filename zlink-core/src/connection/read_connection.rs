@@ -52,8 +52,8 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     ///
     /// The generic parameters needs some explanation:
     ///
-    /// * `Params` is the type of the successful reply. This should be a type that can deserialize
-    ///   itself from the `parameters` field of the reply.
+    /// * `ReplyParams` is the type of the successful reply. This should be a type that can
+    ///   deserialize itself from the `parameters` field of the reply.
     /// * `ReplyError` is the type of the error reply. This should be a type that can deserialize
     ///   itself from the whole reply object itself and must fail when there is no `error` field in
     ///   the object. This can be easily achieved using the `serde::Deserialize` derive:
@@ -72,11 +72,11 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     ///    Charlie { param1: String },
     /// }
     /// ```
-    pub async fn receive_reply<'r, Params, ReplyError>(
+    pub async fn receive_reply<'r, ReplyParams, ReplyError>(
         &'r mut self,
-    ) -> Result<reply::Result<Params, ReplyError>>
+    ) -> Result<reply::Result<ReplyParams, ReplyError>>
     where
-        Params: Deserialize<'r> + Debug,
+        ReplyParams: Deserialize<'r> + Debug,
         ReplyError: Deserialize<'r> + Debug,
     {
         let id = self.id;
@@ -88,7 +88,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         // that information. Perhaps a simple parser using `winnow`?
         let ret = match from_slice::<ReplyError>(buffer) {
             Ok(e) => Ok(Err(e)),
-            Err(_) => from_slice::<Reply<Params>>(buffer).map(Ok),
+            Err(_) => from_slice::<Reply<ReplyParams>>(buffer).map(Ok),
         };
         trace!("connection {}: received reply: {:?}", id, ret);
 
