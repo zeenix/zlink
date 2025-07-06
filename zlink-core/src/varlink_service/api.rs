@@ -4,6 +4,37 @@ use serde::Serialize;
 
 use crate::introspect;
 
+use super::{Info, InterfaceDescription};
+
+/// `org.varlink.service` interface methods.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
+#[serde(tag = "method", content = "parameters")]
+pub enum Method<'a> {
+    /// Get information about the Varlink service.
+    #[serde(rename = "org.varlink.service.GetInfo")]
+    GetInfo,
+    /// Get the description of the specified interface.
+    #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
+    GetInterfaceDescription {
+        /// The interface to get the description for.
+        interface: &'a str,
+    },
+}
+
+/// `org.varlink.service` interface replies.
+///
+/// This is only useful for service implementations. This is why this type only implements
+/// `Serialize` but not `Deserialize`.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum ReplyParams<'a> {
+    /// Reply for `GetInfo` method.
+    Info(Info<'a>),
+    /// Reply for `GetInterfaceDescription` method.
+    InterfaceDescription(InterfaceDescription<'a>),
+}
+
 /// Errors that can be returned by the `org.varlink.service` interface.
 #[derive(Debug, Clone, PartialEq, Serialize, introspect::ReplyError)]
 #[zlink(crate = "crate")]

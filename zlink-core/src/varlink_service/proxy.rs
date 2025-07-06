@@ -3,15 +3,14 @@
 //! This module provides the [`Proxy`] trait which offers convenient methods to call
 //! the standard Varlink service interface methods on any connection.
 
-use core::{fmt::Debug, future::Future};
+use core::future::Future;
 
 use crate::{
     connection::{socket::Socket, Connection},
     Call,
 };
-use serde::{Deserialize, Serialize};
 
-use super::{Error, Info, InterfaceDescription};
+use super::{Error, Info, InterfaceDescription, Method};
 
 /// Client-side proxy for the `org.varlink.service` interface.
 ///
@@ -79,14 +78,4 @@ where
             Err(error) => Ok(Err(error)),
         }
     }
-}
-
-/// Methods available in the `org.varlink.service` interface.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "method", content = "parameters")]
-enum Method<'a> {
-    #[serde(rename = "org.varlink.service.GetInfo")]
-    GetInfo,
-    #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
-    GetInterfaceDescription { interface: &'a str },
 }

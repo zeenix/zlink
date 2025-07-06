@@ -1,7 +1,7 @@
 //! Mock systemd-machined service for testing when real systemd services aren't available.
 
 use mayheap::Vec;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_prefix_all::prefix_all;
 use zlink::{
     idl::{self, Comment, Interface, Parameter, Type::Optional, TypeRef},
@@ -22,8 +22,8 @@ impl MockMachinedService {
 }
 
 impl Service for MockMachinedService {
-    type MethodCall<'de> = MockMethod<'de>;
-    type ReplyParams<'ser> = MockReply;
+    type MethodCall<'de> = varlink_service::Method<'de>;
+    type ReplyParams<'ser> = varlink_service::ReplyParams<'ser>;
     type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
     type ReplyStreamParams = ();
     type ReplyError<'ser> = MockError<'ser>;
@@ -33,7 +33,7 @@ impl Service for MockMachinedService {
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            MockMethod::GetInfo => {
+            varlink_service::Method::GetInfo => {
                 // Return hardcoded info that matches the systemd machine service
                 let mut interfaces = Vec::new();
                 let interface_list = [
@@ -54,9 +54,9 @@ impl Service for MockMachinedService {
                     interfaces,
                 );
 
-                MethodReply::Single(Some(MockReply::Info(info)))
+                MethodReply::Single(Some(varlink_service::ReplyParams::Info(info)))
             }
-            MockMethod::GetInterfaceDescription { interface } => {
+            varlink_service::Method::GetInterfaceDescription { interface } => {
                 let description = match *interface {
                     "org.varlink.service" => {
                         InterfaceDescription::from(varlink_service::DESCRIPTION)
@@ -71,27 +71,12 @@ impl Service for MockMachinedService {
                     }
                 };
 
-                MethodReply::Single(Some(MockReply::InterfaceDescription(description)))
+                MethodReply::Single(Some(varlink_service::ReplyParams::InterfaceDescription(
+                    description,
+                )))
             }
         }
     }
-}
-
-/// Mock method calls for the systemd-machined service.
-#[prefix_all("org.varlink.service.")]
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "method", content = "parameters")]
-pub enum MockMethod<'a> {
-    GetInfo,
-    GetInterfaceDescription { interface: &'a str },
-}
-
-/// Mock reply types for the systemd-machined service.
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-pub enum MockReply {
-    Info(Info<'static>),
-    InterfaceDescription(InterfaceDescription<'static>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
