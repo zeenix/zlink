@@ -93,6 +93,7 @@ pub enum MockReply {
     Info(Info<'static>),
     InterfaceDescription(InterfaceDescription<'static>),
 }
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 #[allow(unused)]
