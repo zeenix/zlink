@@ -504,14 +504,11 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         ]
     };
 
-    // Error definitions
-    const ERRORS: &[&idl::Error<'static>] = &MachinedError::VARIANTS;
-
     Interface::new(
         "io.systemd.Machine",
         METHODS,
         CUSTOM_TYPES,
-        ERRORS,
+        MachinedError::VARIANTS,
         &[&Comment::new("systemd machine management interface")],
     )
 };
