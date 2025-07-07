@@ -5,7 +5,7 @@
 use zlink::{idl, introspect::Type};
 
 #[test]
-fn test_unit_enum_works() {
+fn unit_enum_works() {
     #[derive(Type)]
     #[allow(dead_code)]
     enum SimpleEnum {
@@ -27,7 +27,7 @@ fn test_unit_enum_works() {
 }
 
 #[test]
-fn test_single_variant_enum_works() {
+fn single_variant_enum_works() {
     #[derive(Type)]
     #[allow(dead_code)]
     enum SingleVariant {
@@ -66,7 +66,7 @@ fn test_single_variant_enum_works() {
 // variants, not struct variants }
 
 #[test]
-fn test_enum_with_many_variants() {
+fn enum_with_many_variants() {
     #[derive(Type)]
     #[allow(dead_code)]
     enum ManyVariants {
@@ -94,7 +94,7 @@ fn test_enum_with_many_variants() {
 }
 
 #[test]
-fn test_enum_with_unusual_names() {
+fn enum_with_unusual_names() {
     #[derive(Type)]
     #[allow(dead_code)]
     #[allow(non_camel_case_types)]
@@ -119,7 +119,7 @@ fn test_enum_with_unusual_names() {
 }
 
 #[test]
-fn test_const_compatibility_with_enums() {
+fn const_compatibility_with_enums() {
     #[derive(Type)]
     #[allow(dead_code)]
     enum ConstTestEnum {

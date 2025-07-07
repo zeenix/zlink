@@ -1,12 +1,13 @@
 //! Mock systemd-machined service for testing when real systemd services aren't available.
 
 use mayheap::Vec;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_prefix_all::prefix_all;
 use zlink::{
     idl::{self, Comment, Interface, Parameter, Type::Optional, TypeRef},
     introspect::{ReplyError, Type},
     service::MethodReply,
-    varlink_service::{Error, Info, InterfaceDescription},
+    varlink_service::{self, Error, Info, InterfaceDescription},
     Call, Service,
 };
 
@@ -21,8 +22,8 @@ impl MockMachinedService {
 }
 
 impl Service for MockMachinedService {
-    type MethodCall<'de> = MockMethod<'de>;
-    type ReplyParams<'ser> = MockReply;
+    type MethodCall<'de> = varlink_service::Method<'de>;
+    type ReplyParams<'ser> = varlink_service::ReplyParams<'ser>;
     type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
     type ReplyStreamParams = ();
     type ReplyError<'ser> = MockError<'ser>;
@@ -32,7 +33,7 @@ impl Service for MockMachinedService {
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            MockMethod::GetInfo => {
+            varlink_service::Method::GetInfo => {
                 // Return hardcoded info that matches the systemd machine service
                 let mut interfaces = Vec::new();
                 let interface_list = [
@@ -53,12 +54,12 @@ impl Service for MockMachinedService {
                     interfaces,
                 );
 
-                MethodReply::Single(Some(MockReply::Info(info)))
+                MethodReply::Single(Some(varlink_service::ReplyParams::Info(info)))
             }
-            MockMethod::GetInterfaceDescription { interface } => {
+            varlink_service::Method::GetInterfaceDescription { interface } => {
                 let description = match *interface {
                     "org.varlink.service" => {
-                        InterfaceDescription::from(VARLINK_SERVICE_DESCRIPTION)
+                        InterfaceDescription::from(varlink_service::DESCRIPTION)
                     }
                     "io.systemd.Machine" => InterfaceDescription::from(MACHINE_SERVICE_DESCRIPTION),
                     _ => {
@@ -70,29 +71,14 @@ impl Service for MockMachinedService {
                     }
                 };
 
-                MethodReply::Single(Some(MockReply::InterfaceDescription(description)))
+                MethodReply::Single(Some(varlink_service::ReplyParams::InterfaceDescription(
+                    description,
+                )))
             }
         }
     }
 }
 
-/// Mock method calls for the systemd-machined service.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "method", content = "parameters")]
-pub enum MockMethod<'a> {
-    #[serde(rename = "org.varlink.service.GetInfo")]
-    GetInfo,
-    #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
-    GetInterfaceDescription { interface: &'a str },
-}
-
-/// Mock reply types for the systemd-machined service.
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-pub enum MockReply {
-    Info(Info<'static>),
-    InterfaceDescription(InterfaceDescription<'static>),
-}
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 #[allow(unused)]
@@ -102,69 +88,29 @@ pub enum MockError<'a> {
 }
 
 /// Errors that can be returned by the `io.systemd.Machine` interface.
+#[prefix_all("io.systemd.Machine.")]
 #[derive(Debug, Clone, PartialEq, Serialize, ReplyError)]
 #[zlink(crate = "zlink")]
 #[serde(tag = "error", content = "parameters")]
 #[allow(unused)]
 pub enum MachinedError {
     /// No matching machine currently running.
-    #[serde(rename = "io.systemd.Machine.NoSuchMachine")]
     NoSuchMachine,
     /// Machine already exists.
-    #[serde(rename = "io.systemd.Machine.MachineExists")]
     MachineExists,
     /// Machine does not use private networking.
-    #[serde(rename = "io.systemd.Machine.NoPrivateNetworking")]
     NoPrivateNetworking,
     /// Machine does not contain OS release information.
-    #[serde(rename = "io.systemd.Machine.NoOSReleaseInformation")]
     NoOSReleaseInformation,
     /// Machine uses a complex UID/GID mapping, cannot determine shift.
-    #[serde(rename = "io.systemd.Machine.NoUIDShift")]
     NoUIDShift,
     /// Requested information is not available.
-    #[serde(rename = "io.systemd.Machine.NotAvailable")]
     NotAvailable,
     /// Requested operation is not supported.
-    #[serde(rename = "io.systemd.Machine.NotSupported")]
     NotSupported,
     /// There is no IPC service (such as system bus or varlink) in the container.
-    #[serde(rename = "io.systemd.Machine.NoIPC")]
     NoIPC,
 }
-
-pub const VARLINK_SERVICE_DESCRIPTION: &Interface<'static> = &{
-    const INTERFACE_PARAM: &Parameter<'static> =
-        &Parameter::new("interface", &idl::Type::String, &[]);
-    const METHODS: &[&idl::Method<'static>] = &[
-        &idl::Method::new(
-            "GetInfo",
-            &[],
-            Info::TYPE.as_object().unwrap().as_borrowed().unwrap(),
-            &[&Comment::new(
-                "Get basic information about the Varlink service",
-            )],
-        ),
-        &idl::Method::new(
-            "GetInterfaceDescription",
-            &[INTERFACE_PARAM],
-            &InterfaceDescription::TYPE
-                .as_object()
-                .unwrap()
-                .as_borrowed()
-                .unwrap(),
-            &[&Comment::new("Get the description of an interface")],
-        ),
-    ];
-
-    Interface::new(
-        "org.varlink.service",
-        METHODS,
-        &[],
-        Error::VARIANTS,
-        &[&Comment::new("Varlink service interface")],
-    )
-};
 
 /// Interface definition for io.systemd.Machine matching the actual systemd-machined service.
 const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
@@ -558,14 +504,11 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         ]
     };
 
-    // Error definitions
-    const ERRORS: &[&idl::Error<'static>] = &MachinedError::VARIANTS;
-
     Interface::new(
         "io.systemd.Machine",
         METHODS,
         CUSTOM_TYPES,
-        ERRORS,
+        MachinedError::VARIANTS,
         &[&Comment::new("systemd machine management interface")],
     )
 };

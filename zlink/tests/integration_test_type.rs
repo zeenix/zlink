@@ -39,7 +39,7 @@ struct Complex {
 }
 
 #[test]
-fn test_type_integration() {
+fn type_integration() {
     // Test that TYPE is available and returns correct type
     match Person::TYPE {
         idl::Type::Object(fields) => {
@@ -99,7 +99,7 @@ fn test_type_integration() {
 }
 
 #[test]
-fn test_const_compatibility() {
+fn const_compatibility() {
     // Verify that TYPE can be used in const contexts
     const _PERSON_TYPE: &idl::Type<'static> = Person::TYPE;
     const _UNIT_TYPE: &idl::Type<'static> = Unit::TYPE;
@@ -107,7 +107,7 @@ fn test_const_compatibility() {
 }
 
 #[test]
-fn test_trait_and_macro_same_name() {
+fn trait_and_macro_same_name() {
     // This test verifies that we can import both the trait and macro
     // with the same name from the same module, just like zvariant does
     use zlink::introspect::Type; // This imports both trait and macro
@@ -131,7 +131,7 @@ fn test_trait_and_macro_same_name() {
 }
 
 #[test]
-fn test_enum_type_integration() {
+fn enum_type_integration() {
     // This test verifies that enum Type works with the main API
     match Status::TYPE {
         idl::Type::Enum(variants) => {

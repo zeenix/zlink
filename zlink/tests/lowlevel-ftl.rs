@@ -1,3 +1,5 @@
+#![cfg(all(feature = "introspection", feature = "idl-parse"))]
+
 use std::{pin::pin, time::Duration};
 
 use futures_util::{pin_mut, stream::StreamExt, TryStreamExt};
@@ -5,14 +7,17 @@ use serde::{Deserialize, Serialize};
 use serde_prefix_all::prefix_all;
 use tokio::{select, time::sleep};
 use zlink::{
+    idl::Interface,
+    introspect::{self, CustomType, ReplyError as _, Type},
     notified,
     service::MethodReply,
     unix::{bind, connect},
+    varlink_service::{
+        self, Info, InterfaceDescription, Method as VarlinkSrvMethod, Proxy as _,
+        ReplyParams as VarlinkSrvReply,
+    },
     Call, Service,
 };
-
-#[cfg(feature = "introspection")]
-use zlink::introspect::ReplyError;
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,9 +60,9 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
     let mut conn = connect(SOCKET_PATH).await?;
-    let call = Call::new(Methods::GetDriveCondition).set_more(Some(true));
+    let call = Call::new(FtlMethod::GetDriveCondition).set_more(Some(true));
     let mut drive_monitor_stream = pin!(
-        conn.chain_call::<Methods, Replies, Errors>(&call)?
+        conn.chain_call::<FtlMethod, FtlReply, FtlError>(&call)?
             .send()
             .await?
     );
@@ -66,15 +71,49 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
     {
         let mut conn = connect(SOCKET_PATH).await?;
 
+        // Let's start with some introspection.
+        let info = conn.get_info().await?.map_err(|e| e.to_string())?;
+        assert_eq!(info.vendor, VENDOR);
+        assert_eq!(info.product, PRODUCT);
+        assert_eq!(info.version, VERSION);
+        assert_eq!(info.url, URL);
+        assert_eq!(info.interfaces, INTERFACES);
+
+        // Test `org.varlink.service` interface impl.
+        let interface = conn
+            .get_interface_description("org.varlink.service")
+            .await?
+            .map_err(|e| e.to_string())?;
+        let interface = interface.parse().unwrap();
+        assert_eq!(&interface, varlink_service::DESCRIPTION);
+
+        // Test `org.example.ftl` interface impl.
+        let interface = conn
+            .get_interface_description("org.example.ftl")
+            .await?
+            .map_err(|e| e.to_string())?;
+        let interface = interface.parse().unwrap();
+        assert_eq!(&interface, FTL_INTERFACE_DESCRIPTION);
+
+        // Unimplemented interface query should return an error.
+        let error = conn
+            .get_interface_description("org.varlink.unimplemented")
+            .await?
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            varlink_service::Error::InterfaceNotFound { .. }
+        ));
+
         // Ask for the drive condition, then set them and then ask again.
-        let get_drive_cond = Methods::GetDriveCondition.into();
-        let set_drive_cond = Methods::SetDriveCondition {
+        let get_drive_cond = FtlMethod::GetDriveCondition.into();
+        let set_drive_cond = FtlMethod::SetDriveCondition {
             condition: conditions[1],
         }
         .into();
 
         let replies = conn
-            .chain_call::<Methods, Replies, Errors>(&get_drive_cond)?
+            .chain_call::<FtlMethod, FtlReply, FtlError>(&get_drive_cond)?
             .append(&set_drive_cond)?
             .append(&get_drive_cond)?
             .send()
@@ -87,7 +126,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
             for i in 0..3 {
                 let reply = replies.next().await.unwrap()?.unwrap();
                 match reply.into_parameters().unwrap() {
-                    Replies::DriveCondition(drive_condition) => {
+                    FtlReply::DriveCondition(drive_condition) => {
                         assert_eq!(drive_condition, conditions[i]);
                     }
                     _ => panic!("Unexpected reply"),
@@ -100,8 +139,8 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let replies = conn
             // Let's try to jump to a new coordinate but first requiring more tylium
             // than we have.
-            .chain_call::<_, Replies, Errors>(
-                &Methods::Jump {
+            .chain_call::<_, FtlReply, FtlError>(
+                &FtlMethod::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed,
                         trajectory: 1,
@@ -112,7 +151,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
             )?
             // Now let's try to jump with a valid speed.
             .append(
-                &Methods::Jump {
+                &FtlMethod::Jump {
                     config: DriveConfiguration {
                         speed: impossible_speed - 1,
                         trajectory: 1,
@@ -126,13 +165,13 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         pin_mut!(replies);
         let e = replies.try_next().await?.unwrap().unwrap_err();
         // The first call should fail because we didn't have enough energy.
-        assert_eq!(e, Errors::NotEnoughEnergy);
+        assert_eq!(e, FtlError::NotEnoughEnergy);
 
         // The second call should succeed.
         let reply = replies.try_next().await?.unwrap()?;
         assert_eq!(
             reply.parameters(),
-            Some(&Replies::Coordinates(Coordinate {
+            Some(&FtlReply::Coordinates(Coordinate {
                 longitude: 1.0,
                 latitude: 0.0,
                 distance: 10,
@@ -143,7 +182,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
     // `drive_monitor_conn` should have received the drive condition changes.
     let drive_cond = drive_monitor_stream.try_next().await?.unwrap()?;
     match drive_cond.parameters().unwrap() {
-        Replies::DriveCondition(condition) => {
+        FtlReply::DriveCondition(condition) => {
             assert_eq!(condition, &conditions[1]);
         }
         _ => panic!("Expected DriveCondition reply"),
@@ -154,7 +193,7 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
 
 // The FTL service.
 struct Ftl {
-    drive_condition: notified::State<DriveCondition, Replies>,
+    drive_condition: notified::State<DriveCondition, FtlReply>,
     coordinates: Coordinate,
 }
 
@@ -172,41 +211,41 @@ impl Ftl {
 }
 
 impl Service for Ftl {
-    type MethodCall<'de> = Methods;
-    type ReplyParams<'ser> = Replies;
+    type MethodCall<'de> = Method<'de>;
+    type ReplyParams<'ser> = Reply<'ser>;
     type ReplyStream = notified::Stream<Self::ReplyStreamParams>;
-    type ReplyStreamParams = Replies;
-    type ReplyError<'ser> = Errors;
+    type ReplyStreamParams = FtlReply;
+    type ReplyError<'ser> = ReplyError<'ser>;
 
     async fn handle<'ser>(
         &'ser mut self,
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            Methods::GetDriveCondition if call.more().unwrap_or_default() => {
+            Method::Ftl(FtlMethod::GetDriveCondition) if call.more().unwrap_or_default() => {
                 MethodReply::Multi(self.drive_condition.stream())
             }
-            Methods::GetDriveCondition => {
-                MethodReply::Single(Some(self.drive_condition.get().into()))
+            Method::Ftl(FtlMethod::GetDriveCondition) => {
+                MethodReply::Single(Some(Reply::Ftl(self.drive_condition.get().into())))
             }
-            Methods::SetDriveCondition { condition } => {
+            Method::Ftl(FtlMethod::SetDriveCondition { condition }) => {
                 if call.more().unwrap_or_default() {
-                    return MethodReply::Error(Errors::ParameterOutOfRange);
+                    return MethodReply::Error(ReplyError::Ftl(FtlError::ParameterOutOfRange));
                 }
                 self.drive_condition.set(*condition);
-                MethodReply::Single(Some(self.drive_condition.get().into()))
+                MethodReply::Single(Some(Reply::Ftl(self.drive_condition.get().into())))
             }
-            Methods::GetCoordinates => {
-                MethodReply::Single(Some(Replies::Coordinates(self.coordinates)))
+            Method::Ftl(FtlMethod::GetCoordinates) => {
+                MethodReply::Single(Some(Reply::Ftl(FtlReply::Coordinates(self.coordinates))))
             }
-            Methods::Jump { config } => {
+            Method::Ftl(FtlMethod::Jump { config }) => {
                 if call.more().unwrap_or_default() {
-                    return MethodReply::Error(Errors::ParameterOutOfRange);
+                    return MethodReply::Error(ReplyError::Ftl(FtlError::ParameterOutOfRange));
                 }
                 let tylium_required = config.speed * config.duration;
                 let mut condition = self.drive_condition.get();
                 if tylium_required > condition.tylium_level {
-                    return MethodReply::Error(Errors::NotEnoughEnergy);
+                    return MethodReply::Error(ReplyError::Ftl(FtlError::NotEnoughEnergy));
                 }
                 let current_coords = self.coordinates;
                 let config = *config;
@@ -223,25 +262,53 @@ impl Service for Ftl {
                 self.drive_condition.set(condition);
                 self.coordinates = coords;
 
-                MethodReply::Single(Some(Replies::Coordinates(coords)))
+                MethodReply::Single(Some(Reply::Ftl(FtlReply::Coordinates(coords))))
+            }
+            Method::VarlinkSrv(VarlinkSrvMethod::GetInfo) => {
+                let mut interfaces = mayheap::Vec::new();
+                for interface in INTERFACES {
+                    interfaces.push(interface).unwrap();
+                }
+                let info = Info::new(VENDOR, PRODUCT, VERSION, URL, interfaces);
+
+                MethodReply::Single(Some(Reply::VarlinkSrv(VarlinkSrvReply::Info(info))))
+            }
+            Method::VarlinkSrv(VarlinkSrvMethod::GetInterfaceDescription { interface }) => {
+                let description = match *interface {
+                    "org.varlink.service" => {
+                        InterfaceDescription::from(varlink_service::DESCRIPTION)
+                    }
+                    "org.example.ftl" => InterfaceDescription::from(FTL_INTERFACE_DESCRIPTION),
+                    _ => {
+                        return MethodReply::Error(ReplyError::VarlinkSrv(
+                            varlink_service::Error::InterfaceNotFound {
+                                interface: "unknown.interface",
+                            },
+                        ))
+                    }
+                };
+
+                MethodReply::Single(Some(Reply::VarlinkSrv(
+                    VarlinkSrvReply::InterfaceDescription(description),
+                )))
             }
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, CustomType)]
 struct DriveCondition {
     state: DriveState,
     tylium_level: i64,
 }
 
-impl From<DriveCondition> for Replies {
+impl From<DriveCondition> for FtlReply {
     fn from(drive_condition: DriveCondition) -> Self {
-        Replies::DriveCondition(drive_condition)
+        FtlReply::DriveCondition(drive_condition)
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum DriveState {
     Idle,
@@ -249,51 +316,80 @@ pub enum DriveState {
     Busy,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, CustomType)]
 struct DriveConfiguration {
     speed: i64,
     trajectory: i64,
     duration: i64,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, CustomType)]
 struct Coordinate {
     longitude: f32,
     latitude: f32,
     distance: i64,
 }
 
-impl From<Coordinate> for Replies {
+impl From<Coordinate> for FtlReply {
     fn from(coordinate: Coordinate) -> Self {
-        Replies::Coordinates(coordinate)
+        FtlReply::Coordinates(coordinate)
     }
 }
 
-/// The FTL service methods.
+//
+// Aggregate types for both interfaces our service implements.
+//
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+#[allow(unused)]
+enum Method<'a> {
+    Ftl(FtlMethod),
+    #[serde(borrow)]
+    VarlinkSrv(VarlinkSrvMethod<'a>),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+#[allow(unused)]
+enum Reply<'a> {
+    Ftl(FtlReply),
+    VarlinkSrv(VarlinkSrvReply<'a>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+#[allow(unused)]
+enum ReplyError<'a> {
+    Ftl(FtlError),
+    VarlinkSrv(varlink_service::Error<'a>),
+}
+
+//
+// Types for `org.example.ftl` interface.
+//
+
 #[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "parameters")]
-enum Methods {
+enum FtlMethod {
     GetDriveCondition,
     SetDriveCondition { condition: DriveCondition },
     GetCoordinates,
     Jump { config: DriveConfiguration },
 }
 
-/// The FTL service replies.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-enum Replies {
+enum FtlReply {
     DriveCondition(DriveCondition),
     Coordinates(Coordinate),
 }
 
-/// The FTL service error replies.
 #[prefix_all("org.example.ftl.")]
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "introspection", derive(ReplyError))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, introspect::ReplyError)]
 #[serde(tag = "error", content = "parameters")]
-enum Errors {
+enum FtlError {
     NotEnoughEnergy,
     ParameterOutOfRange,
     InvalidCoordinates {
@@ -306,12 +402,12 @@ enum Errors {
     },
 }
 
-impl core::fmt::Display for Errors {
+impl core::fmt::Display for FtlError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Errors::NotEnoughEnergy => write!(f, "Not enough energy"),
-            Errors::ParameterOutOfRange => write!(f, "Parameter out of range"),
-            Errors::InvalidCoordinates {
+            FtlError::NotEnoughEnergy => write!(f, "Not enough energy"),
+            FtlError::ParameterOutOfRange => write!(f, "Parameter out of range"),
+            FtlError::InvalidCoordinates {
                 latitude,
                 longitude,
                 reason,
@@ -322,43 +418,114 @@ impl core::fmt::Display for Errors {
                     latitude, longitude, reason
                 )
             }
-            Errors::SystemOverheat { temperature } => {
+            FtlError::SystemOverheat { temperature } => {
                 write!(f, "System overheating at {} degrees", temperature)
             }
         }
     }
 }
 
-impl std::error::Error for Errors {}
+impl std::error::Error for FtlError {}
 
-#[cfg(feature = "introspection")]
 #[test_log::test(tokio::test)]
 async fn reply_error_derive_works() {
     // Test that the ReplyError derive generates the expected variants.
-    assert_eq!(Errors::VARIANTS.len(), 4);
+    assert_eq!(FtlError::VARIANTS.len(), 4);
 
     // Unit variants
-    assert_eq!(Errors::VARIANTS[0].name(), "NotEnoughEnergy");
-    assert!(Errors::VARIANTS[0].has_no_fields());
+    assert_eq!(FtlError::VARIANTS[0].name(), "NotEnoughEnergy");
+    assert!(FtlError::VARIANTS[0].has_no_fields());
 
-    assert_eq!(Errors::VARIANTS[1].name(), "ParameterOutOfRange");
-    assert!(Errors::VARIANTS[1].has_no_fields());
+    assert_eq!(FtlError::VARIANTS[1].name(), "ParameterOutOfRange");
+    assert!(FtlError::VARIANTS[1].has_no_fields());
 
     // Variant with named fields
-    assert_eq!(Errors::VARIANTS[2].name(), "InvalidCoordinates");
-    assert!(!Errors::VARIANTS[2].has_no_fields());
-    let fields: Vec<_> = Errors::VARIANTS[2].fields().collect();
+    assert_eq!(FtlError::VARIANTS[2].name(), "InvalidCoordinates");
+    assert!(!FtlError::VARIANTS[2].has_no_fields());
+    let fields: Vec<_> = FtlError::VARIANTS[2].fields().collect();
     assert_eq!(fields.len(), 3);
     assert_eq!(fields[0].name(), "latitude");
     assert_eq!(fields[1].name(), "longitude");
     assert_eq!(fields[2].name(), "reason");
 
     // Another variant with named fields
-    assert_eq!(Errors::VARIANTS[3].name(), "SystemOverheat");
-    assert!(!Errors::VARIANTS[3].has_no_fields());
-    let fields: Vec<_> = Errors::VARIANTS[3].fields().collect();
+    assert_eq!(FtlError::VARIANTS[3].name(), "SystemOverheat");
+    assert!(!FtlError::VARIANTS[3].has_no_fields());
+    let fields: Vec<_> = FtlError::VARIANTS[3].fields().collect();
     assert_eq!(fields.len(), 1);
     assert_eq!(fields[0].name(), "temperature");
 }
 
 const SOCKET_PATH: &'static str = "/tmp/zlink-lowlevel-ftl.sock";
+
+const VENDOR: &str = "The FL project";
+const PRODUCT: &str = "FTL-capable Spaceship 🚀";
+const VERSION: &str = "1";
+const URL: &str = "https://want.ftl.now/";
+const INTERFACES: [&'static str; 2] = ["org.example.ftl", "org.varlink.service"];
+
+/// Interface definition for the FTL service.
+const FTL_INTERFACE_DESCRIPTION: &Interface<'static> = &{
+    use zlink::idl::{Comment, Method, Parameter};
+
+    const MONITOR_METHOD: &Method<'static> = &{
+        const OUT_PARAMS: &[&Parameter<'static>] =
+            &[&Parameter::new("condition", DriveCondition::TYPE, &[])];
+        Method::new(
+            "Monitor",
+            &[],
+            OUT_PARAMS,
+            &[&Comment::new("Monitor the drive condition")],
+        )
+    };
+    const CALCULATE_CONFIGURATION_METHOD: &Method<'static> = &{
+        const IN_PARAMS: &[&Parameter<'static>] = &[
+            &Parameter::new("current", Coordinate::TYPE, &[]),
+            &Parameter::new("target", Coordinate::TYPE, &[]),
+        ];
+        const OUT_PARAMS: &[&Parameter<'static>] = &[&Parameter::new(
+            "configuration",
+            DriveConfiguration::TYPE,
+            &[],
+        )];
+        Method::new(
+            "CalculateConfiguration",
+            IN_PARAMS,
+            OUT_PARAMS,
+            &[&Comment::new(
+                "Calculate the drive configuration for a given set of coordinates",
+            )],
+        )
+    };
+    const JUMP_METHOD: &Method<'static> = &{
+        const IN_PARAMS: &[&Parameter<'static>] = &[&Parameter::new(
+            "configuration",
+            DriveConfiguration::TYPE,
+            &[],
+        )];
+        Method::new(
+            "Jump",
+            IN_PARAMS,
+            &[],
+            &[&Comment::new("Jump to the calculated point in space")],
+        )
+    };
+
+    Interface::new(
+        "org.example.ftl",
+        &[MONITOR_METHOD, CALCULATE_CONFIGURATION_METHOD, JUMP_METHOD],
+        &[
+            DriveCondition::CUSTOM_TYPE,
+            DriveConfiguration::CUSTOM_TYPE,
+            Coordinate::CUSTOM_TYPE,
+        ],
+        FtlError::VARIANTS,
+        &[
+            &Comment::new("Interface to jump a spacecraft to another point in space."),
+            &Comment::new("The FTL Drive is the propulsion system to achieve"),
+            &Comment::new("faster-than-light travel through space. A ship making a"),
+            &Comment::new("properly calculated jump can arrive safely in planetary"),
+            &Comment::new("orbit, or alongside other ships or spaceborne objects."),
+        ],
+    )
+};

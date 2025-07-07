@@ -1,6 +1,6 @@
 //! End-to-end tests for varlink_service::Proxy trait using systemd-machined service.
 
-#![cfg(all(target_os = "linux", feature = "introspection", feature = "idl-parse"))]
+#![cfg(all(feature = "introspection", feature = "idl-parse"))]
 
 mod mock_machined_service;
 
@@ -10,7 +10,10 @@ use tokio::{
     select,
     time::{timeout, Duration},
 };
-use zlink::{unix, varlink_service::Proxy};
+use zlink::{
+    unix,
+    varlink_service::{self, Proxy},
+};
 
 #[tokio::test]
 async fn introspect_machined() {
@@ -87,10 +90,7 @@ async fn introspect_machined() {
             .unwrap()
             .unwrap();
         let interface = interface.parse().unwrap();
-        assert_eq!(
-            &interface,
-            mock_machined_service::VARLINK_SERVICE_DESCRIPTION
-        );
+        assert_eq!(&interface, varlink_service::DESCRIPTION);
 
         // Test with invalid interface name
         let _ = conn

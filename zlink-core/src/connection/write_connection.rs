@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_write() {
+    async fn write() {
         const WRITE_LEN: usize =
             // Every `0u8` is one byte.
             BUFFER_SIZE +
@@ -239,7 +239,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_enqueue_and_flush() {
+    async fn enqueue_and_flush() {
         // Test enqueuing multiple small items.
         let mut write_conn = WriteConnection::new(TestWriteHalf(5), 1); // "42\03\0"
 
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_enqueue_null_terminators() {
+    async fn enqueue_null_terminators() {
         // Test that null terminators are properly placed.
         let mut write_conn = WriteConnection::new(TestWriteHalf(4), 1); // "1\02\0"
 
@@ -267,7 +267,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     #[tokio::test]
-    async fn test_enqueue_buffer_extension() {
+    async fn enqueue_buffer_extension() {
         // Test buffer extension when enqueuing large items.
         let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
         let initial_len = write_conn.buffer.len();
@@ -281,7 +281,7 @@ mod tests {
 
     #[cfg(not(feature = "std"))]
     #[tokio::test]
-    async fn test_enqueue_buffer_overflow() {
+    async fn enqueue_buffer_overflow() {
         // Test buffer overflow error without std feature.
         let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
 
@@ -298,7 +298,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_flush_empty_buffer() {
+    async fn flush_empty_buffer() {
         // Test that flushing an empty buffer is a no-op.
         let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
 
@@ -308,7 +308,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multiple_flushes() {
+    async fn multiple_flushes() {
         // Test multiple flushes in a row.
         let mut write_conn = WriteConnection::new(TestWriteHalf(2), 1); // "1\0"
 
@@ -322,7 +322,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_enqueue_after_flush() {
+    async fn enqueue_after_flush() {
         // Test that enqueuing works properly after a flush.
         let mut write_conn = WriteConnection::new(TestWriteHalf(2), 1); // "2\0"
 
@@ -338,7 +338,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_call_pipelining() {
+    async fn call_pipelining() {
         use super::super::Call;
         use serde::{Deserialize, Serialize};
 
@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_pipelining_vs_individual_sends() {
+    async fn pipelining_vs_individual_sends() {
         use super::super::Call;
         use core::cell::Cell;
         use serde::{Deserialize, Serialize};

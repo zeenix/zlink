@@ -4,6 +4,37 @@ use serde::Serialize;
 
 use crate::introspect;
 
+use super::{Info, InterfaceDescription};
+
+/// `org.varlink.service` interface methods.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "std", derive(Deserialize))]
+#[serde(tag = "method", content = "parameters")]
+pub enum Method<'a> {
+    /// Get information about the Varlink service.
+    #[serde(rename = "org.varlink.service.GetInfo")]
+    GetInfo,
+    /// Get the description of the specified interface.
+    #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
+    GetInterfaceDescription {
+        /// The interface to get the description for.
+        interface: &'a str,
+    },
+}
+
+/// `org.varlink.service` interface replies.
+///
+/// This is only useful for service implementations. This is why this type only implements
+/// `Serialize` but not `Deserialize`.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum ReplyParams<'a> {
+    /// Reply for `GetInfo` method.
+    Info(Info<'a>),
+    /// Reply for `GetInterfaceDescription` method.
+    InterfaceDescription(InterfaceDescription<'a>),
+}
+
 /// Errors that can be returned by the `org.varlink.service` interface.
 #[derive(Debug, Clone, PartialEq, Serialize, introspect::ReplyError)]
 #[zlink(crate = "crate")]
@@ -42,6 +73,38 @@ pub enum Error<'a> {
     ExpectedMore,
 }
 
+#[cfg(feature = "std")]
+impl std::error::Error for Error<'_> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+
+impl core::fmt::Display for Error<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::InterfaceNotFound { interface } => {
+                write!(f, "Interface not found: {}", interface)
+            }
+            Error::MethodNotFound { method } => {
+                write!(f, "Method not found: {}", method)
+            }
+            Error::InvalidParameter { parameter } => {
+                write!(f, "Invalid parameter: {}", parameter)
+            }
+            Error::PermissionDenied => {
+                write!(f, "Permission denied")
+            }
+            Error::ExpectedMore => {
+                write!(f, "Expected more")
+            }
+            Error::MethodNotImplemented { method } => {
+                write!(f, "Method not implemented: {}", method)
+            }
+        }
+    }
+}
+
 /// Result type for Varlink service methods.
 pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
 
@@ -50,7 +113,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serialization() {
+    fn error_serialization() {
         let err = Error::InterfaceNotFound {
             interface: "com.example.missing",
         };
@@ -87,7 +150,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     #[test]
-    fn deserialization() {
+    fn error_deserialization() {
         // Test error with parameter
         let json = r#"{"error":"org.varlink.service.InterfaceNotFound","parameters":{"interface":"com.example.missing"}}"#;
 
@@ -130,7 +193,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     #[test]
-    fn round_trip_serialization() {
+    fn error_round_trip_serialization() {
         // Test with error that has parameters
         let original = Error::InterfaceNotFound {
             interface: "com.example.missing",
