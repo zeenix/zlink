@@ -7,10 +7,15 @@ use serde::{Deserialize, Serialize};
 use serde_prefix_all::prefix_all;
 use tokio::{select, time::sleep};
 use zlink::{
-    introspect::ReplyError,
+    idl::Interface,
+    introspect::{self, CustomType, ReplyError as _, Type},
     notified,
     service::MethodReply,
     unix::{bind, connect},
+    varlink_service::{
+        self, Info, InterfaceDescription, Method as VarlinkSrvMethod, Proxy as _,
+        ReplyParams as VarlinkSrvReply,
+    },
     Call, Service,
 };
 
@@ -65,6 +70,40 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
     // And a client that only calls methods.
     {
         let mut conn = connect(SOCKET_PATH).await?;
+
+        // Let's start with some introspection.
+        let info = conn.get_info().await?.map_err(|e| e.to_string())?;
+        assert_eq!(info.vendor, VENDOR);
+        assert_eq!(info.product, PRODUCT);
+        assert_eq!(info.version, VERSION);
+        assert_eq!(info.url, URL);
+        assert_eq!(info.interfaces, INTERFACES);
+
+        // Test `org.varlink.service` interface impl.
+        let interface = conn
+            .get_interface_description("org.varlink.service")
+            .await?
+            .map_err(|e| e.to_string())?;
+        let interface = interface.parse().unwrap();
+        assert_eq!(&interface, varlink_service::DESCRIPTION);
+
+        // Test `org.example.ftl` interface impl.
+        let interface = conn
+            .get_interface_description("org.example.ftl")
+            .await?
+            .map_err(|e| e.to_string())?;
+        let interface = interface.parse().unwrap();
+        assert_eq!(&interface, FTL_INTERFACE_DESCRIPTION);
+
+        // Unimplemented interface query should return an error.
+        let error = conn
+            .get_interface_description("org.varlink.unimplemented")
+            .await?
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            varlink_service::Error::InterfaceNotFound { .. }
+        ));
 
         // Ask for the drive condition, then set them and then ask again.
         let get_drive_cond = FtlMethod::GetDriveCondition.into();
@@ -172,41 +211,41 @@ impl Ftl {
 }
 
 impl Service for Ftl {
-    type MethodCall<'de> = FtlMethod;
-    type ReplyParams<'ser> = FtlReply;
+    type MethodCall<'de> = Method<'de>;
+    type ReplyParams<'ser> = Reply<'ser>;
     type ReplyStream = notified::Stream<Self::ReplyStreamParams>;
     type ReplyStreamParams = FtlReply;
-    type ReplyError<'ser> = FtlError;
+    type ReplyError<'ser> = ReplyError<'ser>;
 
     async fn handle<'ser>(
         &'ser mut self,
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            FtlMethod::GetDriveCondition if call.more().unwrap_or_default() => {
+            Method::Ftl(FtlMethod::GetDriveCondition) if call.more().unwrap_or_default() => {
                 MethodReply::Multi(self.drive_condition.stream())
             }
-            FtlMethod::GetDriveCondition => {
-                MethodReply::Single(Some(self.drive_condition.get().into()))
+            Method::Ftl(FtlMethod::GetDriveCondition) => {
+                MethodReply::Single(Some(Reply::Ftl(self.drive_condition.get().into())))
             }
-            FtlMethod::SetDriveCondition { condition } => {
+            Method::Ftl(FtlMethod::SetDriveCondition { condition }) => {
                 if call.more().unwrap_or_default() {
-                    return MethodReply::Error(FtlError::ParameterOutOfRange);
+                    return MethodReply::Error(ReplyError::Ftl(FtlError::ParameterOutOfRange));
                 }
                 self.drive_condition.set(*condition);
-                MethodReply::Single(Some(self.drive_condition.get().into()))
+                MethodReply::Single(Some(Reply::Ftl(self.drive_condition.get().into())))
             }
-            FtlMethod::GetCoordinates => {
-                MethodReply::Single(Some(FtlReply::Coordinates(self.coordinates)))
+            Method::Ftl(FtlMethod::GetCoordinates) => {
+                MethodReply::Single(Some(Reply::Ftl(FtlReply::Coordinates(self.coordinates))))
             }
-            FtlMethod::Jump { config } => {
+            Method::Ftl(FtlMethod::Jump { config }) => {
                 if call.more().unwrap_or_default() {
-                    return MethodReply::Error(FtlError::ParameterOutOfRange);
+                    return MethodReply::Error(ReplyError::Ftl(FtlError::ParameterOutOfRange));
                 }
                 let tylium_required = config.speed * config.duration;
                 let mut condition = self.drive_condition.get();
                 if tylium_required > condition.tylium_level {
-                    return MethodReply::Error(FtlError::NotEnoughEnergy);
+                    return MethodReply::Error(ReplyError::Ftl(FtlError::NotEnoughEnergy));
                 }
                 let current_coords = self.coordinates;
                 let config = *config;
@@ -223,13 +262,41 @@ impl Service for Ftl {
                 self.drive_condition.set(condition);
                 self.coordinates = coords;
 
-                MethodReply::Single(Some(FtlReply::Coordinates(coords)))
+                MethodReply::Single(Some(Reply::Ftl(FtlReply::Coordinates(coords))))
+            }
+            Method::VarlinkSrv(VarlinkSrvMethod::GetInfo) => {
+                let mut interfaces = mayheap::Vec::new();
+                for interface in INTERFACES {
+                    interfaces.push(interface).unwrap();
+                }
+                let info = Info::new(VENDOR, PRODUCT, VERSION, URL, interfaces);
+
+                MethodReply::Single(Some(Reply::VarlinkSrv(VarlinkSrvReply::Info(info))))
+            }
+            Method::VarlinkSrv(VarlinkSrvMethod::GetInterfaceDescription { interface }) => {
+                let description = match *interface {
+                    "org.varlink.service" => {
+                        InterfaceDescription::from(varlink_service::DESCRIPTION)
+                    }
+                    "org.example.ftl" => InterfaceDescription::from(FTL_INTERFACE_DESCRIPTION),
+                    _ => {
+                        return MethodReply::Error(ReplyError::VarlinkSrv(
+                            varlink_service::Error::InterfaceNotFound {
+                                interface: "unknown.interface",
+                            },
+                        ))
+                    }
+                };
+
+                MethodReply::Single(Some(Reply::VarlinkSrv(
+                    VarlinkSrvReply::InterfaceDescription(description),
+                )))
             }
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, CustomType)]
 struct DriveCondition {
     state: DriveState,
     tylium_level: i64,
@@ -241,7 +308,7 @@ impl From<DriveCondition> for FtlReply {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum DriveState {
     Idle,
@@ -249,14 +316,14 @@ pub enum DriveState {
     Busy,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, CustomType)]
 struct DriveConfiguration {
     speed: i64,
     trajectory: i64,
     duration: i64,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, CustomType)]
 struct Coordinate {
     longitude: f32,
     latitude: f32,
@@ -269,7 +336,39 @@ impl From<Coordinate> for FtlReply {
     }
 }
 
-/// The FTL service methods.
+//
+// Aggregate types for both interfaces our service implements.
+//
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+#[allow(unused)]
+enum Method<'a> {
+    Ftl(FtlMethod),
+    #[serde(borrow)]
+    VarlinkSrv(VarlinkSrvMethod<'a>),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+#[allow(unused)]
+enum Reply<'a> {
+    Ftl(FtlReply),
+    VarlinkSrv(VarlinkSrvReply<'a>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+#[allow(unused)]
+enum ReplyError<'a> {
+    Ftl(FtlError),
+    VarlinkSrv(varlink_service::Error<'a>),
+}
+
+//
+// Types for `org.example.ftl` interface.
+//
+
 #[prefix_all("org.example.ftl.")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method", content = "parameters")]
@@ -280,7 +379,6 @@ enum FtlMethod {
     Jump { config: DriveConfiguration },
 }
 
-/// The FTL service replies.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 enum FtlReply {
@@ -288,9 +386,8 @@ enum FtlReply {
     Coordinates(Coordinate),
 }
 
-/// The FTL service error replies.
 #[prefix_all("org.example.ftl.")]
-#[derive(Debug, Serialize, Deserialize, PartialEq, ReplyError)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, introspect::ReplyError)]
 #[serde(tag = "error", content = "parameters")]
 enum FtlError {
     NotEnoughEnergy,
@@ -360,3 +457,75 @@ async fn reply_error_derive_works() {
 }
 
 const SOCKET_PATH: &'static str = "/tmp/zlink-lowlevel-ftl.sock";
+
+const VENDOR: &str = "The FL project";
+const PRODUCT: &str = "FTL-capable Spaceship 🚀";
+const VERSION: &str = "1";
+const URL: &str = "https://want.ftl.now/";
+const INTERFACES: [&'static str; 2] = ["org.example.ftl", "org.varlink.service"];
+
+/// Interface definition for the FTL service.
+const FTL_INTERFACE_DESCRIPTION: &Interface<'static> = &{
+    use zlink::idl::{Comment, Method, Parameter};
+
+    const MONITOR_METHOD: &Method<'static> = &{
+        const OUT_PARAMS: &[&Parameter<'static>] =
+            &[&Parameter::new("condition", DriveCondition::TYPE, &[])];
+        Method::new(
+            "Monitor",
+            &[],
+            OUT_PARAMS,
+            &[&Comment::new("Monitor the drive condition")],
+        )
+    };
+    const CALCULATE_CONFIGURATION_METHOD: &Method<'static> = &{
+        const IN_PARAMS: &[&Parameter<'static>] = &[
+            &Parameter::new("current", Coordinate::TYPE, &[]),
+            &Parameter::new("target", Coordinate::TYPE, &[]),
+        ];
+        const OUT_PARAMS: &[&Parameter<'static>] = &[&Parameter::new(
+            "configuration",
+            DriveConfiguration::TYPE,
+            &[],
+        )];
+        Method::new(
+            "CalculateConfiguration",
+            IN_PARAMS,
+            OUT_PARAMS,
+            &[&Comment::new(
+                "Calculate the drive configuration for a given set of coordinates",
+            )],
+        )
+    };
+    const JUMP_METHOD: &Method<'static> = &{
+        const IN_PARAMS: &[&Parameter<'static>] = &[&Parameter::new(
+            "configuration",
+            DriveConfiguration::TYPE,
+            &[],
+        )];
+        Method::new(
+            "Jump",
+            IN_PARAMS,
+            &[],
+            &[&Comment::new("Jump to the calculated point in space")],
+        )
+    };
+
+    Interface::new(
+        "org.example.ftl",
+        &[MONITOR_METHOD, CALCULATE_CONFIGURATION_METHOD, JUMP_METHOD],
+        &[
+            DriveCondition::CUSTOM_TYPE,
+            DriveConfiguration::CUSTOM_TYPE,
+            Coordinate::CUSTOM_TYPE,
+        ],
+        FtlError::VARIANTS,
+        &[
+            &Comment::new("Interface to jump a spacecraft to another point in space."),
+            &Comment::new("The FTL Drive is the propulsion system to achieve"),
+            &Comment::new("faster-than-light travel through space. A ship making a"),
+            &Comment::new("properly calculated jump can arrive safely in planetary"),
+            &Comment::new("orbit, or alongside other ships or spaceborne objects."),
+        ],
+    )
+};
