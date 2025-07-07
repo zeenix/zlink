@@ -63,7 +63,7 @@ impl Type for Person {
 }
 
 #[test]
-fn test_custom_struct_type_integration() {
+fn custom_struct_type_integration() {
     // Test that TYPE is available and returns correct custom type
     match Point::CUSTOM_TYPE {
         idl::CustomType::Object(obj) => {
@@ -88,7 +88,7 @@ fn test_custom_struct_type_integration() {
 }
 
 #[test]
-fn test_custom_enum_type_integration() {
+fn custom_enum_type_integration() {
     // Test enum custom type
     match Color::CUSTOM_TYPE {
         idl::CustomType::Enum(enm) => {
@@ -111,7 +111,7 @@ fn test_custom_enum_type_integration() {
 }
 
 #[test]
-fn test_complex_custom_type_integration() {
+fn complex_custom_type_integration() {
     // Test complex struct with multiple field types
     match Person::CUSTOM_TYPE {
         idl::CustomType::Object(obj) => {
@@ -134,7 +134,7 @@ fn test_complex_custom_type_integration() {
 }
 
 #[test]
-fn test_const_compatibility() {
+fn const_compatibility() {
     // Verify that TYPE can be used in const contexts
     const _POINT_TYPE: &idl::CustomType<'static> = Point::CUSTOM_TYPE;
     const _COLOR_TYPE: &idl::CustomType<'static> = Color::CUSTOM_TYPE;
@@ -142,7 +142,7 @@ fn test_const_compatibility() {
 }
 
 #[test]
-fn test_trait_imports() {
+fn trait_imports() {
     // This test verifies that we can import the custom Type trait
     // and it doesn't conflict with the regular Type trait
 
@@ -152,7 +152,7 @@ fn test_trait_imports() {
 }
 
 #[test]
-fn test_type_accessor_methods() {
+fn type_accessor_methods() {
     // Test the convenience methods on custom types
     let point_type = Point::CUSTOM_TYPE;
     assert!(point_type.is_object());

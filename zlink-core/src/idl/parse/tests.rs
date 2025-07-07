@@ -6,7 +6,7 @@
 use super::*;
 
 #[test]
-fn test_parse_primitive_types() {
+fn parse_primitive_types() {
     assert_eq!(parse_type("bool").unwrap(), Type::Bool);
     assert_eq!(parse_type("int").unwrap(), Type::Int);
     assert_eq!(parse_type("float").unwrap(), Type::Float);
@@ -15,7 +15,7 @@ fn test_parse_primitive_types() {
 }
 
 #[test]
-fn test_parse_custom_types() {
+fn parse_custom_types() {
     match parse_type("Person").unwrap() {
         Type::Custom(name) => {
             assert_eq!(name, "Person");
@@ -25,7 +25,7 @@ fn test_parse_custom_types() {
 }
 
 #[test]
-fn test_parse_composite_types() {
+fn parse_composite_types() {
     // Test optional type
     match parse_type("?int").unwrap() {
         Type::Optional(optional) => {
@@ -52,7 +52,7 @@ fn test_parse_composite_types() {
 }
 
 #[test]
-fn test_parse_nested_types() {
+fn parse_nested_types() {
     // Test nested optional array
     match parse_type("?[]string").unwrap() {
         Type::Optional(optional) => match &*optional {
@@ -66,7 +66,7 @@ fn test_parse_nested_types() {
 }
 
 #[test]
-fn test_parse_inline_enum() {
+fn parse_inline_enum() {
     match parse_type("(one, two, three)").unwrap() {
         Type::Enum(variants) => {
             let collected: Vec<_> = variants.iter().collect();
@@ -77,7 +77,7 @@ fn test_parse_inline_enum() {
 }
 
 #[test]
-fn test_parse_inline_struct() {
+fn parse_inline_struct() {
     match parse_type("(x: float, y: float)").unwrap() {
         Type::Object(fields) => {
             let collected: Vec<_> = fields.iter().collect();
@@ -92,21 +92,21 @@ fn test_parse_inline_struct() {
 }
 
 #[test]
-fn test_parse_whitespace() {
+fn parse_whitespace() {
     // Test that whitespace is handled correctly
     assert_eq!(parse_type("  bool  ").unwrap(), Type::Bool);
     assert_eq!(parse_type("\tbool\n").unwrap(), Type::Bool);
 }
 
 #[test]
-fn test_parse_errors() {
+fn parse_errors() {
     assert!(parse_type("").is_err());
     assert!(parse_type("invalid").is_err());
     assert!(parse_type("bool extra").is_err());
 }
 
 #[test]
-fn test_parse_interface_name() {
+fn parse_interface_name() {
     let input = b"org.example.test";
     let mut input_mut = input.as_slice();
     let result = interface_name(&mut input_mut).unwrap();
@@ -223,7 +223,7 @@ fn test_parse_custom_type() {
 }
 
 #[test]
-fn test_parse_mixed_field_types() {
+fn parse_mixed_field_types() {
     // Mixed field types (some with types, some without) should be treated as an error
     let input = "type Mixed (field1, field2: string, field3)";
     let result = parse_custom_type(input);
@@ -234,7 +234,7 @@ fn test_parse_mixed_field_types() {
 }
 
 #[test]
-fn test_parse_empty_custom_type() {
+fn parse_empty_custom_type() {
     // Empty custom types should be treated as objects
     let input = "type Empty ()";
     let custom_type = parse_custom_type(input).unwrap();
@@ -258,7 +258,7 @@ fn test_parse_field() {
 }
 
 #[test]
-fn test_parse_field_with_comments() {
+fn parse_field_with_comments() {
     let input = r#"# Field comment
 name: string"#;
     let field = parse_field(input).unwrap();
@@ -281,7 +281,7 @@ items: []int"#;
 }
 
 #[test]
-fn test_parse_parameter_with_comments() {
+fn parse_parameter_with_comments() {
     let input = r#"# Parameter comment
 name: string"#;
     let param = parse_field(input).unwrap(); // Parameter is alias for Field
@@ -348,7 +348,7 @@ fn parse_error_messages() {
 }
 
 #[test]
-fn test_parse_comment() {
+fn parse_comment() {
     let input = "# This is a comment";
     let mut input_bytes = input.as_bytes();
     let comment = comment_def(&mut input_bytes).unwrap();
@@ -357,7 +357,7 @@ fn test_parse_comment() {
 }
 
 #[test]
-fn test_parse_interface_with_comments() {
+fn parse_interface_with_comments() {
     let input = r#"
 interface org.example.test
 
@@ -400,7 +400,7 @@ error NotFound(id: int)
 }
 
 #[test]
-fn test_ws_with_comments() {
+fn ws_with_comments() {
     let input = "  # This is a comment\n  \t# Another comment\n  some_text";
     let mut input_bytes = input.as_bytes();
 
@@ -425,7 +425,7 @@ fn test_ws_with_comments() {
 }
 
 #[test]
-fn test_parse_simple_enum() {
+fn parse_simple_enum() {
     let input = "(one, two, three)";
     let mut input_bytes = input.as_bytes();
     match enum_type(&mut input_bytes) {
@@ -440,7 +440,7 @@ fn test_parse_simple_enum() {
 }
 
 #[test]
-fn test_parse_acquiremetadata_enum_directly() {
+fn parse_acquiremetadata_enum_directly() {
     let input = r#"(
 	# Do not include metadata in the output
 	no,
@@ -471,7 +471,7 @@ fn test_parse_acquiremetadata_enum_directly() {
 }
 
 #[test]
-fn test_parse_enum_with_comments() {
+fn parse_enum_with_comments() {
     let input = r#"type AcquireMetadata(
 	# Do not include metadata in the output
 	no,
@@ -494,7 +494,7 @@ fn test_parse_enum_with_comments() {
 }
 
 #[test]
-fn test_multiple_consecutive_comments() {
+fn multiple_consecutive_comments() {
     let input = r#"
 interface org.example.test
 
@@ -534,7 +534,7 @@ error SimpleError()
 }
 
 #[test]
-fn test_comments_attached_to_members() {
+fn comments_attached_to_members() {
     let input = r#"
 interface org.example.test
 
@@ -576,7 +576,7 @@ error NotFound(id: int)
 }
 
 #[test]
-fn test_comprehensive_comment_parsing() {
+fn comprehensive_comment_parsing() {
     let input = r#"
 interface org.example.comprehensive
 
@@ -695,7 +695,7 @@ method GetStatus() -> (status: string)
 }
 
 #[test]
-fn test_comment_content_edge_cases() {
+fn comment_content_edge_cases() {
     let input = r#"
 interface org.example.edgecases
 
@@ -772,7 +772,7 @@ fn parse_field(input: &str) -> Result<Field<'_>, crate::Error> {
 }
 
 #[test]
-fn test_method_with_parameter_comments() {
+fn method_with_parameter_comments() {
     let input = r#"
 interface org.example.test
 
@@ -829,7 +829,7 @@ message: string
 }
 
 #[test]
-fn test_error_with_field_comments() {
+fn error_with_field_comments() {
     let input = r#"
 interface org.example.test
 
@@ -866,7 +866,7 @@ message: string
 }
 
 #[test]
-fn test_struct_type_with_field_comments() {
+fn struct_type_with_field_comments() {
     let input = r#"
 interface org.example.test
 
@@ -913,7 +913,7 @@ email: ?string
 }
 
 #[test]
-fn test_interface_with_comments() {
+fn interface_with_comments() {
     let input = r#"
 # Interface documentation - line 1
 # Interface documentation - line 2
@@ -936,7 +936,7 @@ method SimpleMethod() -> ()
 }
 
 #[test]
-fn test_custom_type_with_comments() {
+fn custom_type_with_comments() {
     let input = r#"
 # Type documentation - line 1
 # Type documentation - line 2
@@ -968,7 +968,7 @@ type Person(
 }
 
 #[test]
-fn test_interface_and_type_comments_integration() {
+fn interface_and_type_comments_integration() {
     let input = r#"
 # Main interface documentation
 # Describes the core API

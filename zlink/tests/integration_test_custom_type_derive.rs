@@ -11,7 +11,7 @@
 use zlink::{idl, introspect::CustomType};
 
 #[test]
-fn test_custom_type_derive_integration() {
+fn custom_type_derive_integration() {
     // Test struct with CustomType derive
     #[derive(CustomType)]
     #[allow(dead_code)]
@@ -41,7 +41,7 @@ fn test_custom_type_derive_integration() {
 }
 
 #[test]
-fn test_custom_enum_derive_integration() {
+fn custom_enum_derive_integration() {
     // Test enum with CustomType derive
     #[derive(CustomType)]
     #[allow(dead_code)]
@@ -73,7 +73,7 @@ fn test_custom_enum_derive_integration() {
 }
 
 #[test]
-fn test_unit_struct_derive_integration() {
+fn unit_struct_derive_integration() {
     // Test unit struct
     #[derive(CustomType)]
     #[allow(dead_code)]
@@ -91,7 +91,7 @@ fn test_unit_struct_derive_integration() {
 }
 
 #[test]
-fn test_complex_struct_derive_integration() {
+fn complex_struct_derive_integration() {
     // Test complex struct with various field types
     #[derive(CustomType)]
     #[allow(dead_code)]
@@ -122,7 +122,7 @@ fn test_complex_struct_derive_integration() {
 }
 
 #[test]
-fn test_const_compatibility() {
+fn const_compatibility() {
     #[derive(CustomType)]
     #[allow(dead_code)]
     struct TestStruct {
@@ -142,7 +142,7 @@ fn test_const_compatibility() {
 }
 
 #[test]
-fn test_trait_and_derive_same_import() {
+fn trait_and_derive_same_import() {
     // This test verifies that we can import both the trait and derive macro
     // with the same name from the custom module
     use zlink::introspect::CustomType;
@@ -159,7 +159,7 @@ fn test_trait_and_derive_same_import() {
 }
 
 #[test]
-fn test_single_variant_enum() {
+fn single_variant_enum() {
     #[derive(CustomType)]
     #[allow(dead_code)]
     enum SingleVariant {
@@ -179,7 +179,7 @@ fn test_single_variant_enum() {
 }
 
 #[test]
-fn test_type_names_preserved() {
+fn type_names_preserved() {
     // Test that type names are exactly preserved as written
     #[derive(CustomType)]
     #[allow(dead_code, non_camel_case_types)]
@@ -207,7 +207,7 @@ fn test_type_names_preserved() {
 }
 
 #[test]
-fn test_derive_macro_available_from_main_module() {
+fn derive_macro_available_from_main_module() {
     // Verify the derive macro is available from the expected location
     use zlink::introspect::CustomType;
 
@@ -222,7 +222,7 @@ fn test_derive_macro_available_from_main_module() {
 }
 
 #[test]
-fn test_enum_variant_names_not_renamed_for_encoding() {
+fn enum_variant_names_not_renamed_for_encoding() {
     // This test verifies that enum variant names in Type are preserved exactly
     // as written in the code, ignoring any serde renaming attributes
     use serde::{Deserialize, Serialize};
