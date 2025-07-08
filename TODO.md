@@ -1,17 +1,32 @@
 # TODO
 
-* IDL <https://varlink.org/Interface-Definition>
-  * zlink
-    * impl [`org.varlink.service`](https://varlink.org/Service>) interface for `lowlevel-ftl` test
-      * Make use of `introspect` and `varlink_service` API
-      * wrapper enum needed for errors
-        * `untagged` repr
+## Release 0.1.0
+
+* zlink-macros
+  * Display impls of IDL types should add comments.
+  * derive macros should take the doc comments and add them to the appropriate IDL type generated.
 * zlink-core
-  * Make idl::List have `str` as type so `CustomEnum` can contain `&st` instead of `&&str`
   * `varlink_service::Proxy` methods should allow chaining.
+* zlink-macros
+  * `ReplyError`
+    * No longer gated by `introspection` feature
+    * handles Serialize+Deserialize?
+    * introspection parts gated by `introspection` feature
+* zlink-core
+    * Move `ReplyError` macro re-export to crate root
+    * Update connection docs to recommend/show use of `ReplyError` macro
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature
+* zlink-codegen (generates code from IDL)
+  * Make use of `zlink_core::idl` module
+  * tests
+* mdbook-based tutorial
+* More metadata in Cargo.toml files
+
+## Release 0.2.0
+
+* zlink-macros
   * `service` attribute macro (see below)
     * gated behind `service` feature
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
@@ -23,20 +38,13 @@
       * will require all custom types to be declared in an attribute
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
-  * Handle renaming in introspection derives.
-    * Should we just use serde's attributes? (tricky for `ReplyError`)
+  * Update connection docs to recommend/show use of `proxy` & `service` macros.
+  * Update Tutorial
 * zlink-core
   * cargo features to allow use of `idl` only
-* zlink-codegen (generates code from IDL)
-  * Make use of `zlink_core::idl` module
-* zlink-usb
-  * USB (using nusb) transport
-* zlink-micro
-  * embassy_usb-based transport
-    * Driver impl needs to be provided by the user (e.g `embassy-usb-synopsys-otg` for STM32).
-  * Will need to create a connection concept through multiplexing
-    * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
-  * Ensure cancelation safety (if needed by Server/Service) is satisfied
+
+## Release 0.3.0
+
 * zlink-macros
   * `proxy` pipelining
     * generate separate send/receive methods for each method in the service
@@ -45,8 +53,20 @@
     * assume fields in a specific order
   * alloc/std feature (default)
     * Make alloc feature of serde optional
-* More metadata in Cargo.toml files
+* zlink-usb
+  * USB (using nusb) transport
+* zlink-micro
+  * embassy_usb-based transport
+    * Driver impl needs to be provided by the user (e.g `embassy-usb-synopsys-otg` for STM32).
+  * Will need to create a connection concept through multiplexing
+    * <https://docs.rs/maitake-sync/latest/maitake_sync/struct.WaitMap.html>
+  * Ensure cancelation safety (if needed by Server/Service) is satisfied
 
+## Future work
+
+* zlink-macros
+  * Handle renaming in introspection derives.
+    * Should we just use serde's attributes?
 * zlink-core
   * FDs
   * Graceful shutdown
