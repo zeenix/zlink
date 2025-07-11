@@ -61,6 +61,10 @@ impl<'a> CustomObject<'a> {
 
 impl<'a> fmt::Display for CustomObject<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Comments first
+        for comment in self.comments.iter() {
+            writeln!(f, "{comment}")?;
+        }
         write!(f, "type {} (", self.name)?;
         let mut first = true;
         for field in self.fields.iter() {
@@ -77,5 +81,31 @@ impl<'a> fmt::Display for CustomObject<'a> {
 impl<'a> PartialEq for CustomObject<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.fields == other.fields
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::idl::{Comment, Field, Type};
+    use core::fmt::Write;
+
+    #[test]
+    fn display_with_comments() {
+        let comment1 = Comment::new("User data structure");
+        let comment2 = Comment::new("Contains basic user information");
+        let comments = [&comment1, &comment2];
+
+        let name_field = Field::new("name", &Type::String, &[]);
+        let age_field = Field::new("age", &Type::Int, &[]);
+        let fields = [&name_field, &age_field];
+
+        let custom_object = CustomObject::new("User", &fields, &comments);
+        let mut displayed = mayheap::String::<128>::new();
+        write!(&mut displayed, "{}", custom_object).unwrap();
+        assert_eq!(
+            displayed,
+            "# User data structure\n# Contains basic user information\ntype User (name: string, age: int)"
+        );
     }
 }

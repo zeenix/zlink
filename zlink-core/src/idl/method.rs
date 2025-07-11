@@ -82,6 +82,10 @@ impl<'a> Method<'a> {
 
 impl<'a> fmt::Display for Method<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Comments first
+        for comment in self.comments.iter() {
+            writeln!(f, "{comment}")?;
+        }
         write!(f, "method {}(", self.name)?;
         let mut first = true;
         for param in self.inputs.iter() {
@@ -167,5 +171,25 @@ mod tests {
         let mut displayed = mayheap::String::<64>::new();
         write!(&mut displayed, "{}", method).unwrap();
         assert_eq!(displayed, "method Register(name: string, id: string) -> ()");
+    }
+
+    #[test]
+    fn display_with_comments() {
+        use crate::idl::Comment;
+        use core::fmt::Write;
+
+        let comment1 = Comment::new("Get user information");
+        let comment2 = Comment::new("Returns user details by ID");
+        let comments = [&comment1, &comment2];
+
+        let input = Parameter::new("id", &Type::Int, &[]);
+        let output = Parameter::new("user", &Type::Custom("User"), &[]);
+        let inputs = [&input];
+        let outputs = [&output];
+
+        let method = Method::new("GetUser", &inputs, &outputs, &comments);
+        let mut displayed = mayheap::String::<128>::new();
+        write!(&mut displayed, "{}", method).unwrap();
+        assert_eq!(displayed, "# Get user information\n# Returns user details by ID\nmethod GetUser(id: int) -> (user: User)");
     }
 }

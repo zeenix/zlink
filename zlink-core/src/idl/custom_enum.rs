@@ -61,6 +61,10 @@ impl<'a> CustomEnum<'a> {
 
 impl<'a> fmt::Display for CustomEnum<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Comments first
+        for comment in self.comments.iter() {
+            writeln!(f, "{comment}")?;
+        }
         write!(f, "type {} (", self.name)?;
         let mut first = true;
         for variant in self.variants.iter() {
@@ -77,5 +81,32 @@ impl<'a> fmt::Display for CustomEnum<'a> {
 impl<'a> PartialEq for CustomEnum<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.variants == other.variants
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::idl::Comment;
+    use core::fmt::Write;
+
+    #[test]
+    fn display_with_comments() {
+        let comment1 = Comment::new("Status enumeration");
+        let comment2 = Comment::new("Represents current state");
+        let comments = [&comment1, &comment2];
+
+        let var1 = "active";
+        let var2 = "inactive";
+        let var3 = "pending";
+        let variants = [&var1, &var2, &var3];
+
+        let custom_enum = CustomEnum::new("Status", &variants, &comments);
+        let mut displayed = mayheap::String::<128>::new();
+        write!(&mut displayed, "{}", custom_enum).unwrap();
+        assert_eq!(
+            displayed,
+            "# Status enumeration\n# Represents current state\ntype Status (active, inactive, pending)"
+        );
     }
 }

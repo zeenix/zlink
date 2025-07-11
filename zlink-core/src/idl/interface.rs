@@ -91,6 +91,10 @@ impl<'a> Interface<'a> {
 
 impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Comments first
+        for comment in self.comments.iter() {
+            writeln!(f, "{comment}")?;
+        }
         write!(f, "interface {}", self.name)?;
         for custom_type in self.custom_types.iter() {
             write!(f, "\n\n{custom_type}")?;
@@ -581,5 +585,116 @@ error DNSError(
 
         // Compare the parsed interface with our manually constructed one.
         assert_eq!(parsed_interface, interface);
+    }
+
+    #[test]
+    fn display_with_comments() {
+        use crate::idl::{Comment, Method};
+        use core::fmt::Write;
+
+        let comment1 = Comment::new("Interface documentation");
+        let comment2 = Comment::new("Version 1.0");
+        let interface_comments = [&comment1, &comment2];
+
+        let method_comment = Comment::new("Test method");
+        let method_comments = [&method_comment];
+        let method = Method::new("Test", &[], &[], &method_comments);
+        let methods = [&method];
+
+        let interface = Interface::new("org.example.test", &methods, &[], &[], &interface_comments);
+
+        let mut output = mayheap::String::<256>::new();
+        write!(&mut output, "{}", interface).unwrap();
+
+        let expected = "# Interface documentation\n# Version 1.0\ninterface org.example.test\n\n# Test method\nmethod Test() -> ()";
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn comprehensive_display_with_nested_comments() {
+        use crate::idl::{
+            Comment, CustomObject, CustomType, Error, Field, Method, Parameter, Type,
+        };
+        use core::fmt::Write;
+
+        // Interface comments
+        let interface_comment = Comment::new("Comprehensive test interface");
+        let interface_comments = [&interface_comment];
+
+        // Custom type with comments
+        let type_comment = Comment::new("User data structure");
+        let type_comments = [&type_comment];
+        let name_field_comment = Comment::new("Full name");
+        let name_field_comments = [&name_field_comment];
+        let name_field = Field::new("name", &Type::String, &name_field_comments);
+        let age_field = Field::new("age", &Type::Int, &[]);
+        let fields = [&name_field, &age_field];
+        let user_object = CustomObject::new("User", &fields, &type_comments);
+        let user_type = CustomType::from(user_object);
+        let custom_types = [&user_type];
+
+        // Method with comments
+        let method_comment = Comment::new("Get user by ID");
+        let method_comments = [&method_comment];
+        let id_param_comment = Comment::new("User ID");
+        let id_param_comments = [&id_param_comment];
+        let id_param = Parameter::new("id", &Type::Int, &id_param_comments);
+        let user_param = Parameter::new("user", &Type::Custom("User"), &[]);
+        let inputs = [&id_param];
+        let outputs = [&user_param];
+        let method = Method::new("GetUser", &inputs, &outputs, &method_comments);
+        let methods = [&method];
+
+        // Error with comments
+        let error_comment = Comment::new("User not found error");
+        let error_comments = [&error_comment];
+        let msg_field = Field::new("message", &Type::String, &[]);
+        let error_fields = [&msg_field];
+        let error = Error::new("UserNotFound", &error_fields, &error_comments);
+        let errors = [&error];
+
+        let interface = Interface::new(
+            "org.example.comprehensive",
+            &methods,
+            &custom_types,
+            &errors,
+            &interface_comments,
+        );
+
+        let mut output = mayheap::String::<512>::new();
+        write!(&mut output, "{}", interface).unwrap();
+
+        let expected = "# Comprehensive test interface\ninterface org.example.comprehensive\n\n# User data structure\ntype User (# Full name\nname: string, age: int)\n\n# Get user by ID\nmethod GetUser(# User ID\nid: int) -> (user: User)\n\n# User not found error\nerror UserNotFound (message: string)";
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    #[cfg(feature = "idl-parse")]
+    fn parse_and_display_round_trip_with_comments() {
+        use core::fmt::Write;
+
+        let input = r#"# Main interface documentation
+# Version 1.0
+interface org.example.test
+
+# User data structure
+# Contains basic information
+type User (# User's full name
+name: string, age: int)
+
+# Get user by ID
+# Returns user details
+method GetUser(# User identifier
+id: int) -> (user: User)
+
+# User not found error
+error UserNotFound (id: int)"#;
+
+        let parsed = Interface::try_from(input).unwrap();
+        let mut output = mayheap::String::<512>::new();
+        write!(&mut output, "{}", parsed).unwrap();
+
+        // The output should exactly match the input (normalized whitespace)
+        assert_eq!(output.trim(), input.trim());
     }
 }
