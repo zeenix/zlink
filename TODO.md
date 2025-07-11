@@ -8,14 +8,6 @@
 * zlink-core
   * `varlink_service::Proxy` methods should allow chaining.
 * zlink-macros
-  * `ReplyError`
-    * No longer gated by `introspection` feature
-    * handles Serialize+Deserialize?
-    * introspection parts gated by `introspection` feature
-* zlink-core
-    * Move `ReplyError` macro re-export to crate root
-    * Update connection docs to recommend/show use of `ReplyError` macro
-* zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature
 * zlink-codegen (generates code from IDL)
