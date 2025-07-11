@@ -57,6 +57,10 @@ impl<'a> Field<'a> {
 
 impl<'a> fmt::Display for Field<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Comments first
+        for comment in self.comments.iter() {
+            writeln!(f, "{comment}")?;
+        }
         write!(f, "{}: {}", self.name, self.ty)
     }
 }
@@ -84,5 +88,23 @@ mod tests {
         let param: Parameter<'_> = Field::new("input", &Type::String, &[]);
         assert_eq!(param.name(), "input");
         assert_eq!(param.ty(), &Type::String);
+    }
+
+    #[test]
+    fn display_with_comments() {
+        use crate::idl::Comment;
+        use core::fmt::Write;
+
+        let comment1 = Comment::new("User's email address");
+        let comment2 = Comment::new("Must be valid format");
+        let comments = [&comment1, &comment2];
+
+        let field = Field::new("email", &Type::String, &comments);
+        let mut displayed = mayheap::String::<128>::new();
+        write!(&mut displayed, "{}", field).unwrap();
+        assert_eq!(
+            displayed,
+            "# User's email address\n# Must be valid format\nemail: string"
+        );
     }
 }

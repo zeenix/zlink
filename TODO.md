@@ -2,8 +2,10 @@
 
 ## Release 0.1.0
 
+* zlink-core
+  * Fix `cargo c -p zlink-core --release --no-default-features --features embedded,introspection`
+     * Also add to the CI
 * zlink-macros
-  * Display impls of IDL types should add comments.
   * derive macros should take the doc comments and add them to the appropriate IDL type generated.
 * zlink-core
   * `varlink_service::Proxy` methods should allow chaining.

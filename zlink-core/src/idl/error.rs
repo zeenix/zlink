@@ -63,6 +63,10 @@ impl<'a> Error<'a> {
 
 impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Comments first
+        for comment in self.comments.iter() {
+            writeln!(f, "{comment}")?;
+        }
         write!(f, "error {} (", self.name)?;
         let mut first = true;
         for field in self.fields.iter() {
@@ -111,5 +115,27 @@ mod tests {
         let error = Error::new("UnknownError", &[], &[]);
         assert_eq!(error.name(), "UnknownError");
         assert!(error.has_no_fields());
+    }
+
+    #[test]
+    fn display_with_comments() {
+        use crate::idl::Comment;
+        use core::fmt::Write;
+
+        let comment1 = Comment::new("Authentication failed");
+        let comment2 = Comment::new("Invalid credentials provided");
+        let comments = [&comment1, &comment2];
+
+        let message_field = Field::new("message", &Type::String, &[]);
+        let code_field = Field::new("code", &Type::Int, &[]);
+        let fields = [&message_field, &code_field];
+
+        let error = Error::new("AuthError", &fields, &comments);
+        let mut displayed = mayheap::String::<128>::new();
+        write!(&mut displayed, "{}", error).unwrap();
+        assert_eq!(
+            displayed,
+            "# Authentication failed\n# Invalid credentials provided\nerror AuthError (message: string, code: int)"
+        );
     }
 }
