@@ -8,13 +8,13 @@
 * zlink-core
   * `varlink_service::Proxy` methods should allow chaining.
 * zlink-macros
-  * Add `SerializeMethodCall`, `SerializeReplyError`, `DeserializeMethodCall`, `DeserializeReplyError` derives
-    * Operate on enums
-    * add `std` & `embedded` features
-    * Wrapper for serde derives
-    * manual `Deserialize` impl for `no_std`
-      * assume tag field to be the first one
-       * document assumption in macro docs
+  * `ReplyError`
+    * No longer gated by `introspection` feature
+    * handles Serialize+Deserialize?
+    * introspection parts gated by `introspection` feature
+* zlink-core
+    * Move `ReplyError` macro re-export to crate root
+    * Update connection docs to recommend/show use of `ReplyError` macro
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature
@@ -48,6 +48,11 @@
 * zlink-macros
   * `proxy` pipelining
     * generate separate send/receive methods for each method in the service
+  * embedded feature
+    * Manual Deserialize impl
+    * assume fields in a specific order
+  * alloc/std feature (default)
+    * Make alloc feature of serde optional
 * zlink-usb
   * USB (using nusb) transport
 * zlink-micro
