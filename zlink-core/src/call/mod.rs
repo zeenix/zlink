@@ -1,17 +1,18 @@
-use core::fmt::Debug;
+// We manually implement `Serialize` and `Deserialize` for `Call` because we need to flatten the
+// `method` field and `serde` requires `alloc` for both serialization and deserialization when
+// using the `flatten` attribute.
+mod de;
+mod ser;
 
-use serde::{Deserialize, Serialize};
+#[cfg(test)]
+mod tests;
 
 /// A method call.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Call<M> {
-    #[serde(flatten)]
     pub(super) method: M,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) oneway: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) more: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) upgrade: Option<bool>,
 }
 

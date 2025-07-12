@@ -421,7 +421,7 @@ mod tests {
         let delete_response = replies.next().await.unwrap()?.unwrap();
         if let HeterogeneousResponses::DeleteResult(result) = delete_response.parameters().unwrap()
         {
-            assert_eq!(result.success, true);
+            assert!(result.success);
         } else {
             panic!("Expected DeleteResult response");
         }
