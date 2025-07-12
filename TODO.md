@@ -2,9 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-core
-  * Fix `cargo c -p zlink-core --release --no-default-features --features embedded,introspection`
-     * Also add to the CI
 * zlink-macros
   * derive macros should take the doc comments and add them to the appropriate IDL type generated.
 * zlink-core
