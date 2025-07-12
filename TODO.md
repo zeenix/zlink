@@ -3,17 +3,8 @@
 ## Release 0.1.0
 
 * zlink-core
-  * Fix `cargo check -p zlink-core --no-default-features --features embedded,introspection`
-  * Turns out we need allocation even for serialization
-    * Enable `alloc` feature in deps.
-    * Declare `extern crate alloc;` in root when `embedded` is enabled.
-    * Replace `mayheap` usage with `alloc`.
-    * Drop `mayheap` dependency.
-    * Replace `std` usage with `alloc` everywhere possible.
-    * `idle-parse` no longer requires `std` feature.
-    * Drop IO buffer size features.
-    * Revert commit c0fb08fb1f4c51dcfeb28d3a2459167f61eac6bf
-  * Add to the CI
+  * Fix `cargo c -p zlink-core --release --no-default-features --features embedded,introspection`
+     * Also add to the CI
 * zlink-macros
   * derive macros should take the doc comments and add them to the appropriate IDL type generated.
 * zlink-core
