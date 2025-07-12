@@ -392,15 +392,12 @@ mod tests {
             let pos = null_positions[i];
             assert!(
                 pos > 0,
-                "Null terminator at position {} should not be at start",
-                pos
+                "Null terminator at position {pos} should not be at start"
             );
             let preceding_byte = buffer[pos - 1];
             assert!(
                 preceding_byte == b'}' || preceding_byte == b'"' || preceding_byte.is_ascii_digit(),
-                "Null terminator at position {} should be after valid JSON ending, found byte: {}",
-                pos,
-                preceding_byte
+                "Null terminator at position {pos} should be after valid JSON ending, found byte: {preceding_byte}"
             );
         }
 

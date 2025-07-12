@@ -26,12 +26,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|r| r.map(|r| r.into_parameters().unwrap().addresses))?
         {
             Ok(addresses) => {
-                println!("Results for '{}':", name);
+                println!("Results for '{name}':");
                 for address in addresses {
-                    println!("\t{}", address);
+                    println!("\t{address}");
                 }
             }
-            Err(e) => eprintln!("Error resolving '{}': {}", name, e),
+            Err(e) => eprintln!("Error resolving '{name}': {e}"),
         }
     }
 
@@ -65,19 +65,19 @@ impl Display for ResolvedAddress {
                 let ip = <[u8; 4]>::try_from(self.address.as_slice())
                     .map(IpAddr::from)
                     .unwrap();
-                format!("IPv4: {}", ip)
+                format!("IPv4: {ip}")
             }
             ProtocolFamily::Inet6 => {
                 let ip = <[u8; 16]>::try_from(self.address.as_slice())
                     .map(IpAddr::from)
                     .unwrap();
-                format!("IPv6: {}", ip)
+                format!("IPv6: {ip}")
             }
             ProtocolFamily::Unspec => {
                 format!("Unspecified protocol family: {:?}", self.address)
             }
         };
-        write!(f, "{}", ip)
+        write!(f, "{ip}")
     }
 }
 
@@ -129,7 +129,7 @@ enum ReplyError<'e> {
 
 impl Display for ReplyError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
