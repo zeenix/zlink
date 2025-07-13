@@ -2,8 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-macros
-  * derive macros should take the doc comments and add them to the appropriate IDL type generated.
 * zlink-core
   * `varlink_service::Proxy` methods should allow chaining.
 * zlink-macros

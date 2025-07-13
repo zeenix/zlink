@@ -110,9 +110,9 @@ fn basic_enum_type() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 3);
-            assert_eq!(*variant_vec[0], "Active");
-            assert_eq!(*variant_vec[1], "Inactive");
-            assert_eq!(*variant_vec[2], "Pending");
+            assert_eq!(variant_vec[0].name(), "Active");
+            assert_eq!(variant_vec[1].name(), "Inactive");
+            assert_eq!(variant_vec[2].name(), "Pending");
         }
         _ => panic!("Expected enum type for Status"),
     }
@@ -124,12 +124,12 @@ fn multi_variant_enum_type() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 6);
-            assert_eq!(*variant_vec[0], "Red");
-            assert_eq!(*variant_vec[1], "Green");
-            assert_eq!(*variant_vec[2], "Blue");
-            assert_eq!(*variant_vec[3], "Yellow");
-            assert_eq!(*variant_vec[4], "Orange");
-            assert_eq!(*variant_vec[5], "Purple");
+            assert_eq!(variant_vec[0].name(), "Red");
+            assert_eq!(variant_vec[1].name(), "Green");
+            assert_eq!(variant_vec[2].name(), "Blue");
+            assert_eq!(variant_vec[3].name(), "Yellow");
+            assert_eq!(variant_vec[4].name(), "Orange");
+            assert_eq!(variant_vec[5].name(), "Purple");
         }
         _ => panic!("Expected enum type for Color"),
     }
@@ -141,7 +141,7 @@ fn single_variant_enum_type() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 1);
-            assert_eq!(*variant_vec[0], "Only");
+            assert_eq!(variant_vec[0].name(), "Only");
         }
         _ => panic!("Expected enum type for UnitEnum"),
     }

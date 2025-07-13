@@ -137,9 +137,9 @@ fn enum_type_integration() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 3);
-            assert_eq!(*variant_vec[0], "Active");
-            assert_eq!(*variant_vec[1], "Inactive");
-            assert_eq!(*variant_vec[2], "Pending");
+            assert_eq!(variant_vec[0].name(), "Active");
+            assert_eq!(variant_vec[1].name(), "Inactive");
+            assert_eq!(variant_vec[2].name(), "Pending");
         }
         _ => panic!("Expected enum type for Status"),
     }

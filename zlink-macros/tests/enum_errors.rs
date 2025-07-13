@@ -18,9 +18,9 @@ fn unit_enum_works() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 3);
-            assert_eq!(*variant_vec[0], "First");
-            assert_eq!(*variant_vec[1], "Second");
-            assert_eq!(*variant_vec[2], "Third");
+            assert_eq!(variant_vec[0].name(), "First");
+            assert_eq!(variant_vec[1].name(), "Second");
+            assert_eq!(variant_vec[2].name(), "Third");
         }
         _ => panic!("Expected enum type for SimpleEnum"),
     }
@@ -38,7 +38,7 @@ fn single_variant_enum_works() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 1);
-            assert_eq!(*variant_vec[0], "Only");
+            assert_eq!(variant_vec[0].name(), "Only");
         }
         _ => panic!("Expected enum type for SingleVariant"),
     }
@@ -86,8 +86,8 @@ fn enum_with_many_variants() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 10);
-            assert_eq!(*variant_vec[0], "A");
-            assert_eq!(*variant_vec[9], "J");
+            assert_eq!(variant_vec[0].name(), "A");
+            assert_eq!(variant_vec[9].name(), "J");
         }
         _ => panic!("Expected enum type for ManyVariants"),
     }
@@ -109,10 +109,10 @@ fn enum_with_unusual_names() {
         idl::Type::Enum(variants) => {
             let variant_vec: Vec<_> = variants.iter().collect();
             assert_eq!(variant_vec.len(), 4);
-            assert_eq!(*variant_vec[0], "CamelCase");
-            assert_eq!(*variant_vec[1], "snake_case");
-            assert_eq!(*variant_vec[2], "UPPER_CASE");
-            assert_eq!(*variant_vec[3], "Mixed_Case_123");
+            assert_eq!(variant_vec[0].name(), "CamelCase");
+            assert_eq!(variant_vec[1].name(), "snake_case");
+            assert_eq!(variant_vec[2].name(), "UPPER_CASE");
+            assert_eq!(variant_vec[3].name(), "Mixed_Case_123");
         }
         _ => panic!("Expected enum type for UnusualNames"),
     }

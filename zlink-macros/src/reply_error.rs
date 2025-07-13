@@ -60,8 +60,13 @@ fn generate_error_definitions(
 
         match &variant.fields {
             Fields::Unit => {
+                let comments = utils::extract_doc_comments(&variant.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
                 let error_variant = quote! {
-                    &#crate_path::idl::Error::new(#variant_name, &[], &[])
+                    &#crate_path::idl::Error::new(#variant_name, &[], &[#(#comment_objects),*])
                 };
                 error_variants.push(error_variant);
             }
@@ -72,6 +77,12 @@ fn generate_error_definitions(
                     crate_path,
                 )?;
 
+                let comments = utils::extract_doc_comments(&variant.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
+
                 let error_variant = quote! {
                     &{
                         #(#field_statics)*
@@ -80,7 +91,7 @@ fn generate_error_definitions(
                             #(#field_refs),*
                         ];
 
-                        #crate_path::idl::Error::new(#variant_name, FIELD_REFS, &[])
+                        #crate_path::idl::Error::new(#variant_name, FIELD_REFS, &[#(#comment_objects),*])
                     }
                 };
                 error_variants.push(error_variant);
@@ -95,6 +106,11 @@ fn generate_error_definitions(
 
                 let field_type =
                     utils::remove_lifetimes_from_type(&fields.unnamed.first().unwrap().ty);
+                let comments = utils::extract_doc_comments(&variant.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
                 let error_variant = quote! {
                     &{
                         match <#field_type as #crate_path::introspect::Type>::TYPE {
@@ -102,7 +118,7 @@ fn generate_error_definitions(
                                 let #crate_path::idl::List::Borrowed(field_slice) = fields else {
                                     panic!("Owned List not supported in const context")
                                 };
-                                #crate_path::idl::Error::new(#variant_name, field_slice, &[])
+                                #crate_path::idl::Error::new(#variant_name, field_slice, &[#(#comment_objects),*])
                             }
                             _ => panic!("Tuple variant field type must have Type::Object"),
                         }
@@ -138,12 +154,18 @@ fn generate_field_definitions_for_named_variant(
             field_name.to_string().to_uppercase()
         );
 
+        let comments = utils::extract_doc_comments(&field.attrs);
+        let comment_objects: Vec<_> = comments
+            .iter()
+            .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+            .collect();
+
         let field_static = quote! {
             static #static_name: #crate_path::idl::Field<'static> =
                 #crate_path::idl::Field::new(
                     #field_name_str,
                     <#field_type as #crate_path::introspect::Type>::TYPE,
-                    &[]
+                    &[#(#comment_objects),*]
                 );
         };
 

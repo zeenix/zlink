@@ -21,6 +21,12 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let crate_path = utils::parse_crate_path(&input.attrs)?;
 
+    let type_comments = utils::extract_doc_comments(&input.attrs);
+    let type_comment_objects: Vec<_> = type_comments
+        .iter()
+        .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+        .collect();
+
     let custom_type = match &input.data {
         Data::Struct(data_struct) => {
             let fields = &data_struct.fields;
@@ -34,18 +40,20 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
                 ];
 
                 #crate_path::idl::CustomType::Object(
-                    #crate_path::idl::CustomObject::new(#name_str, FIELD_REFS, &[])
+                    #crate_path::idl::CustomObject::new(#name_str, FIELD_REFS, &[#(#type_comment_objects),*])
                 )
             })
         }
         Data::Enum(data_enum) => {
-            let variant_names = generate_enum_variant_definitions(data_enum)?;
+            let variant_refs = generate_enum_variant_definitions(data_enum, &crate_path)?;
 
             quote!({
+                static VARIANT_REFS: &[&#crate_path::idl::EnumVariant<'static>] = &[
+                    #(#variant_refs),*
+                ];
+
                 #crate_path::idl::CustomType::Enum(
-                   #crate_path::idl::CustomEnum::new(#name_str, &[
-                        #(#variant_names),*
-                    ], &[])
+                   #crate_path::idl::CustomEnum::new(#name_str, VARIANT_REFS, &[#(#type_comment_objects),*])
                 )
             })
         }
@@ -88,12 +96,18 @@ fn generate_field_definitions(
                 let static_name =
                     quote::format_ident!("FIELD_{}", field_name.to_string().to_uppercase());
 
+                let comments = utils::extract_doc_comments(&field.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
+
                 let field_static = quote! {
                     static #static_name: #crate_path::idl::Field<'static> =
                         #crate_path::idl::Field::new(
                             #field_name_str,
                             <#field_type as #crate_path::introspect::Type>::TYPE,
-                            &[]
+                            &[#(#comment_objects),*]
                         );
                 };
 
@@ -116,15 +130,25 @@ fn generate_field_definitions(
     }
 }
 
-fn generate_enum_variant_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>, Error> {
-    let mut variant_names = Vec::new();
+fn generate_enum_variant_definitions(
+    data_enum: &DataEnum,
+    crate_path: &TokenStream2,
+) -> Result<Vec<TokenStream2>, Error> {
+    let mut variant_refs = Vec::new();
 
     for variant in &data_enum.variants {
         // Only support unit variants (no associated data).
         match &variant.fields {
             Fields::Unit => {
                 let variant_name = variant.ident.to_string();
-                variant_names.push(quote! { &#variant_name });
+                let comments = utils::extract_doc_comments(&variant.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
+                let variant_ref = quote! { &#crate_path::idl::EnumVariant::new(#variant_name, &[#(#comment_objects),*]) };
+
+                variant_refs.push(variant_ref);
             }
             Fields::Named(_) => {
                 return Err(Error::new_spanned(
@@ -141,5 +165,5 @@ fn generate_enum_variant_definitions(data_enum: &DataEnum) -> Result<Vec<TokenSt
         }
     }
 
-    Ok(variant_names)
+    Ok(variant_refs)
 }

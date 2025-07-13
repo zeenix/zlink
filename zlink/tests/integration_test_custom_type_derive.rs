@@ -59,9 +59,9 @@ fn custom_enum_derive_integration() {
             let variants: Vec<_> = enm.variants().collect();
             assert_eq!(variants.len(), 3);
 
-            assert_eq!(*variants[0], "Active");
-            assert_eq!(*variants[1], "Inactive");
-            assert_eq!(*variants[2], "Pending");
+            assert_eq!(variants[0].name(), "Active");
+            assert_eq!(variants[1].name(), "Inactive");
+            assert_eq!(variants[2].name(), "Pending");
         }
         _ => panic!("Expected custom enum type for Status"),
     }
@@ -172,7 +172,7 @@ fn single_variant_enum() {
 
             let variants: Vec<_> = enm.variants().collect();
             assert_eq!(variants.len(), 1);
-            assert_eq!(*variants[0], "Only");
+            assert_eq!(variants[0].name(), "Only");
         }
         _ => panic!("Expected custom enum type for SingleVariant"),
     }
@@ -200,9 +200,9 @@ fn type_names_preserved() {
 
     if let idl::CustomType::Enum(enm) = MixedCaseEnum::CUSTOM_TYPE {
         let variants: Vec<_> = enm.variants().collect();
-        assert_eq!(*variants[0], "VariantOne");
-        assert_eq!(*variants[1], "variant_two");
-        assert_eq!(*variants[2], "VARIANT_THREE");
+        assert_eq!(variants[0].name(), "VariantOne");
+        assert_eq!(variants[1].name(), "variant_two");
+        assert_eq!(variants[2].name(), "VARIANT_THREE");
     }
 }
 
@@ -245,10 +245,10 @@ fn enum_variant_names_not_renamed_for_encoding() {
             assert_eq!(variants.len(), 4);
 
             // Verify that the original variant names are preserved, not the serde-renamed ones
-            assert_eq!(*variants[0], "Idle"); // Not "idle"
-            assert_eq!(*variants[1], "Spooling"); // Not "spooling"
-            assert_eq!(*variants[2], "Busy"); // Not "busy"
-            assert_eq!(*variants[3], "VeryBusy"); // Not "very_busy"
+            assert_eq!(variants[0].name(), "Idle"); // Not "idle"
+            assert_eq!(variants[1].name(), "Spooling"); // Not "spooling"
+            assert_eq!(variants[2].name(), "Busy"); // Not "busy"
+            assert_eq!(variants[3].name(), "VeryBusy"); // Not "very_busy"
         }
         _ => panic!("Expected custom enum type for DriveState"),
     }
