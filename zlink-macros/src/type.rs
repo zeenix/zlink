@@ -85,12 +85,18 @@ fn generate_field_definitions(
                 let static_name =
                     quote::format_ident!("FIELD_{}", field_name.to_string().to_uppercase());
 
+                let comments = utils::extract_doc_comments(&field.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
+
                 let field_static = quote! {
                     static #static_name: #crate_path::idl::Field<'static> =
                         #crate_path::idl::Field::new(
                             #field_name_str,
                             <#field_type as #crate_path::introspect::Type>::TYPE,
-                            &[]
+                            &[#(#comment_objects),*]
                         );
                 };
 
@@ -124,8 +130,12 @@ fn generate_enum_variant_definitions(
         match &variant.fields {
             Fields::Unit => {
                 let variant_name = variant.ident.to_string();
-                let variant_ref =
-                    quote! { &#crate_path::idl::EnumVariant::new(#variant_name, &[]) };
+                let comments = utils::extract_doc_comments(&variant.attrs);
+                let comment_objects: Vec<_> = comments
+                    .iter()
+                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
+                    .collect();
+                let variant_ref = quote! { &#crate_path::idl::EnumVariant::new(#variant_name, &[#(#comment_objects),*]) };
                 variant_refs.push(variant_ref);
             }
             Fields::Named(_) => {
