@@ -241,7 +241,7 @@ fn format_type(ty: &zlink::idl::Type<'_>) -> ColoredString {
         zlink::idl::Type::Object(_) => "object".bright_blue(),
         zlink::idl::Type::Custom(name) => name.magenta(),
         zlink::idl::Type::Enum(variants) => {
-            let variant_names: Vec<&str> = variants.iter().copied().collect();
+            let variant_names: Vec<&str> = variants.iter().map(|v| v.name()).collect();
             format!("({})", variant_names.join(", ")).bright_blue()
         }
     }

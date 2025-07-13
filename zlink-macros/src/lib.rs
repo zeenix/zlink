@@ -167,9 +167,9 @@ mod reply_error;
 ///     idl::Type::Enum(variants) => {
 ///         let variant_vec: Vec<_> = variants.iter().collect();
 ///         assert_eq!(variant_vec.len(), 3);
-///         assert_eq!(*variant_vec[0], "Active");
-///         assert_eq!(*variant_vec[1], "Inactive");
-///         assert_eq!(*variant_vec[2], "Pending");
+///         assert_eq!(variant_vec[0].name(), "Active");
+///         assert_eq!(variant_vec[1].name(), "Inactive");
+///         assert_eq!(variant_vec[2].name(), "Pending");
 ///     }
 ///     _ => panic!("Expected enum type"),
 /// }
@@ -257,9 +257,9 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///         assert_eq!(enm.name(), "Status");
 ///         let variants: Vec<_> = enm.variants().collect();
 ///         assert_eq!(variants.len(), 3);
-///         assert_eq!(*variants[0], "Active");
-///         assert_eq!(*variants[1], "Inactive");
-///         assert_eq!(*variants[2], "Pending");
+///         assert_eq!(variants[0].name(), "Active");
+///         assert_eq!(variants[1].name(), "Inactive");
+///         assert_eq!(variants[2].name(), "Pending");
 ///     }
 ///     _ => panic!("Expected custom enum type"),
 /// }

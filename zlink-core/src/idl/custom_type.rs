@@ -2,6 +2,8 @@
 
 use core::fmt;
 
+#[cfg(test)]
+use super::EnumVariant;
 use super::{CustomEnum, CustomObject};
 
 /// A custom type definition in Varlink IDL.
@@ -99,18 +101,22 @@ mod tests {
         assert_eq!(fields[1].ty(), &idl::Type::Float);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn enum_creation() {
-        let custom_enum = CustomEnum::new("Color", &[&"red", &"green", &"blue"], &[]);
+        let red = EnumVariant::new_owned("red", vec![]);
+        let green = EnumVariant::new_owned("green", vec![]);
+        let blue = EnumVariant::new_owned("blue", vec![]);
+        let custom_enum = CustomEnum::new_owned("Color", vec![red, green, blue], vec![]);
 
         assert_eq!(custom_enum.name(), "Color");
         assert_eq!(custom_enum.variants().count(), 3);
 
         // Check the variants individually - order and values.
         let variants = custom_enum.variants().collect::<mayheap::Vec<_, 8>>();
-        assert_eq!(*variants[0], "red");
-        assert_eq!(*variants[1], "green");
-        assert_eq!(*variants[2], "blue");
+        assert_eq!(variants[0].name(), "red");
+        assert_eq!(variants[1].name(), "green");
+        assert_eq!(variants[2].name(), "blue");
     }
 
     #[test]
@@ -129,9 +135,13 @@ mod tests {
         assert!(custom_type.as_enum().is_none());
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn type_from_enum() {
-        let custom_enum = CustomEnum::new("Color", &[&"red", &"green", &"blue"], &[]);
+        let red = EnumVariant::new_owned("red", vec![]);
+        let green = EnumVariant::new_owned("green", vec![]);
+        let blue = EnumVariant::new_owned("blue", vec![]);
+        let custom_enum = CustomEnum::new_owned("Color", vec![red, green, blue], vec![]);
         let custom_type = idl::CustomType::from(custom_enum);
 
         assert_eq!(custom_type.name(), "Color");
@@ -142,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn type_display() {
+    fn type_display_object() {
         // Test object display
         let field_x = Field::new("x", <i64 as introspect::Type>::TYPE, &[]);
         let field_y = Field::new("y", <i64 as introspect::Type>::TYPE, &[]);
@@ -153,11 +163,20 @@ mod tests {
         let mut buf = mayheap::String::<64>::new();
         write!(buf, "{}", custom_type).unwrap();
         assert_eq!(buf.as_str(), "type Point (x: int, y: int)");
+    }
 
+    #[test]
+    fn type_display_enum() {
         // Test enum display
-        let custom_enum =
-            CustomEnum::new("Direction", &[&"north", &"south", &"east", &"west"], &[]);
+        const DIRECTION_VARIANTS: &[&EnumVariant<'static>] = &[
+            &EnumVariant::new("north", &[]),
+            &EnumVariant::new("south", &[]),
+            &EnumVariant::new("east", &[]),
+            &EnumVariant::new("west", &[]),
+        ];
+        let custom_enum = CustomEnum::new("Direction", DIRECTION_VARIANTS, &[]);
         let custom_type = idl::CustomType::from(custom_enum);
+        use core::fmt::Write;
         let mut buf = mayheap::String::<128>::new();
         write!(buf, "{}", custom_type).unwrap();
         assert_eq!(buf.as_str(), "type Direction (north, south, east, west)");
@@ -179,7 +198,15 @@ mod tests {
         assert_eq!(buf.as_str(), "type Person (name: string, age: int)");
 
         // Test owned enum
-        let custom_enum = CustomEnum::new_owned("Size", vec!["small", "medium", "large"], vec![]);
+        let custom_enum = CustomEnum::new_owned(
+            "Size",
+            vec![
+                EnumVariant::new_owned("small", vec![]),
+                EnumVariant::new_owned("medium", vec![]),
+                EnumVariant::new_owned("large", vec![]),
+            ],
+            vec![],
+        );
         assert_eq!(custom_enum.name(), "Size");
         let mut buf = mayheap::String::<64>::new();
         write!(buf, "{}", custom_enum).unwrap();

@@ -35,7 +35,7 @@ pub trait CustomType {
 mod tests {
     use super::*;
     use crate::{
-        idl::{self, CustomEnum, CustomObject, Field},
+        idl::{self, CustomEnum, CustomObject, EnumVariant, Field},
         introspect,
     };
 
@@ -57,10 +57,10 @@ mod tests {
 
     impl CustomType for TestStatus {
         const CUSTOM_TYPE: &'static idl::CustomType<'static> = &{
-            static VARIANT_ACTIVE: &str = "Active";
-            static VARIANT_INACTIVE: &str = "Inactive";
-            static VARIANT_PENDING: &str = "Pending";
-            static VARIANTS: &[&'static &'static str] =
+            static VARIANT_ACTIVE: EnumVariant<'static> = EnumVariant::new("Active", &[]);
+            static VARIANT_INACTIVE: EnumVariant<'static> = EnumVariant::new("Inactive", &[]);
+            static VARIANT_PENDING: EnumVariant<'static> = EnumVariant::new("Pending", &[]);
+            static VARIANTS: &[&'static EnumVariant<'static>] =
                 &[&VARIANT_ACTIVE, &VARIANT_INACTIVE, &VARIANT_PENDING];
 
             idl::CustomType::Enum(CustomEnum::new("Status", VARIANTS, &[]))
@@ -95,9 +95,9 @@ mod tests {
                 let variants: mayheap::Vec<_, 8> = enm.variants().collect();
                 assert_eq!(variants.len(), 3);
 
-                assert_eq!(*variants[0], "Active");
-                assert_eq!(*variants[1], "Inactive");
-                assert_eq!(*variants[2], "Pending");
+                assert_eq!(variants[0].name(), "Active");
+                assert_eq!(variants[1].name(), "Inactive");
+                assert_eq!(variants[2].name(), "Pending");
             }
             _ => panic!("Expected custom enum type"),
         }

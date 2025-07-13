@@ -40,14 +40,16 @@ fn derive_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
             }
         }
         Data::Enum(data_enum) => {
-            let variant_refs = generate_enum_variant_definitions(data_enum)?;
+            let variant_refs = generate_enum_variant_definitions(data_enum, &crate_path)?;
 
             quote! {
                 impl #impl_generics #crate_path::introspect::Type for #name #ty_generics #where_clause {
                     const TYPE: &'static #crate_path::idl::Type<'static> = &{
-                        #crate_path::idl::Type::Enum(#crate_path::idl::List::Borrowed(&[
+                        static VARIANT_REFS: &[&#crate_path::idl::EnumVariant<'static>] = &[
                             #(#variant_refs),*
-                        ]))
+                        ];
+
+                        #crate_path::idl::Type::Enum(#crate_path::idl::List::Borrowed(VARIANT_REFS))
                     };
                 }
             }
@@ -111,7 +113,10 @@ fn generate_field_definitions(
     }
 }
 
-fn generate_enum_variant_definitions(data_enum: &DataEnum) -> Result<Vec<TokenStream2>, Error> {
+fn generate_enum_variant_definitions(
+    data_enum: &DataEnum,
+    crate_path: &TokenStream2,
+) -> Result<Vec<TokenStream2>, Error> {
     let mut variant_refs = Vec::new();
 
     for variant in &data_enum.variants {
@@ -119,7 +124,8 @@ fn generate_enum_variant_definitions(data_enum: &DataEnum) -> Result<Vec<TokenSt
         match &variant.fields {
             Fields::Unit => {
                 let variant_name = variant.ident.to_string();
-                let variant_ref = quote! { &#variant_name };
+                let variant_ref =
+                    quote! { &#crate_path::idl::EnumVariant::new(#variant_name, &[]) };
                 variant_refs.push(variant_ref);
             }
             Fields::Named(_) => {

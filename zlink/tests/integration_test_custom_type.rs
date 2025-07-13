@@ -9,7 +9,7 @@
 //! 4. Both object and enum custom types work as expected
 
 use zlink::{
-    idl::{self, CustomEnum, CustomObject, Field},
+    idl::{self, CustomEnum, CustomObject, EnumVariant, Field},
     introspect::{CustomType, Type},
 };
 
@@ -35,10 +35,11 @@ struct Color;
 
 impl CustomType for Color {
     const CUSTOM_TYPE: &'static idl::CustomType<'static> = &{
-        static VARIANT_RED: &str = "Red";
-        static VARIANT_GREEN: &str = "Green";
-        static VARIANT_BLUE: &str = "Blue";
-        static VARIANTS: &[&'static &'static str] = &[&VARIANT_RED, &VARIANT_GREEN, &VARIANT_BLUE];
+        static VARIANT_RED: EnumVariant<'static> = EnumVariant::new("Red", &[]);
+        static VARIANT_GREEN: EnumVariant<'static> = EnumVariant::new("Green", &[]);
+        static VARIANT_BLUE: EnumVariant<'static> = EnumVariant::new("Blue", &[]);
+        static VARIANTS: &[&'static EnumVariant<'static>] =
+            &[&VARIANT_RED, &VARIANT_GREEN, &VARIANT_BLUE];
 
         idl::CustomType::Enum(CustomEnum::new("Color", VARIANTS, &[]))
     };
@@ -97,9 +98,9 @@ fn custom_enum_type_integration() {
             let variants: Vec<_> = enm.variants().collect();
             assert_eq!(variants.len(), 3);
 
-            assert_eq!(*variants[0], "Red");
-            assert_eq!(*variants[1], "Green");
-            assert_eq!(*variants[2], "Blue");
+            assert_eq!(variants[0].name(), "Red");
+            assert_eq!(variants[1].name(), "Green");
+            assert_eq!(variants[2].name(), "Blue");
         }
         _ => panic!("Expected custom enum type"),
     }

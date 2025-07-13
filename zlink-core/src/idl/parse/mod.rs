@@ -12,8 +12,8 @@ use winnow::{
 };
 
 use super::{
-    Comment, CustomEnum, CustomObject, CustomType, Error, Field, Interface, List, Method,
-    Parameter, Type, TypeRef,
+    Comment, CustomEnum, CustomObject, CustomType, EnumVariant, Error, Field, Interface, List,
+    Method, Parameter, Type, TypeRef,
 };
 
 #[cfg(feature = "std")]
@@ -152,10 +152,15 @@ fn struct_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a
 fn enum_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a [u8]>> {
     literal("(").parse_next(input)?;
     ws(input)?;
-    let variants: Vec<&str> =
+    let variant_names: Vec<&str> =
         separated(0.., field_name, (ws, literal(","), ws)).parse_next(input)?;
     ws(input)?;
     literal(")").parse_next(input)?;
+
+    let variants: Vec<EnumVariant<'a>> = variant_names
+        .into_iter()
+        .map(|name| EnumVariant::new(name, &[]))
+        .collect();
     Ok(Type::Enum(List::from(variants)))
 }
 
@@ -355,7 +360,7 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
     whitespace_only(input)?;
 
     let mut fields = Vec::new();
-    let mut variants = Vec::new();
+    let mut variants: Vec<EnumVariant<'a>> = Vec::new();
     let mut has_typed_fields = false;
     let mut has_untyped_fields = false;
 
@@ -388,8 +393,8 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
             fields.push(Field::new_owned(field_name, ty, field_comments));
             has_typed_fields = true;
         } else {
-            // This is an enum-like field without type - collect as variant
-            variants.push(field_name);
+            // This is an enum-like field without type - collect as variant with comments
+            variants.push(EnumVariant::new_owned(field_name, field_comments));
             has_untyped_fields = true;
         }
 

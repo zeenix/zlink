@@ -16,6 +16,9 @@ pub use custom_object::CustomObject;
 mod custom_enum;
 pub use custom_enum::CustomEnum;
 
+mod enum_variant;
+pub use enum_variant::EnumVariant;
+
 mod custom_type;
 pub use custom_type::CustomType;
 

@@ -216,9 +216,9 @@ fn test_parse_custom_type() {
     assert!(enum_type.is_enum()); // Correctly parsed as enum
     assert_eq!(enum_type.as_enum().unwrap().variants().count(), 3);
     let mut variants = enum_type.as_enum().unwrap().variants();
-    assert_eq!(*variants.next().unwrap(), "red");
-    assert_eq!(*variants.next().unwrap(), "green");
-    assert_eq!(*variants.next().unwrap(), "blue");
+    assert_eq!(variants.next().unwrap().name(), "red");
+    assert_eq!(variants.next().unwrap().name(), "green");
+    assert_eq!(variants.next().unwrap().name(), "blue");
     assert!(variants.next().is_none());
 }
 
@@ -484,7 +484,37 @@ fn parse_enum_with_comments() {
     match parse_custom_type(input) {
         Ok(custom_type) => {
             assert_eq!(custom_type.name(), "AcquireMetadata");
-            println!("✓ Successfully parsed enum with comments: {}", custom_type);
+            assert!(custom_type.is_enum());
+
+            let enum_def = custom_type.as_enum().unwrap();
+            assert_eq!(enum_def.variants().count(), 3);
+
+            let variants: Vec<_> = enum_def.variants().collect();
+            assert_eq!(variants[0].name(), "no");
+            assert!(variants[0].has_comments());
+            assert_eq!(
+                variants[0].comments().next().unwrap().content(),
+                "Do not include metadata in the output"
+            );
+
+            assert_eq!(variants[1].name(), "yes");
+            assert!(variants[1].has_comments());
+            assert_eq!(
+                variants[1].comments().next().unwrap().content(),
+                "Include metadata in the output"
+            );
+
+            assert_eq!(variants[2].name(), "graceful");
+            assert!(variants[2].has_comments());
+            assert_eq!(
+                variants[2].comments().next().unwrap().content(),
+                "Include metadata in the output, but gracefully eat up errors"
+            );
+
+            println!(
+                "✓ Successfully parsed enum with per-variant comments: {}",
+                custom_type
+            );
         }
         Err(e) => {
             println!("✗ Failed to parse enum with comments: {}", e);

@@ -5,7 +5,7 @@ pub use type_ref::TypeRef;
 
 use core::fmt;
 
-use super::{Field, List};
+use super::{EnumVariant, Field, List};
 
 /// Represents a type in Varlink IDL.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,7 +29,7 @@ pub enum Type<'a> {
     /// Custom named type reference.
     Custom(&'a str),
     /// Inline enum type.
-    Enum(List<'a, &'a str>),
+    Enum(List<'a, EnumVariant<'a>>),
     /// Inline struct type.
     Object(List<'a, Field<'a>>),
 }
@@ -68,7 +68,7 @@ impl<'a> Type<'a> {
     }
 
     /// The enum variants if this type is an enum.
-    pub const fn as_enum(&self) -> Option<&List<'a, &'a str>> {
+    pub const fn as_enum(&self) -> Option<&List<'a, EnumVariant<'a>>> {
         match self {
             Type::Enum(variants) => Some(variants),
             _ => None,
@@ -97,16 +97,34 @@ impl<'a> fmt::Display for Type<'a> {
             Type::Map(map) => write!(f, "[string]{map}"),
             Type::Custom(name) => write!(f, "{name}"),
             Type::Enum(variants) => {
-                write!(f, "(")?;
-                let mut first = true;
-                for variant in variants.iter() {
-                    if !first {
-                        write!(f, ", ")?;
+                // Check if any variant has comments to determine formatting
+                let has_variant_comments = variants.iter().any(|v| v.has_comments());
+
+                if has_variant_comments {
+                    // Multi-line format when any variant has comments
+                    writeln!(f, "(")?;
+                    for variant in variants.iter() {
+                        // Write comments first
+                        for comment in variant.comments() {
+                            writeln!(f, "\t{}", comment)?;
+                        }
+                        // Then write the variant name
+                        writeln!(f, "\t{}", variant.name())?;
                     }
-                    first = false;
-                    write!(f, "{variant}")?;
+                    write!(f, ")")
+                } else {
+                    // Single-line format when no variants have comments
+                    write!(f, "(")?;
+                    let mut first = true;
+                    for variant in variants.iter() {
+                        if !first {
+                            write!(f, ", ")?;
+                        }
+                        first = false;
+                        write!(f, "{}", variant)?;
+                    }
+                    write!(f, ")")
                 }
-                write!(f, ")")
             }
             Type::Object(fields) => {
                 write!(f, "(")?;
@@ -133,6 +151,7 @@ impl<'a> PartialEq<TypeRef<'a>> for Type<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::idl::{Comment, EnumVariant};
 
     #[test]
     fn type_names() {
@@ -201,7 +220,11 @@ mod tests {
             assert_eq!(nested_type.to_string(), "[]?string");
 
             // Test inline enum
-            let enum_type = Type::Enum(List::from(vec!["one", "two", "three"]));
+            let enum_type = Type::Enum(List::from(vec![
+                EnumVariant::new("one", &[]),
+                EnumVariant::new("two", &[]),
+                EnumVariant::new("three", &[]),
+            ]));
             assert_eq!(enum_type.to_string(), "(one, two, three)");
 
             // Test inline struct
@@ -211,5 +234,37 @@ mod tests {
             ]));
             assert_eq!(struct_type.to_string(), "(first: int, second: string)");
         }
+    }
+
+    #[test]
+    fn inline_enum_formatting_with_and_without_comments() {
+        use core::fmt::Write;
+
+        // Test single-line format when no variants have comments
+        let var1 = EnumVariant::new("red", &[]);
+        let var2 = EnumVariant::new("green", &[]);
+        let var3 = EnumVariant::new("blue", &[]);
+        let variants_no_comments = [&var1, &var2, &var3];
+        let enum_no_comments = Type::Enum(List::from(&variants_no_comments[..]));
+
+        let mut buf = mayheap::String::<64>::new();
+        write!(buf, "{}", enum_no_comments).unwrap();
+        assert_eq!(buf, "(red, green, blue)");
+
+        // Test multi-line format when any variant has comments
+        let comment_refs = [&Comment::new("Primary color")];
+        let var_with_comment = EnumVariant::new("red", &comment_refs);
+        let var_without_comment1 = EnumVariant::new("green", &[]);
+        let var_without_comment2 = EnumVariant::new("blue", &[]);
+        let variants_with_comments = [
+            &var_with_comment,
+            &var_without_comment1,
+            &var_without_comment2,
+        ];
+        let enum_with_comments = Type::Enum(List::from(&variants_with_comments[..]));
+
+        let mut buf = mayheap::String::<256>::new();
+        write!(buf, "{}", enum_with_comments).unwrap();
+        assert_eq!(buf, "(\n\t# Primary color\n\tred\n\tgreen\n\tblue\n)");
     }
 }

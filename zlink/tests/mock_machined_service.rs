@@ -4,7 +4,7 @@ use mayheap::Vec;
 use serde::Serialize;
 use serde_prefix_all::prefix_all;
 use zlink::{
-    idl::{self, Comment, Interface, Parameter, Type::Optional, TypeRef},
+    idl::{self, Comment, EnumVariant, Interface, Parameter, Type::Optional, TypeRef},
     introspect::{ReplyError, Type},
     service::MethodReply,
     varlink_service::{self, Error, Info, InterfaceDescription},
@@ -449,8 +449,17 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
     // Custom types
     const CUSTOM_TYPES: &[&idl::CustomType<'static>] = {
         // Enum variants
-        const ACQUIRE_METADATA_VARIANTS: &[&&str] = &[&"no", &"yes", &"graceful"];
-        const MACHINE_OPEN_MODE_VARIANTS: &[&&str] = &[&"tty", &"login", &"shell"];
+        const ACQUIRE_METADATA_VARIANTS: &[&EnumVariant<'static>] = &[
+            &EnumVariant::new("no", &[]),
+            &EnumVariant::new("yes", &[]),
+            &EnumVariant::new("graceful", &[]),
+        ];
+
+        const MACHINE_OPEN_MODE_VARIANTS: &[&EnumVariant<'static>] = &[
+            &EnumVariant::new("tty", &[]),
+            &EnumVariant::new("login", &[]),
+            &EnumVariant::new("shell", &[]),
+        ];
         const PROCESS_ID_FIELDS: &[&idl::Field<'static>] = &[
             &idl::Field::new(
                 "pid",
