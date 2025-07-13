@@ -1,5 +1,7 @@
 //! Mock systemd-machined service for testing when real systemd services aren't available.
 
+#![cfg(all(feature = "introspection", feature = "idl-parse"))]
+
 use mayheap::Vec;
 use serde::Serialize;
 use serde_prefix_all::prefix_all;
