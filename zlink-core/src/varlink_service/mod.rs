@@ -9,9 +9,13 @@ mod api;
 pub use api::{Error, Method, ReplyParams, Result};
 
 #[cfg(feature = "idl-parse")]
+mod reply;
+#[cfg(feature = "idl-parse")]
+pub use reply::Reply;
+#[cfg(feature = "idl-parse")]
 mod proxy;
 #[cfg(feature = "idl-parse")]
-pub use proxy::Proxy;
+pub use proxy::{Chain, Proxy};
 
 mod interface_description;
 pub use interface_description::InterfaceDescription;
