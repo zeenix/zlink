@@ -21,22 +21,27 @@ use reply_stream::ReplyStream;
 /// Oneway calls (where `Call::oneway() == Some(true)`) do not expect replies and are handled
 /// automatically by the chain.
 #[derive(Debug)]
-pub struct Chain<'c, S: Socket, Method, ReplyParams, ReplyError> {
+pub struct Chain<'c, S: Socket, ReplyParams, ReplyError> {
     pub(super) connection: &'c mut Connection<S>,
     pub(super) call_count: usize,
     pub(super) reply_count: usize,
-    _phantom: core::marker::PhantomData<(Method, ReplyParams, ReplyError)>,
+    _phantom: core::marker::PhantomData<(ReplyParams, ReplyError)>,
 }
 
-impl<'c, S, Method, ReplyParams, ReplyError> Chain<'c, S, Method, ReplyParams, ReplyError>
+impl<'c, S, ReplyParams, ReplyError> Chain<'c, S, ReplyParams, ReplyError>
 where
     S: Socket,
-    Method: Serialize + Debug,
     ReplyParams: Deserialize<'c> + Debug,
     ReplyError: Deserialize<'c> + Debug,
 {
     /// Create a new chain with the first call.
-    pub(super) fn new(connection: &'c mut Connection<S>, call: &Call<Method>) -> Result<Self> {
+    pub(super) fn new<Method>(
+        connection: &'c mut Connection<S>,
+        call: &Call<Method>,
+    ) -> Result<Self>
+    where
+        Method: Serialize + Debug,
+    {
         connection.write.enqueue_call(call)?;
         let reply_count = if call.oneway() == Some(true) { 0 } else { 1 };
         Ok(Chain {
@@ -54,7 +59,10 @@ where
     ///
     /// Calls with `more == Some(true)` will stream multiple replies until a reply with
     /// `continues != Some(true)` is received.
-    pub fn append(mut self, call: &Call<Method>) -> Result<Self> {
+    pub fn append<Method>(mut self, call: &Call<Method>) -> Result<Self>
+    where
+        Method: Serialize + Debug,
+    {
         self.connection.write.enqueue_call(call)?;
         if call.oneway() != Some(true) {
             self.reply_count += 1;
