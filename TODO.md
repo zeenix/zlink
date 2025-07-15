@@ -2,8 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-core
-  * `varlink_service::Proxy` methods should allow chaining.
 * zlink-macros
   * `proxy` attribute macro
     * gated behind (default) `proxy` feature
