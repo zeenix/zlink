@@ -287,7 +287,7 @@ where
     pub fn chain_call<'c, Method, ReplyParams, ReplyError>(
         &'c mut self,
         call: &Call<Method>,
-    ) -> Result<Chain<'c, S, Method, ReplyParams, ReplyError>>
+    ) -> Result<Chain<'c, S, ReplyParams, ReplyError>>
     where
         Method: Serialize + Debug,
         ReplyParams: Deserialize<'c> + Debug,

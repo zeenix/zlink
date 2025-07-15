@@ -34,3 +34,6 @@ pub mod idl;
 pub mod introspect;
 #[cfg(feature = "introspection")]
 pub mod varlink_service;
+
+#[cfg(test)]
+mod test_utils;
