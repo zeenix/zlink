@@ -65,3 +65,11 @@ This is a Rust workspace implementing an asynchronous no-std-compatible Varlink 
 - Atomic commits preferred (one logical change per commit)
 - Package prefixes in commit messages
 - Force-push workflow for addressing review comments
+
+## Testing Infrastructure
+
+### Mock Socket API
+Use consolidated mock socket utilities from `zlink-core/src/test_utils/mock_socket.rs`:
+- `MockSocket::new(&responses)` - full socket with pre-configured responses
+- `TestWriteHalf::new(expected_len)` - validates exact write lengths
+- `CountingWriteHalf::new()` - counts write operations for pipelining tests
