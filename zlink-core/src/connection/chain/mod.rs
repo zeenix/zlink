@@ -96,12 +96,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        connection::socket::{ReadHalf, Socket, WriteHalf},
-        Call,
-    };
+    use crate::Call;
     use futures_util::pin_mut;
-    use mayheap::Vec;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -165,79 +161,8 @@ mod tests {
         DeleteError(DeleteError),
     }
 
-    // Mock socket implementation for testing.
-    #[derive(Debug)]
-    struct MockSocket {
-        read_data: Vec<u8, 1024>,
-        read_pos: usize,
-    }
-
-    impl MockSocket {
-        fn new(responses: &[&str]) -> Self {
-            let mut data = Vec::new();
-
-            for response in responses {
-                data.extend_from_slice(response.as_bytes()).unwrap();
-                data.push(b'\0').unwrap();
-            }
-            // Add an extra null byte to mark end of all messages
-            data.push(b'\0').unwrap();
-
-            Self {
-                read_data: data,
-                read_pos: 0,
-            }
-        }
-    }
-
-    impl Socket for MockSocket {
-        type ReadHalf = MockReadHalf;
-        type WriteHalf = MockWriteHalf;
-
-        fn split(self) -> (Self::ReadHalf, Self::WriteHalf) {
-            (
-                MockReadHalf {
-                    data: self.read_data,
-                    pos: self.read_pos,
-                },
-                MockWriteHalf {
-                    written: Vec::new(),
-                },
-            )
-        }
-    }
-
-    #[derive(Debug)]
-    struct MockReadHalf {
-        data: Vec<u8, 1024>,
-        pos: usize,
-    }
-
-    impl ReadHalf for MockReadHalf {
-        async fn read(&mut self, buf: &mut [u8]) -> crate::Result<usize> {
-            let remaining = self.data.len().saturating_sub(self.pos);
-            if remaining == 0 {
-                return Ok(0);
-            }
-
-            let to_read = remaining.min(buf.len());
-            buf[..to_read].copy_from_slice(&self.data[self.pos..self.pos + to_read]);
-            self.pos += to_read;
-            Ok(to_read)
-        }
-    }
-
-    #[derive(Debug)]
-    struct MockWriteHalf {
-        written: Vec<u8, 1024>,
-    }
-
-    impl WriteHalf for MockWriteHalf {
-        async fn write(&mut self, buf: &[u8]) -> crate::Result<()> {
-            self.written.extend_from_slice(buf).unwrap();
-            Ok(())
-        }
-    }
+    // Use consolidated mock socket from test_utils.
+    use crate::test_utils::mock_socket::MockSocket;
 
     #[tokio::test]
     async fn homogeneous_calls() -> crate::Result<()> {

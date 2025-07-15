@@ -195,15 +195,7 @@ where
 mod tests {
     use super::*;
 
-    #[derive(Debug)]
-    struct TestWriteHalf(usize);
-
-    impl WriteHalf for TestWriteHalf {
-        async fn write(&mut self, value: &[u8]) -> crate::Result<()> {
-            assert_eq!(value.len(), self.0);
-            Ok(())
-        }
-    }
+    use crate::test_utils::mock_socket::TestWriteHalf;
 
     #[tokio::test]
     async fn write() {
@@ -216,7 +208,7 @@ mod tests {
             2 +
             // null byte from enqueue.
             1;
-        let mut write_conn = WriteConnection::new(TestWriteHalf(WRITE_LEN), 1);
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(WRITE_LEN), 1);
         // An item that serializes into `> BUFFER_SIZE * 2` bytes.
         let item: Vec<u8, BUFFER_SIZE> = Vec::from_slice(&[0u8; BUFFER_SIZE]).unwrap();
         let res = write_conn.write(&item).await;
@@ -241,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn enqueue_and_flush() {
         // Test enqueuing multiple small items.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(5), 1); // "42\03\0"
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(5), 1); // "42\03\0"
 
         write_conn.enqueue(&42u32).unwrap();
         write_conn.enqueue(&3u32).unwrap();
@@ -254,7 +246,7 @@ mod tests {
     #[tokio::test]
     async fn enqueue_null_terminators() {
         // Test that null terminators are properly placed.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(4), 1); // "1\02\0"
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(4), 1); // "1\02\0"
 
         write_conn.enqueue(&1u32).unwrap();
         assert_eq!(write_conn.buffer[write_conn.pos - 1], b'\0');
@@ -269,7 +261,7 @@ mod tests {
     #[tokio::test]
     async fn enqueue_buffer_extension() {
         // Test buffer extension when enqueuing large items.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(0), 1);
         let initial_len = write_conn.buffer.len();
 
         // Fill up the buffer.
@@ -283,7 +275,7 @@ mod tests {
     #[tokio::test]
     async fn enqueue_buffer_overflow() {
         // Test buffer overflow error without std feature.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(0), 1);
 
         // Try to enqueue an item that doesn't fit.
         let large_item: Vec<u8, BUFFER_SIZE> = Vec::from_slice(&[0u8; BUFFER_SIZE]).unwrap();
@@ -300,7 +292,7 @@ mod tests {
     #[tokio::test]
     async fn flush_empty_buffer() {
         // Test that flushing an empty buffer is a no-op.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(0), 1);
 
         // Should not call write since buffer is empty.
         write_conn.flush().await.unwrap();
@@ -310,7 +302,7 @@ mod tests {
     #[tokio::test]
     async fn multiple_flushes() {
         // Test multiple flushes in a row.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(2), 1); // "1\0"
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(2), 1); // "1\0"
 
         write_conn.enqueue(&1u32).unwrap();
         write_conn.flush().await.unwrap();
@@ -324,7 +316,7 @@ mod tests {
     #[tokio::test]
     async fn enqueue_after_flush() {
         // Test that enqueuing works properly after a flush.
-        let mut write_conn = WriteConnection::new(TestWriteHalf(2), 1); // "2\0"
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(2), 1); // "2\0"
 
         write_conn.enqueue(&1u32).unwrap();
         write_conn.flush().await.unwrap();
@@ -348,7 +340,7 @@ mod tests {
             value: u32,
         }
 
-        let mut write_conn = WriteConnection::new(TestWriteHalf(0), 1);
+        let mut write_conn = WriteConnection::new(TestWriteHalf::new(0), 1);
 
         // Test pipelining multiple method calls.
         let call1 = Call::new(TestMethod {
@@ -408,7 +400,6 @@ mod tests {
     #[tokio::test]
     async fn pipelining_vs_individual_sends() {
         use super::super::Call;
-        use core::cell::Cell;
         use serde::{Deserialize, Serialize};
 
         #[derive(Debug, Serialize, Deserialize)]
@@ -417,23 +408,11 @@ mod tests {
             id: u32,
         }
 
-        // Track number of write calls.
-        #[derive(Debug)]
-        struct CountingWriteHalf {
-            write_count: Cell<usize>,
-        }
-
-        impl WriteHalf for CountingWriteHalf {
-            async fn write(&mut self, _value: &[u8]) -> crate::Result<()> {
-                self.write_count.set(self.write_count.get() + 1);
-                Ok(())
-            }
-        }
+        // Use consolidated counting write half from test_utils.
+        use crate::test_utils::mock_socket::CountingWriteHalf;
 
         // Test individual sends (3 write calls expected).
-        let counting_write = CountingWriteHalf {
-            write_count: Cell::new(0),
-        };
+        let counting_write = CountingWriteHalf::new();
         let mut write_conn_individual = WriteConnection::new(counting_write, 1);
 
         for i in 1..=3 {
@@ -443,12 +422,10 @@ mod tests {
             });
             write_conn_individual.send_call(&call).await.unwrap();
         }
-        assert_eq!(write_conn_individual.socket.write_count.get(), 3);
+        assert_eq!(write_conn_individual.socket.count(), 3);
 
         // Test pipelined sends (1 write call expected).
-        let counting_write = CountingWriteHalf {
-            write_count: Cell::new(0),
-        };
+        let counting_write = CountingWriteHalf::new();
         let mut write_conn_pipelined = WriteConnection::new(counting_write, 2);
 
         for i in 1..=3 {
@@ -459,6 +436,6 @@ mod tests {
             write_conn_pipelined.enqueue_call(&call).unwrap();
         }
         write_conn_pipelined.flush().await.unwrap();
-        assert_eq!(write_conn_pipelined.socket.write_count.get(), 1);
+        assert_eq!(write_conn_pipelined.socket.count(), 1);
     }
 }
