@@ -6,12 +6,8 @@
 mod info;
 pub use info::Info;
 mod api;
-pub use api::{Error, Method, ReplyParams, Result};
+pub use api::{Error, Method, Reply, Result};
 
-#[cfg(feature = "idl-parse")]
-mod reply;
-#[cfg(feature = "idl-parse")]
-pub use reply::Reply;
 #[cfg(feature = "idl-parse")]
 mod proxy;
 #[cfg(feature = "idl-parse")]

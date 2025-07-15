@@ -14,7 +14,7 @@ use zlink::{
     unix::{bind, connect},
     varlink_service::{
         self, Info, InterfaceDescription, Method as VarlinkSrvMethod, Proxy as _,
-        ReplyParams as VarlinkSrvReply,
+        Reply as VarlinkSrvReply,
     },
     Call, Service,
 };

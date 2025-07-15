@@ -24,15 +24,21 @@ pub enum Method<'a> {
 
 /// `org.varlink.service` interface replies.
 ///
-/// This is only useful for service implementations. This is why this type only implements
-/// `Serialize` but not `Deserialize`.
+/// This enum represents all possible replies from the varlink service interface methods.
+/// Each proxy implementation should provide a similar enum for all its replies.
+///
+/// The `#[serde(untagged)]` attribute allows serde to automatically deserialize
+/// the correct variant based on the structure of the JSON data.
 #[derive(Debug, Serialize)]
+#[cfg_attr(feature = "idl-parse", derive(Deserialize))]
 #[serde(untagged)]
-pub enum ReplyParams<'a> {
+pub enum Reply<'a> {
     /// Reply for `GetInfo` method.
+    #[serde(borrow)]
     Info(Info<'a>),
     /// Reply for `GetInterfaceDescription` method.
-    InterfaceDescription(InterfaceDescription<'a>),
+    /// Note: InterfaceDescription only supports 'static lifetime for deserialization.
+    InterfaceDescription(InterfaceDescription<'static>),
 }
 
 /// Errors that can be returned by the `org.varlink.service` interface.

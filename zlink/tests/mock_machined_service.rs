@@ -25,7 +25,7 @@ impl MockMachinedService {
 
 impl Service for MockMachinedService {
     type MethodCall<'de> = varlink_service::Method<'de>;
-    type ReplyParams<'ser> = varlink_service::ReplyParams<'ser>;
+    type ReplyParams<'ser> = varlink_service::Reply<'ser>;
     type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
     type ReplyStreamParams = ();
     type ReplyError<'ser> = MockError<'ser>;
@@ -56,7 +56,7 @@ impl Service for MockMachinedService {
                     interfaces,
                 );
 
-                MethodReply::Single(Some(varlink_service::ReplyParams::Info(info)))
+                MethodReply::Single(Some(varlink_service::Reply::Info(info)))
             }
             varlink_service::Method::GetInterfaceDescription { interface } => {
                 let description = match *interface {
@@ -73,7 +73,7 @@ impl Service for MockMachinedService {
                     }
                 };
 
-                MethodReply::Single(Some(varlink_service::ReplyParams::InterfaceDescription(
+                MethodReply::Single(Some(varlink_service::Reply::InterfaceDescription(
                     description,
                 )))
             }
