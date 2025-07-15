@@ -25,10 +25,6 @@ pub enum Method<'a> {
 /// `org.varlink.service` interface replies.
 ///
 /// This enum represents all possible replies from the varlink service interface methods.
-/// Each proxy implementation should provide a similar enum for all its replies.
-///
-/// The `#[serde(untagged)]` attribute allows serde to automatically deserialize
-/// the correct variant based on the structure of the JSON data.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "idl-parse", derive(Deserialize))]
 #[serde(untagged)]
