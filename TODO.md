@@ -4,7 +4,19 @@
 
 * zlink-macros
   * `proxy` attribute macro
-    * gated behind (default) `proxy` feature
+    * User provides a trait that we implement for `Connection`
+      * Similar to `zlink_core::varlink_service::Proxy`, except:
+        * They can just write `async fn` instead of returning `impl Future`. **If** Rust complains,
+          the macro should convert the method appropriately.
+        * No chaining/pipelining for now. We'll add that in a later release.
+    * Similar to `zbus`'s `proxy` macro but simpler (e.g no type introspection needed).
+    * gated behind (default) `proxy` feature (in zlink-core, zlink & zlink-tokio as well)
+* zlink-core
+  * re-export `zlink_macros::proxy` in root (which in turn re-exports from higher-level crates)
+* zlink
+  * Use `proxy` macro to add test case in systemd-machined e2e test for the `io.systemd.Machine`
+    interface
+    * Will first need to implement the `io.systemd.Machine` interface in the mock service.
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
   * tests
@@ -34,7 +46,7 @@
 
 * zlink-macros
   * `proxy` pipelining
-    * generate separate send/receive methods for each method in the service
+    * similar to how `varlink_service::Proxy` does it
   * embedded feature
     * Manual Deserialize impl
     * assume fields in a specific order
