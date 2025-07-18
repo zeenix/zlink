@@ -49,7 +49,7 @@ This is a Rust workspace implementing an asynchronous no-std-compatible Varlink 
 - **Call/Reply**: Core message types for IPC communication
 
 ### Feature System
-- `std` feature: Standard library support with serde_json
+- `std` feature: Standard library support with serde_json and tracing for logging
 - `embedded` feature: No-std support with serde-json-core and defmt logging
 - I/O buffer size features: `io-buffer-2kb` (default), `io-buffer-4kb`, `io-buffer-16kb`, `io-buffer-1mb`
 
@@ -59,12 +59,7 @@ This is a Rust workspace implementing an asynchronous no-std-compatible Varlink 
 - Leverages mayheap for heap/heapless abstraction
 - Uses pin-project-lite for async/await support
 - Only enable needed features of dependencies
-
-### Code Style
-- Follows GNOME commit message guidelines with emoji prefixes
-- Atomic commits preferred (one logical change per commit)
-- Package prefixes in commit messages
-- Force-push workflow for addressing review comments
+- For logging, use the macros from `log` module that abstract over tracing and defmt
 
 ## Testing Infrastructure
 
