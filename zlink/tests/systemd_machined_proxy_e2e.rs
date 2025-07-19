@@ -1,6 +1,6 @@
 //! End-to-end tests for varlink_service::Proxy trait using systemd-machined service.
 
-#![cfg(all(feature = "introspection", feature = "idl-parse"))]
+#![cfg(all(feature = "introspection", feature = "idl-parse", feature = "proxy"))]
 
 mod mock_machined_service;
 
@@ -11,9 +11,11 @@ use tokio::{
     time::{timeout, Duration},
 };
 use zlink::{
-    unix,
+    proxy, unix,
     varlink_service::{self, Proxy},
 };
+
+use mock_machined_service::{AcquireMetadata, ListReply, MachinedError, ProcessId};
 
 #[tokio::test]
 async fn introspect_machined() {
@@ -103,6 +105,63 @@ async fn introspect_machined() {
     })
     .await
     .unwrap();
+}
+
+#[tokio::test]
+async fn test_machine_proxy() {
+    run_test_with_service(|socket_path| async move {
+        // Connect to machine service (real or mock)
+        let mut conn = timeout(Duration::from_secs(5), unix::connect(&socket_path))
+            .await
+            .expect("Connection timeout")
+            .expect("Failed to connect to machine socket");
+
+        // Test the proxy macro with the Machine interface
+        let machine_name = "test-machine";
+        let result = conn
+            .list(
+                Some(machine_name),
+                None,
+                Some(false),
+                Some(AcquireMetadata::Yes),
+            )
+            .await;
+
+        match result {
+            Ok(Ok(machine)) => {
+                // We got a successful response with machine data
+                println!("Machine data: {:?}", machine);
+                // Verify it's the expected mock data
+                assert_eq!(machine.name, "test-machine");
+                assert_eq!(machine.class, "container");
+
+                // Test that we can use references from the result
+                let machine_name_ref = &machine.name;
+                println!("Machine name reference: {}", machine_name_ref);
+            }
+            Ok(Err(error)) => {
+                // This is acceptable - no machines might be running or other error
+                println!("Method error: {:?}", error);
+            }
+            Err(e) => panic!("Connection error: {:?}", e),
+        }
+
+        Ok(())
+    })
+    .await
+    .unwrap();
+}
+
+// Define the proxy trait for the Machine interface
+#[proxy("io.systemd.Machine")]
+trait MachineProxy {
+    async fn list(
+        &mut self,
+        name: Option<&str>,
+        pid: Option<ProcessId>,
+        allow_interactive_authentication: Option<bool>,
+        acquire_metadata: Option<AcquireMetadata>,
+    ) -> zlink::Result<Result<ListReply<'_>, MachinedError>>;
 }
 
 /// Run test with either real systemd service or mock service.
