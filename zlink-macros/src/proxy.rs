@@ -95,7 +95,7 @@ fn generate_method_impl(
     let method_path = format!("{interface_name}.{actual_method_name}");
 
     // Collect all lifetimes from method generics
-    let _method_lifetimes: Vec<_> = method.sig.generics.lifetimes().cloned().collect();
+    let _method_lifetimes: Vec<_> = method.sig.generics.lifetimes().collect();
 
     // Parse method arguments (skip &mut self)
     let has_explicit_lifetimes = method.sig.generics.lifetimes().next().is_some();
@@ -196,7 +196,9 @@ fn generate_method_impl(
     let method_generics = &method.sig.generics;
 
     Ok(quote! {
-        async fn #method_name #method_generics (#full_args) -> ::zlink::Result<::core::result::Result<#reply_type, #error_type>> {
+        async fn #method_name #method_generics (
+            #full_args
+        ) -> ::zlink::Result<::core::result::Result<#reply_type, #error_type>> {
             #params_struct_def
             #params_init
 
@@ -275,19 +277,24 @@ fn extract_nested_result_types(ty: &Type) -> Result<(Type, Type), Error> {
         Type::ImplTrait(impl_trait) => {
             // impl Future<Output = Result<Result<T, E>>>
             for bound in &impl_trait.bounds {
-                if let syn::TypeParamBound::Trait(trait_bound) = bound {
-                    if let Some(segment) = trait_bound.path.segments.last() {
-                        if segment.ident == "Future" {
-                            if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                                for arg in &args.args {
-                                    if let GenericArgument::AssocType(assoc) = arg {
-                                        if assoc.ident == "Output" {
-                                            return extract_nested_result_types(&assoc.ty);
-                                        }
-                                    }
-                                }
-                            }
+                let trait_bound = match bound {
+                    syn::TypeParamBound::Trait(trait_bound) => trait_bound,
+                    _ => continue,
+                };
+                let segment = match trait_bound.path.segments.last() {
+                    Some(segment) if segment.ident == "Future" => segment,
+                    _ => continue,
+                };
+                let args = match &segment.arguments {
+                    PathArguments::AngleBracketed(args) => args,
+                    _ => continue,
+                };
+                for arg in &args.args {
+                    match arg {
+                        GenericArgument::AssocType(assoc) if assoc.ident == "Output" => {
+                            return extract_nested_result_types(&assoc.ty);
                         }
+                        _ => continue,
                     }
                 }
             }
@@ -297,7 +304,8 @@ fn extract_nested_result_types(ty: &Type) -> Result<(Type, Type), Error> {
 
     Err(Error::new_spanned(
         ty,
-        "expected Result<Result<ReplyType, ErrorType>> or impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+        "expected Result<Result<ReplyType, ErrorType>> or \
+         impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
     ))
 }
 
@@ -331,12 +339,10 @@ fn snake_case_to_pascal_case(input: &str) -> String {
         .split('_')
         .map(|word| {
             let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => {
-                    first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
-                }
-            }
+            let Some(first) = chars.next() else {
+                return String::new();
+            };
+            first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
         })
         .collect()
 }
@@ -365,27 +371,25 @@ fn convert_to_single_lifetime(ty: &Type) -> Type {
         Type::Path(type_path) => {
             let mut new_path = type_path.clone();
             for segment in &mut new_path.path.segments {
-                if let PathArguments::AngleBracketed(args) = &mut segment.arguments {
-                    let mut new_args = args.clone();
-                    new_args.args = args
-                        .args
-                        .iter()
-                        .map(|arg| match arg {
-                            GenericArgument::Type(ty) => {
-                                GenericArgument::Type(convert_to_single_lifetime(ty))
-                            }
-                            GenericArgument::Lifetime(_) => {
-                                // Replace any lifetime with our single lifetime
-                                GenericArgument::Lifetime(Lifetime::new(
-                                    "'__proxy_params",
-                                    arg.span(),
-                                ))
-                            }
-                            _ => arg.clone(),
-                        })
-                        .collect();
-                    segment.arguments = PathArguments::AngleBracketed(new_args);
-                }
+                let PathArguments::AngleBracketed(args) = &mut segment.arguments else {
+                    continue;
+                };
+                let mut new_args = args.clone();
+                new_args.args = args
+                    .args
+                    .iter()
+                    .map(|arg| match arg {
+                        GenericArgument::Type(ty) => {
+                            GenericArgument::Type(convert_to_single_lifetime(ty))
+                        }
+                        GenericArgument::Lifetime(_) => {
+                            // Replace any lifetime with our single lifetime
+                            GenericArgument::Lifetime(Lifetime::new("'__proxy_params", arg.span()))
+                        }
+                        _ => arg.clone(),
+                    })
+                    .collect();
+                segment.arguments = PathArguments::AngleBracketed(new_args);
             }
             Type::Path(new_path)
         }
