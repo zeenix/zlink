@@ -124,10 +124,10 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
     // Method definitions with scoped parameters
     const REGISTER_METHOD: &idl::Method<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
-            &Parameter::new("name", &idl::Type::String, &[]),
-            &Parameter::new("id", <Option<String>>::TYPE, &[]),
-            &Parameter::new("service", <Option<String>>::TYPE, &[]),
-            &Parameter::new("class", &idl::Type::String, &[]),
+            &Parameter::new("name", <&str>::TYPE, &[]),
+            &Parameter::new("id", <Option<&str>>::TYPE, &[]),
+            &Parameter::new("service", <Option<&str>>::TYPE, &[]),
+            &Parameter::new("class", <&str>::TYPE, &[]),
             &Parameter::new(
                 "leader",
                 <Option<u32>>::TYPE,
@@ -138,11 +138,11 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
                 PROCESS_ID_TYPE,
                 &[&Comment::new("The leader PID as ProcessId structure.")],
             ),
-            &Parameter::new("rootDirectory", <Option<String>>::TYPE, &[]),
+            &Parameter::new("rootDirectory", <Option<&str>>::TYPE, &[]),
             &Parameter::new("ifIndices", <Option<&[u64]>>::TYPE, &[]),
             &Parameter::new("vSockCid", <Option<u64>>::TYPE, &[]),
-            &Parameter::new("sshAddress", <Option<String>>::TYPE, &[]),
-            &Parameter::new("sshPrivateKeyPath", <Option<String>>::TYPE, &[]),
+            &Parameter::new("sshAddress", <Option<&str>>::TYPE, &[]),
+            &Parameter::new("sshPrivateKeyPath", <Option<&str>>::TYPE, &[]),
             &Parameter::new(
                 "allocateUnit",
                 <Option<bool>>::TYPE,
@@ -163,7 +163,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -184,7 +184,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -210,7 +210,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -225,12 +225,12 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
             ),
             &Parameter::new(
                 "whom",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("Identifier that specifies what precisely to send the signal to (either 'leader' or 'all').")]
             ),
             &Parameter::new(
                 "signal",
-                &idl::Type::Int,
+                <i64>::TYPE,
                 &[&Comment::new("Numeric UNIX signal integer.")],
             ),
         ];
@@ -250,7 +250,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -368,7 +368,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -390,14 +390,14 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
             ),
             &Parameter::new(
                 "user",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new(
                     "See description of mode='shell'. Valid only when mode='shell'",
                 )],
             ),
             &Parameter::new(
                 "path",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new(
                     "See description of mode='shell'. Valid only when mode='shell'",
                 )],
