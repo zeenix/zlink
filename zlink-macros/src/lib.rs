@@ -19,6 +19,9 @@ mod custom_type;
 #[cfg(feature = "introspection")]
 mod reply_error;
 
+#[cfg(feature = "proxy")]
+mod proxy;
+
 /// Derives `Type` for structs and enums, generating appropriate `Type::Object` or `Type::Enum`
 /// representation.
 ///
@@ -332,4 +335,68 @@ pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 #[proc_macro_derive(ReplyError, attributes(zlink))]
 pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     reply_error::derive_reply_error(input)
+}
+
+/// Creates a client-side proxy for calling Varlink methods on a connection.
+///
+/// This attribute macro generates an implementation of the provided trait for `Connection<S>`,
+/// automatically handling the serialization of method calls and deserialization of responses.
+/// Each proxy trait targets a single Varlink interface.
+///
+/// # Basic Usage
+///
+/// ```rust,ignore
+/// use zlink::proxy;
+///
+/// #[proxy("org.example.MyService")]
+/// trait MyServiceProxy {
+///     async fn get_status(&mut self) -> Result<Result<Status, MyError>>;
+///     async fn set_value(&mut self, key: &str, value: i32) -> Result<Result<(), MyError>>;
+/// }
+///
+/// // The macro generates:
+/// // impl<S: Socket> MyServiceProxy for Connection<S> { ... }
+/// ```
+///
+/// # Method Requirements
+///
+/// Proxy methods must:
+/// - Take `&mut self` as the first parameter
+/// - Return `Result<Result<ReplyType, ErrorType>>` (outer Result for connection errors, inner for
+///   method errors)
+/// - Can be either `async fn` or return `impl Future`
+///
+/// # Method Names
+///
+/// By default, methods are called using their Rust name. To specify a different Varlink method
+/// name, use the `#[zlink(rename = "...")]` attribute:
+///
+/// ```rust,ignore
+/// #[proxy("io.systemd.Machine")]
+/// trait MachineProxy {
+///     #[zlink(rename = "List")]
+///     async fn list_machines(&mut self) -> Result<Result<Vec<Machine>, Error>>;
+/// }
+/// ```
+///
+/// This will call the `io.systemd.Machine.List` method when `list_machines()` is invoked.
+///
+/// # Non-async Methods
+///
+/// If you write methods without `async`, the macro will automatically convert them:
+///
+/// ```rust,ignore
+/// #[proxy("org.example.Service")]
+/// trait MyProxy {
+///     // This will be converted to return impl Future
+///     fn get_info(&mut self) -> Result<Result<Info, Error>>;
+/// }
+/// ```
+#[cfg(feature = "proxy")]
+#[proc_macro_attribute]
+pub fn proxy(
+    attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    proxy::proxy(attr.into(), input.into()).into()
 }
