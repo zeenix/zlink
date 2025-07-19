@@ -11,6 +11,8 @@ repository.workspace = true
 proc-macro = true
 
 [features]
+default = ["proxy"]
+proxy = []
 introspection = ["zlink/introspection"]
 
 [dependencies]
