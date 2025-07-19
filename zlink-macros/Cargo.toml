@@ -12,7 +12,7 @@ proc-macro = true
 
 [features]
 default = ["proxy"]
-proxy = []
+proxy = ["syn/full", "syn/clone-impls"]
 introspection = ["zlink/introspection"]
 
 [dependencies]
