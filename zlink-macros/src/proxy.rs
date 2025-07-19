@@ -145,9 +145,6 @@ fn generate_method_impl(
     // Use the original method signature for the implementation
     let full_args = &method.sig.inputs;
 
-    // Check if this is an async method
-    let is_async = method.sig.asyncness.is_some();
-
     // Parse return type
     let (reply_type, error_type) = parse_return_type(&method.sig.output)?;
 
@@ -198,74 +195,36 @@ fn generate_method_impl(
     // Use the original method generics - don't modify them
     let method_generics = &method.sig.generics;
 
-    let method_impl = if is_async {
-        quote! {
-            async fn #method_name #method_generics (#full_args) -> ::zlink::Result<::core::result::Result<#reply_type, #error_type>> {
-                #params_struct_def
-                #params_init
+    Ok(quote! {
+        async fn #method_name #method_generics (#full_args) -> ::zlink::Result<::core::result::Result<#reply_type, #error_type>> {
+            #params_struct_def
+            #params_init
 
-                #[derive(::serde::Serialize, ::core::fmt::Debug)]
-                struct MethodCall<T> {
-                    method: &'static str,
-                    #[serde(skip_serializing_if = "Option::is_none")]
-                    parameters: Option<T>,
-                }
+            #[derive(::serde::Serialize, ::core::fmt::Debug)]
+            struct MethodCall<T> {
+                method: &'static str,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                parameters: Option<T>,
+            }
 
-                let method_call = MethodCall {
-                    method: #method_path,
-                    parameters: params,
-                };
+            let method_call = MethodCall {
+                method: #method_path,
+                parameters: params,
+            };
 
-                let call = ::zlink::Call::new(method_call);
-                match self.call_method::<_, #reply_type, #error_type>(&call).await? {
-                    Ok(reply) => match reply.into_parameters() {
-                        Some(params) => Ok(Ok(params)),
-                        None => {
-                            // Return an error for missing parameters
-                            return Err(::zlink::Error::BufferOverflow);
-                        },
+            let call = ::zlink::Call::new(method_call);
+            match self.call_method::<_, #reply_type, #error_type>(&call).await? {
+                Ok(reply) => match reply.into_parameters() {
+                    Some(params) => Ok(Ok(params)),
+                    None => {
+                        // Return an error for missing parameters
+                        return Err(::zlink::Error::BufferOverflow);
                     },
-                    Err(error) => Ok(Err(error)),
-                }
+                },
+                Err(error) => Ok(Err(error)),
             }
         }
-    } else {
-        // Convert non-async to async
-        quote! {
-            fn #method_name #method_generics (#full_args) -> impl ::core::future::Future<Output = ::zlink::Result<::core::result::Result<#reply_type, #error_type>>> {
-                async move {
-                    #params_struct_def
-                    #params_init
-
-                    #[derive(::serde::Serialize, ::core::fmt::Debug)]
-                    struct MethodCall<T> {
-                        method: &'static str,
-                        #[serde(skip_serializing_if = "Option::is_none")]
-                        parameters: Option<T>,
-                    }
-
-                    let method_call = MethodCall {
-                        method: #method_path,
-                        parameters: params,
-                    };
-
-                    let call = ::zlink::Call::new(method_call);
-                    match self.call_method::<_, #reply_type, #error_type>(&call).await? {
-                        Ok(reply) => match reply.into_parameters() {
-                            Some(params) => Ok(Ok(params)),
-                            None => {
-                                // Return an error for missing parameters
-                                return Err(::zlink::Error::BufferOverflow);
-                            },
-                        },
-                        Err(error) => Ok(Err(error)),
-                    }
-                }
-            }
-        }
-    };
-
-    Ok(method_impl)
+    })
 }
 
 fn extract_method_rename(attrs: &[Attribute]) -> Result<Option<String>, Error> {
