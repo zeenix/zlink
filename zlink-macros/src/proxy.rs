@@ -13,7 +13,7 @@ pub(crate) fn proxy(attr: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
-    let trait_def = parse2::<ItemTrait>(input)?;
+    let mut trait_def = parse2::<ItemTrait>(input)?;
 
     // Parse the interface name from the attribute
     let interface_name = if attr.is_empty() {
@@ -54,9 +54,10 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
     // Generate the implementation for Connection
     let methods = trait_def
         .items
-        .iter()
+        .iter_mut()
         .filter_map(|item| {
             if let TraitItem::Fn(method) = item {
+                // Generate the method implementation (this also removes zlink attributes)
                 Some(generate_method_impl(method, &interface_name))
             } else {
                 None
@@ -80,22 +81,19 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
 }
 
 fn generate_method_impl(
-    method: &syn::TraitItemFn,
+    method: &mut syn::TraitItemFn,
     interface_name: &str,
 ) -> Result<TokenStream, Error> {
     let method_name = &method.sig.ident;
     let method_name_str = method_name.to_string();
 
     // Look for #[zlink(rename = "...")] attribute, otherwise convert snake_case to PascalCase
-    let method_name_override = extract_method_rename(&method.attrs)?;
+    let method_name_override = extract_method_rename(&mut method.attrs)?;
     let converted_name = snake_case_to_pascal_case(&method_name_str);
     let actual_method_name = method_name_override.as_deref().unwrap_or(&converted_name);
 
     // Build the full method path: interface.method
     let method_path = format!("{interface_name}.{actual_method_name}");
-
-    // Collect all lifetimes from method generics
-    let _method_lifetimes: Vec<_> = method.sig.generics.lifetimes().collect();
 
     // Parse method arguments (skip &mut self)
     let has_explicit_lifetimes = method.sig.generics.lifetimes().next().is_some();
@@ -229,22 +227,33 @@ fn generate_method_impl(
     })
 }
 
-fn extract_method_rename(attrs: &[Attribute]) -> Result<Option<String>, Error> {
-    for attr in attrs {
+fn extract_method_rename(attrs: &mut Vec<Attribute>) -> Result<Option<String>, Error> {
+    let mut rename_value = None;
+    let mut zlink_attr_index = None;
+
+    for (i, attr) in attrs.iter().enumerate() {
         if attr.path().is_ident("zlink") {
             if let Meta::List(list) = &attr.meta {
                 let args: MetaNameValue = syn::parse2(list.tokens.clone())?;
                 if args.path.is_ident("rename") {
                     if let Expr::Lit(lit) = &args.value {
                         if let Lit::Str(lit_str) = &lit.lit {
-                            return Ok(Some(lit_str.value()));
+                            rename_value = Some(lit_str.value());
+                            zlink_attr_index = Some(i);
+                            break;
                         }
                     }
                 }
             }
         }
     }
-    Ok(None)
+
+    // Remove the zlink attribute if found
+    if let Some(index) = zlink_attr_index {
+        attrs.remove(index);
+    }
+
+    Ok(rename_value)
 }
 
 fn parse_return_type(output: &ReturnType) -> Result<(Type, Type), Error> {
