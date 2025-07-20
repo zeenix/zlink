@@ -1041,6 +1041,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
+ "serde-prefix-all",
  "serde_json",
  "syn",
  "zlink",

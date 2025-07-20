@@ -29,3 +29,4 @@ syn = { version = "2.0", default-features = false, features = [
 zlink = { path = "../zlink", default-features = false, features = ["tokio"] }
 serde = "1.0"
 serde_json = "1.0"
+serde-prefix-all = "0.1.0"
