@@ -390,9 +390,17 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 ///
 /// Proxy methods must:
 /// - Take `&mut self` as the first parameter
-/// - Return `Result<Result<ReplyType, ErrorType>>` (outer Result for connection errors, inner for
-///   method errors)
 /// - Can be either `async fn` or return `impl Future`
+/// - Return `zlink::Result<Result<ReplyType, ErrorType>>` (outer Result for connection errors,
+///   inner for method errors)
+/// - The arguments can be any type that implement `serde::Serialize`
+/// - The reply type (`Ok` case of the inner `Result`) must be a type that implements
+///   `serde::Deserialize` and deserializes itself from a JSON object. Typically you'd just use a
+///   struct that derives `serde::Deserialize`.
+/// - The reply error type (`Err` case of the inner `Result`) must be a type `serde::Deserialize`
+///   that deserializes itself from a JSON object with two fields:
+///   - `error`: a string containing the fully qualified error name
+///   - `parameters`: an optional object containing all the fields of the error
 ///
 /// # Method Names
 ///
