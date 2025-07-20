@@ -339,6 +339,8 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 
 /// Creates a client-side proxy for calling Varlink methods on a connection.
 ///
+/// **Requires the `proxy` feature to be enabled.**
+///
 /// This attribute macro generates an implementation of the provided trait for `Connection<S>`,
 /// automatically handling the serialization of method calls and deserialization of responses.
 /// Each proxy trait targets a single Varlink interface.
