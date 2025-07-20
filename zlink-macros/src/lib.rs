@@ -343,19 +343,47 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// automatically handling the serialization of method calls and deserialization of responses.
 /// Each proxy trait targets a single Varlink interface.
 ///
-/// # Basic Usage
+/// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use zlink::proxy;
+/// use serde::{Deserialize, Serialize};
+/// use serde_prefix_all::prefix_all;
 ///
 /// #[proxy("org.example.MyService")]
 /// trait MyServiceProxy {
-///     async fn get_status(&mut self) -> Result<Result<Status, MyError>>;
-///     async fn set_value(&mut self, key: &str, value: i32) -> Result<Result<(), MyError>>;
+///     async fn get_status(&mut self) -> zlink::Result<Result<Status<'_>, MyError<'_>>>;
+///     async fn set_value(
+///         &mut self,
+///         key: &str,
+///         value: i32,
+///     ) -> zlink::Result<Result<(), MyError<'_>>>;
+///     // This will call the `io.systemd.Machine.List` method when `list_machines()` is invoked.
+///     #[zlink(rename = "ListMachines")]
+///     async fn list_machines(&mut self) -> zlink::Result<Result<Vec<Machine<'_>>, MyError<'_>>>;
 /// }
 ///
 /// // The macro generates:
 /// // impl<S: Socket> MyServiceProxy for Connection<S> { ... }
+///
+/// #[derive(Debug, Serialize, Deserialize)]
+/// struct Status<'m> {
+///     active: bool,
+///     message: &'m str,
+/// }
+///
+/// #[derive(Debug, Serialize, Deserialize)]
+/// struct Machine<'m> { name: &'m str }
+///
+/// #[prefix_all("org.example.MyService.")]
+/// #[derive(Debug, Serialize, Deserialize)]
+/// #[serde(tag = "error", content = "parameters")]
+/// enum MyError<'a> {
+///     NotFound,
+///     InvalidRequest,
+///     // Parameters must be named.
+///     CodedError { code: u32, message: &'a str },
+/// }
 /// ```
 ///
 /// # Method Requirements
@@ -368,30 +396,9 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 ///
 /// # Method Names
 ///
-/// By default, methods are called using their Rust name. To specify a different Varlink method
-/// name, use the `#[zlink(rename = "...")]` attribute:
-///
-/// ```rust,ignore
-/// #[proxy("io.systemd.Machine")]
-/// trait MachineProxy {
-///     #[zlink(rename = "List")]
-///     async fn list_machines(&mut self) -> Result<Result<Vec<Machine>, Error>>;
-/// }
-/// ```
-///
-/// This will call the `io.systemd.Machine.List` method when `list_machines()` is invoked.
-///
-/// # Non-async Methods
-///
-/// If you write methods without `async`, the macro will automatically convert them:
-///
-/// ```rust,ignore
-/// #[proxy("org.example.Service")]
-/// trait MyProxy {
-///     // This will be converted to return impl Future
-///     fn get_info(&mut self) -> Result<Result<Info, Error>>;
-/// }
-/// ```
+/// By default, method names are converted from snake_case to PascalCase for the Varlink call.
+/// To specify a different Varlink method name, use the `#[zlink(rename = "...")]` attribute. See
+/// `list_machines` in the example above.
 #[cfg(feature = "proxy")]
 #[proc_macro_attribute]
 pub fn proxy(
