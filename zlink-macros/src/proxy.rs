@@ -232,20 +232,28 @@ fn extract_method_rename(attrs: &mut Vec<Attribute>) -> Result<Option<String>, E
     let mut zlink_attr_index = None;
 
     for (i, attr) in attrs.iter().enumerate() {
-        if attr.path().is_ident("zlink") {
-            if let Meta::List(list) = &attr.meta {
-                let args: MetaNameValue = syn::parse2(list.tokens.clone())?;
-                if args.path.is_ident("rename") {
-                    if let Expr::Lit(lit) = &args.value {
-                        if let Lit::Str(lit_str) = &lit.lit {
-                            rename_value = Some(lit_str.value());
-                            zlink_attr_index = Some(i);
-                            break;
-                        }
-                    }
-                }
-            }
+        if !attr.path().is_ident("zlink") {
+            continue;
         }
+
+        let Meta::List(list) = &attr.meta else {
+            continue;
+        };
+
+        let args: MetaNameValue = syn::parse2(list.tokens.clone())?;
+
+        let lit_str = match (&args.path, &args.value) {
+            (path, Expr::Lit(lit)) if path.is_ident("rename") => match &lit.lit {
+                Lit::Str(lit_str) => lit_str,
+                _ => continue,
+            },
+            _ => continue,
+        };
+
+        rename_value = Some(lit_str.value());
+        zlink_attr_index = Some(i);
+
+        break;
     }
 
     // Remove the zlink attribute if found
@@ -273,74 +281,117 @@ fn extract_nested_result_types(ty: &Type) -> Result<(Type, Type), Error> {
     match ty {
         Type::Path(type_path) => {
             // Direct Result<Result<T, E>>
-            if let Some(segment) = type_path.path.segments.last() {
-                if segment.ident == "Result" {
-                    if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                        if let Some(GenericArgument::Type(inner_ty)) = args.args.first() {
-                            return extract_inner_result_types(inner_ty);
-                        }
-                    }
-                }
+            let Some(segment) = type_path.path.segments.last() else {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<Result<ReplyType, ErrorType>> or \
+                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+                ));
+            };
+
+            if segment.ident != "Result" {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<Result<ReplyType, ErrorType>> or \
+                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+                ));
             }
+
+            let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<Result<ReplyType, ErrorType>> or \
+                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+                ));
+            };
+
+            let Some(GenericArgument::Type(inner_ty)) = args.args.first() else {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<Result<ReplyType, ErrorType>> or \
+                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+                ));
+            };
+
+            extract_inner_result_types(inner_ty)
         }
         Type::ImplTrait(impl_trait) => {
             // impl Future<Output = Result<Result<T, E>>>
             for bound in &impl_trait.bounds {
-                let trait_bound = match bound {
-                    syn::TypeParamBound::Trait(trait_bound) => trait_bound,
-                    _ => continue,
+                let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                    continue;
                 };
+
                 let segment = match trait_bound.path.segments.last() {
                     Some(segment) if segment.ident == "Future" => segment,
                     _ => continue,
                 };
-                let args = match &segment.arguments {
-                    PathArguments::AngleBracketed(args) => args,
-                    _ => continue,
+
+                let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                    continue;
                 };
+
                 for arg in &args.args {
-                    match arg {
-                        GenericArgument::AssocType(assoc) if assoc.ident == "Output" => {
-                            return extract_nested_result_types(&assoc.ty);
-                        }
-                        _ => continue,
+                    let GenericArgument::AssocType(assoc) = arg else {
+                        continue;
+                    };
+
+                    if assoc.ident == "Output" {
+                        return extract_nested_result_types(&assoc.ty);
                     }
                 }
             }
-        }
-        _ => {}
-    }
 
-    Err(Error::new_spanned(
-        ty,
-        "expected Result<Result<ReplyType, ErrorType>> or \
-         impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-    ))
+            Err(Error::new_spanned(
+                ty,
+                "expected Result<Result<ReplyType, ErrorType>> or \
+                 impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+            ))
+        }
+        _ => Err(Error::new_spanned(
+            ty,
+            "expected Result<Result<ReplyType, ErrorType>> or \
+             impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+        )),
+    }
 }
 
 fn extract_inner_result_types(ty: &Type) -> Result<(Type, Type), Error> {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Result" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if args.args.len() == 2 {
-                        if let (
-                            Some(GenericArgument::Type(reply_ty)),
-                            Some(GenericArgument::Type(error_ty)),
-                        ) = (args.args.iter().next(), args.args.iter().nth(1))
-                        {
-                            return Ok((reply_ty.clone(), error_ty.clone()));
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let Type::Path(type_path) = ty else {
+        return Err(Error::new_spanned(
+            ty,
+            "expected inner Result<ReplyType, ErrorType>",
+        ));
+    };
 
-    Err(Error::new_spanned(
-        ty,
-        "expected inner Result<ReplyType, ErrorType>",
-    ))
+    let segment = match type_path.path.segments.last() {
+        Some(segment) if segment.ident == "Result" => segment,
+        _ => {
+            return Err(Error::new_spanned(
+                ty,
+                "expected inner Result<ReplyType, ErrorType>",
+            ))
+        }
+    };
+
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Err(Error::new_spanned(
+            ty,
+            "expected inner Result<ReplyType, ErrorType>",
+        ));
+    };
+
+    match (args.args.get(0), args.args.get(1)) {
+        (Some(GenericArgument::Type(reply_ty)), Some(GenericArgument::Type(error_ty)))
+            if args.args.len() == 2 =>
+        {
+            Ok((reply_ty.clone(), error_ty.clone()))
+        }
+        _ => Err(Error::new_spanned(
+            ty,
+            "expected inner Result<ReplyType, ErrorType>",
+        )),
+    }
 }
 
 fn snake_case_to_pascal_case(input: &str) -> String {
