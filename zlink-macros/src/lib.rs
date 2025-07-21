@@ -351,6 +351,7 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// use zlink::proxy;
 /// use serde::{Deserialize, Serialize};
 /// use serde_prefix_all::prefix_all;
+/// use futures_util::stream::Stream;
 ///
 /// #[proxy("org.example.MyService")]
 /// trait MyServiceProxy {
@@ -363,6 +364,13 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 ///     // This will call the `io.systemd.Machine.List` method when `list_machines()` is invoked.
 ///     #[zlink(rename = "ListMachines")]
 ///     async fn list_machines(&mut self) -> zlink::Result<Result<Vec<Machine<'_>>, MyError<'_>>>;
+///     // Streaming version of get_status - calls the same method but returns a stream
+///     #[zlink(rename = "GetStatus", more)]
+///     async fn stream_status(
+///         &mut self,
+///     ) -> zlink::Result<
+///         impl Stream<Item = zlink::Result<Result<Status<'_>, MyError<'_>>>>,
+///     >;
 /// }
 ///
 /// // The macro generates:
@@ -409,6 +417,13 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// By default, method names are converted from snake_case to PascalCase for the Varlink call.
 /// To specify a different Varlink method name, use the `#[zlink(rename = "...")]` attribute. See
 /// `list_machines` in the example above.
+///
+/// # Streaming Methods
+///
+/// For methods that support streaming (the 'more' flag), use the `#[zlink(more)]` attribute.
+/// Streaming methods must return `Result<impl Stream<Item = Result<Result<ReplyType,
+/// ErrorType>>>>`. The proxy will automatically set the 'more' flag on the call and return a
+/// stream of replies.
 #[cfg(feature = "proxy")]
 #[proc_macro_attribute]
 pub fn proxy(

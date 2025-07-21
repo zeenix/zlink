@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     parse2, spanned::Spanned, Attribute, Error, Expr, FnArg, GenericArgument, ItemTrait, Lifetime,
-    Lit, Meta, MetaNameValue, Pat, PathArguments, ReturnType, TraitItem, Type, TypeReference,
+    Lit, Meta, Pat, PathArguments, ReturnType, TraitItem, Type, TypeReference,
 };
 
 pub(crate) fn proxy(attr: TokenStream, input: TokenStream) -> TokenStream {
@@ -87,8 +87,8 @@ fn generate_method_impl(
     let method_name = &method.sig.ident;
     let method_name_str = method_name.to_string();
 
-    // Look for #[zlink(rename = "...")] attribute, otherwise convert snake_case to PascalCase
-    let method_name_override = extract_method_rename(&mut method.attrs)?;
+    // Look for #[zlink(rename = "...")] and #[zlink(more)] attributes
+    let (method_name_override, is_streaming) = extract_method_attrs(&mut method.attrs)?;
     let converted_name = snake_case_to_pascal_case(&method_name_str);
     let actual_method_name = method_name_override.as_deref().unwrap_or(&converted_name);
 
@@ -98,7 +98,15 @@ fn generate_method_impl(
     // Parse method arguments (skip &mut self)
     let has_explicit_lifetimes = method.sig.generics.lifetimes().next().is_some();
 
-    let args = method
+    // Process all method arguments in a single pass
+    struct ArgInfo<'a> {
+        name: &'a syn::Ident,
+        ty_for_params: syn::Type,
+        is_optional: bool,
+        has_lifetime: bool,
+    }
+
+    let arg_infos: Vec<ArgInfo<'_>> = method
         .sig
         .inputs
         .iter()
@@ -109,6 +117,9 @@ fn generate_method_impl(
                     let name = &pat_ident.ident;
                     let ty = &pat_type.ty;
 
+                    // Check if the type is optional
+                    let is_optional = is_option_type_syn(ty);
+
                     // Only convert to single lifetime if there are no explicit lifetimes
                     let ty_for_params = if has_explicit_lifetimes {
                         (**ty).clone()
@@ -116,45 +127,34 @@ fn generate_method_impl(
                         convert_to_single_lifetime(ty)
                     };
 
-                    return Some(quote! {
-                        #name: #ty_for_params
+                    // Check if this argument has lifetimes
+                    let has_lifetime = ty_for_params.to_token_stream().to_string().contains('&');
+
+                    return Some(ArgInfo {
+                        name,
+                        ty_for_params,
+                        is_optional,
+                        has_lifetime,
                     });
                 }
             }
             None
         })
-        .collect::<Vec<_>>();
+        .collect();
 
-    let arg_names = method
-        .sig
-        .inputs
-        .iter()
-        .skip(1)
-        .filter_map(|arg| {
-            if let FnArg::Typed(pat_type) = arg {
-                if let Pat::Ident(pat_ident) = &*pat_type.pat {
-                    return Some(&pat_ident.ident);
-                }
-            }
-            None
-        })
-        .collect::<Vec<_>>();
+    // Extract the data we need from the processed arguments
+    let arg_names: Vec<_> = arg_infos.iter().map(|info| info.name).collect();
+    let has_any_lifetime = arg_infos.iter().any(|info| info.has_lifetime);
 
     // Use the original method signature for the implementation
     let full_args = &method.sig.inputs;
 
     // Parse return type
-    let (reply_type, error_type) = parse_return_type(&method.sig.output)?;
+    let (reply_type, error_type) = parse_return_type(&method.sig.output, is_streaming)?;
 
     // Generate the method parameters as an Option
     let (params_struct_def, params_init) = if !arg_names.is_empty() {
-        // Check if we need a lifetime for the params struct
-        let needs_lifetime = args.iter().any(|arg| {
-            // Check if the arg contains any references by looking for '&' in the token stream
-            arg.to_string().contains('&')
-        });
-
-        let lifetime_decl = if needs_lifetime {
+        let lifetime_decl = if has_any_lifetime {
             if has_explicit_lifetimes {
                 // Use all the explicit lifetimes from the method
                 let lifetimes: Vec<_> = method.sig.generics.lifetimes().collect();
@@ -166,10 +166,27 @@ fn generate_method_impl(
             quote! {}
         };
 
+        // Generate struct fields with optional serde attributes
+        let struct_fields = arg_infos.iter().map(|info| {
+            let name = info.name;
+            let ty = &info.ty_for_params;
+
+            if info.is_optional {
+                quote! {
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    #name: #ty
+                }
+            } else {
+                quote! {
+                    #name: #ty
+                }
+            }
+        });
+
         let struct_def = quote! {
             #[derive(::serde::Serialize, ::core::fmt::Debug)]
             struct Params #lifetime_decl {
-                #(#args,)*
+                #(#struct_fields,)*
             }
         };
 
@@ -193,24 +210,74 @@ fn generate_method_impl(
     // Use the original method generics - don't modify them
     let method_generics = &method.sig.generics;
 
-    Ok(quote! {
-        async fn #method_name #method_generics (
-            #full_args
-        ) -> ::zlink::Result<::core::result::Result<#reply_type, #error_type>> {
-            #params_struct_def
-            #params_init
+    // Common method call setup
+    let method_call_setup = quote! {
+        #params_struct_def
+        #params_init
 
-            #[derive(::serde::Serialize, ::core::fmt::Debug)]
-            struct MethodCall<T> {
-                method: &'static str,
-                #[serde(skip_serializing_if = "Option::is_none")]
-                parameters: Option<T>,
+        #[derive(::serde::Serialize, ::core::fmt::Debug)]
+        struct MethodCall<T> {
+            method: &'static str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            parameters: Option<T>,
+        }
+
+        let method_call = MethodCall {
+            method: #method_path,
+            parameters: params,
+        };
+    };
+
+    if is_streaming {
+        // Generate streaming method implementation
+        let return_type = quote! {
+            ::zlink::Result<
+                impl ::futures_util::stream::Stream<
+                    Item = ::zlink::Result<::core::result::Result<#reply_type, #error_type>>
+                >
+            >
+        };
+
+        let implementation = quote! {
+            #method_call_setup
+
+            let call = ::zlink::Call::new(method_call).set_more(Some(true));
+            self.send_call(&call).await?;
+
+            let stream = ::zlink::connection::chain::ReplyStream::new(
+                self.read_mut(),
+                |conn| conn.receive_reply::<#reply_type, #error_type>(),
+                1,
+            );
+
+            use ::futures_util::stream::{Stream, StreamExt};
+            Ok(stream.map(|result| {
+                match result {
+                    Ok(Ok(reply)) => match reply.into_parameters() {
+                        Some(params) => Ok(Ok(params)),
+                        None => Err(::zlink::Error::BufferOverflow),
+                    },
+                    Ok(Err(error)) => Ok(Err(error)),
+                    Err(err) => Err(err),
+                }
+            }))
+        };
+
+        Ok(quote! {
+            async fn #method_name #method_generics (
+                #full_args
+            ) -> #return_type {
+                #implementation
             }
+        })
+    } else {
+        // Generate regular method implementation
+        let return_type = quote! {
+            ::zlink::Result<::core::result::Result<#reply_type, #error_type>>
+        };
 
-            let method_call = MethodCall {
-                method: #method_path,
-                parameters: params,
-            };
+        let implementation = quote! {
+            #method_call_setup
 
             let call = ::zlink::Call::new(method_call);
             match self.call_method::<_, #reply_type, #error_type>(&call).await? {
@@ -223,13 +290,22 @@ fn generate_method_impl(
                 },
                 Err(error) => Ok(Err(error)),
             }
-        }
-    })
+        };
+
+        Ok(quote! {
+            async fn #method_name #method_generics (
+                #full_args
+            ) -> #return_type {
+                #implementation
+            }
+        })
+    }
 }
 
-fn extract_method_rename(attrs: &mut Vec<Attribute>) -> Result<Option<String>, Error> {
+fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, bool), Error> {
     let mut rename_value = None;
-    let mut zlink_attr_index = None;
+    let mut is_streaming = false;
+    let mut zlink_attr_indices = Vec::new();
 
     for (i, attr) in attrs.iter().enumerate() {
         if !attr.path().is_ident("zlink") {
@@ -240,39 +316,76 @@ fn extract_method_rename(attrs: &mut Vec<Attribute>) -> Result<Option<String>, E
             continue;
         };
 
-        let args: MetaNameValue = syn::parse2(list.tokens.clone())?;
+        if list.tokens.is_empty() {
+            continue;
+        }
 
-        let lit_str = match (&args.path, &args.value) {
-            (path, Expr::Lit(lit)) if path.is_ident("rename") => match &lit.lit {
-                Lit::Str(lit_str) => lit_str,
-                _ => continue,
-            },
-            _ => continue,
-        };
+        // Parse all meta items in this zlink attribute in one pass
+        let meta_items = list.parse_args_with(
+            syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated,
+        )?;
 
-        rename_value = Some(lit_str.value());
-        zlink_attr_index = Some(i);
+        let mut found_valid_attr = false;
+        for meta in meta_items {
+            match &meta {
+                syn::Meta::NameValue(nv) if nv.path.is_ident("rename") => {
+                    if let Expr::Lit(syn::ExprLit {
+                        lit: Lit::Str(lit_str),
+                        ..
+                    }) = &nv.value
+                    {
+                        if rename_value.is_some() {
+                            return Err(Error::new_spanned(&meta, "duplicate `rename` attribute"));
+                        }
+                        rename_value = Some(lit_str.value());
+                        found_valid_attr = true;
+                    } else {
+                        return Err(Error::new_spanned(
+                            &nv.value,
+                            "rename value must be a string literal",
+                        ));
+                    }
+                }
+                syn::Meta::Path(path) if path.is_ident("more") => {
+                    if is_streaming {
+                        return Err(Error::new_spanned(&meta, "duplicate `more` attribute"));
+                    }
+                    is_streaming = true;
+                    found_valid_attr = true;
+                }
+                _ => {
+                    return Err(Error::new_spanned(&meta, "unknown zlink attribute"));
+                }
+            }
+        }
 
-        break;
+        if found_valid_attr {
+            zlink_attr_indices.push(i);
+        }
     }
 
-    // Remove the zlink attribute if found
-    if let Some(index) = zlink_attr_index {
+    // Remove the zlink attributes we processed (in reverse order to preserve indices)
+    for &index in zlink_attr_indices.iter().rev() {
         attrs.remove(index);
     }
 
-    Ok(rename_value)
+    Ok((rename_value, is_streaming))
 }
 
-fn parse_return_type(output: &ReturnType) -> Result<(Type, Type), Error> {
+fn parse_return_type(output: &ReturnType, is_streaming: bool) -> Result<(Type, Type), Error> {
     match output {
         ReturnType::Default => Err(Error::new_spanned(
             output,
             "proxy methods must have a return type",
         )),
         ReturnType::Type(_, ty) => {
-            // Extract Result<Result<T, E>> or impl Future<Output = Result<Result<T, E>>>
-            extract_nested_result_types(ty)
+            if is_streaming {
+                // For streaming methods, expect Result<impl Stream<Item = Result<Result<T, E>>>>
+                extract_streaming_result_types(ty)
+            } else {
+                // Extract Result<Result<T, E>> or impl Future<Output = Result<Result<T, E>>>
+                extract_nested_result_types(ty)
+            }
         }
     }
 }
@@ -394,6 +507,120 @@ fn extract_inner_result_types(ty: &Type) -> Result<(Type, Type), Error> {
     }
 }
 
+fn extract_streaming_result_types(ty: &Type) -> Result<(Type, Type), Error> {
+    match ty {
+        Type::Path(type_path) => {
+            // Direct Result<impl Stream<Item = Result<Result<T, E>>>>
+            let Some(segment) = type_path.path.segments.last() else {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+                ));
+            };
+
+            if segment.ident != "Result" {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+                ));
+            }
+
+            let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+                ));
+            };
+
+            let Some(GenericArgument::Type(stream_ty)) = args.args.first() else {
+                return Err(Error::new_spanned(
+                    ty,
+                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+                ));
+            };
+
+            extract_stream_item_types(stream_ty)
+        }
+        Type::ImplTrait(impl_trait) => {
+            // impl Future<Output = Result<impl Stream<Item = Result<Result<T, E>>>>>
+            for bound in &impl_trait.bounds {
+                let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                    continue;
+                };
+
+                let segment = match trait_bound.path.segments.last() {
+                    Some(segment) if segment.ident == "Future" => segment,
+                    _ => continue,
+                };
+
+                let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                    continue;
+                };
+
+                for arg in &args.args {
+                    let GenericArgument::AssocType(assoc) = arg else {
+                        continue;
+                    };
+
+                    if assoc.ident == "Output" {
+                        return extract_streaming_result_types(&assoc.ty);
+                    }
+                }
+            }
+
+            Err(Error::new_spanned(
+                ty,
+                "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+            ))
+        }
+        _ => Err(Error::new_spanned(
+            ty,
+            "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+        )),
+    }
+}
+
+fn extract_stream_item_types(ty: &Type) -> Result<(Type, Type), Error> {
+    match ty {
+        Type::ImplTrait(impl_trait) => {
+            // impl Stream<Item = Result<Result<T, E>>>
+            for bound in &impl_trait.bounds {
+                let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                    continue;
+                };
+
+                let segment = match trait_bound.path.segments.last() {
+                    Some(segment) if segment.ident == "Stream" => segment,
+                    _ => continue,
+                };
+
+                let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                    continue;
+                };
+
+                for arg in &args.args {
+                    let GenericArgument::AssocType(assoc) = arg else {
+                        continue;
+                    };
+
+                    if assoc.ident == "Item" {
+                        return extract_nested_result_types(&assoc.ty);
+                    }
+                }
+            }
+
+            Err(Error::new_spanned(
+                ty,
+                "expected impl Stream<Item = Result<Result<ReplyType, ErrorType>>>",
+            ))
+        }
+        _ => Err(Error::new_spanned(
+            ty,
+            "expected impl Stream<Item = Result<Result<ReplyType, ErrorType>>>",
+        )),
+    }
+}
+
 fn snake_case_to_pascal_case(input: &str) -> String {
     input
         .split('_')
@@ -481,5 +708,34 @@ fn convert_to_single_lifetime(ty: &Type) -> Type {
             })
         }
         _ => ty.clone(),
+    }
+}
+
+/// Check if a syn::Type represents an Option type.
+/// Handles Option, std::option::Option, and core::option::Option.
+fn is_option_type_syn(ty: &Type) -> bool {
+    match ty {
+        Type::Path(type_path) => {
+            let path = &type_path.path;
+
+            // Check if this is a single segment (just "Option")
+            if path.segments.len() == 1 {
+                return path.segments.first().unwrap().ident == "Option";
+            }
+
+            // Check for multi-segment paths like std::option::Option or core::option::Option
+            if path.segments.len() >= 2 {
+                let segments: Vec<_> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+                let path_str = segments.join("::");
+
+                return path_str == "std::option::Option"
+                    || path_str == "core::option::Option"
+                    || path_str.ends_with("::std::option::Option")
+                    || path_str.ends_with("::core::option::Option");
+            }
+
+            false
+        }
+        _ => false,
     }
 }
