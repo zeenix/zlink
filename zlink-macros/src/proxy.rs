@@ -55,13 +55,9 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
     let methods = trait_def
         .items
         .iter_mut()
-        .filter_map(|item| {
-            if let TraitItem::Fn(method) = item {
-                // Generate the method implementation (this also removes zlink attributes)
-                Some(generate_method_impl(method, &interface_name))
-            } else {
-                None
-            }
+        .filter_map(|item| match item {
+            TraitItem::Fn(method) => Some(generate_method_impl(method, &interface_name)),
+            _ => None,
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -112,33 +108,35 @@ fn generate_method_impl(
         .iter()
         .skip(1)
         .filter_map(|arg| {
-            if let FnArg::Typed(pat_type) = arg {
-                if let Pat::Ident(pat_ident) = &*pat_type.pat {
-                    let name = &pat_ident.ident;
-                    let ty = &pat_type.ty;
+            let FnArg::Typed(pat_type) = arg else {
+                return None;
+            };
+            let Pat::Ident(pat_ident) = &*pat_type.pat else {
+                return None;
+            };
 
-                    // Check if the type is optional
-                    let is_optional = is_option_type_syn(ty);
+            let name = &pat_ident.ident;
+            let ty = &pat_type.ty;
 
-                    // Only convert to single lifetime if there are no explicit lifetimes
-                    let ty_for_params = if has_explicit_lifetimes {
-                        (**ty).clone()
-                    } else {
-                        convert_to_single_lifetime(ty)
-                    };
+            // Check if the type is optional
+            let is_optional = is_option_type_syn(ty);
 
-                    // Check if this argument has lifetimes
-                    let has_lifetime = type_contains_lifetime(&ty_for_params);
+            // Only convert to single lifetime if there are no explicit lifetimes
+            let ty_for_params = if has_explicit_lifetimes {
+                (**ty).clone()
+            } else {
+                convert_to_single_lifetime(ty)
+            };
 
-                    return Some(ArgInfo {
-                        name,
-                        ty_for_params,
-                        is_optional,
-                        has_lifetime,
-                    });
-                }
-            }
-            None
+            // Check if this argument has lifetimes
+            let has_lifetime = type_contains_lifetime(&ty_for_params);
+
+            Some(ArgInfo {
+                name,
+                ty_for_params,
+                is_optional,
+                has_lifetime,
+            })
         })
         .collect();
 
@@ -430,36 +428,38 @@ fn extract_nested_result_types(ty: &Type) -> Result<(Type, Type), Error> {
         }
         Type::ImplTrait(impl_trait) => {
             // impl Future<Output = Result<Result<T, E>>>
-            for bound in &impl_trait.bounds {
-                let syn::TypeParamBound::Trait(trait_bound) = bound else {
-                    continue;
-                };
-
-                let segment = match trait_bound.path.segments.last() {
-                    Some(segment) if segment.ident == "Future" => segment,
-                    _ => continue,
-                };
-
-                let PathArguments::AngleBracketed(args) = &segment.arguments else {
-                    continue;
-                };
-
-                for arg in &args.args {
-                    let GenericArgument::AssocType(assoc) = arg else {
-                        continue;
+            impl_trait
+                .bounds
+                .iter()
+                .find_map(|bound| {
+                    let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                        return None;
                     };
-
-                    if assoc.ident == "Output" {
-                        return extract_nested_result_types(&assoc.ty);
+                    let segment = trait_bound.path.segments.last()?;
+                    if segment.ident != "Future" {
+                        return None;
                     }
-                }
-            }
-
-            Err(Error::new_spanned(
-                ty,
-                "expected Result<Result<ReplyType, ErrorType>> or \
-                 impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-            ))
+                    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                        return None;
+                    };
+                    args.args.iter().find_map(|arg| {
+                        let GenericArgument::AssocType(assoc) = arg else {
+                            return None;
+                        };
+                        if assoc.ident == "Output" {
+                            Some(extract_nested_result_types(&assoc.ty))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .unwrap_or_else(|| {
+                    Err(Error::new_spanned(
+                        ty,
+                        "expected Result<Result<ReplyType, ErrorType>> or \
+                         impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
+                    ))
+                })
         }
         _ => Err(Error::new_spanned(
             ty,
@@ -543,35 +543,37 @@ fn extract_streaming_result_types(ty: &Type) -> Result<(Type, Type), Error> {
         }
         Type::ImplTrait(impl_trait) => {
             // impl Future<Output = Result<impl Stream<Item = Result<Result<T, E>>>>>
-            for bound in &impl_trait.bounds {
-                let syn::TypeParamBound::Trait(trait_bound) = bound else {
-                    continue;
-                };
-
-                let segment = match trait_bound.path.segments.last() {
-                    Some(segment) if segment.ident == "Future" => segment,
-                    _ => continue,
-                };
-
-                let PathArguments::AngleBracketed(args) = &segment.arguments else {
-                    continue;
-                };
-
-                for arg in &args.args {
-                    let GenericArgument::AssocType(assoc) = arg else {
-                        continue;
+            impl_trait
+                .bounds
+                .iter()
+                .find_map(|bound| {
+                    let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                        return None;
                     };
-
-                    if assoc.ident == "Output" {
-                        return extract_streaming_result_types(&assoc.ty);
+                    let segment = trait_bound.path.segments.last()?;
+                    if segment.ident != "Future" {
+                        return None;
                     }
-                }
-            }
-
-            Err(Error::new_spanned(
-                ty,
-                "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-            ))
+                    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                        return None;
+                    };
+                    args.args.iter().find_map(|arg| {
+                        let GenericArgument::AssocType(assoc) = arg else {
+                            return None;
+                        };
+                        if assoc.ident == "Output" {
+                            Some(extract_streaming_result_types(&assoc.ty))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .unwrap_or_else(|| {
+                    Err(Error::new_spanned(
+                        ty,
+                        "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
+                    ))
+                })
         }
         _ => Err(Error::new_spanned(
             ty,
@@ -584,35 +586,37 @@ fn extract_stream_item_types(ty: &Type) -> Result<(Type, Type), Error> {
     match ty {
         Type::ImplTrait(impl_trait) => {
             // impl Stream<Item = Result<Result<T, E>>>
-            for bound in &impl_trait.bounds {
-                let syn::TypeParamBound::Trait(trait_bound) = bound else {
-                    continue;
-                };
-
-                let segment = match trait_bound.path.segments.last() {
-                    Some(segment) if segment.ident == "Stream" => segment,
-                    _ => continue,
-                };
-
-                let PathArguments::AngleBracketed(args) = &segment.arguments else {
-                    continue;
-                };
-
-                for arg in &args.args {
-                    let GenericArgument::AssocType(assoc) = arg else {
-                        continue;
+            impl_trait
+                .bounds
+                .iter()
+                .find_map(|bound| {
+                    let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                        return None;
                     };
-
-                    if assoc.ident == "Item" {
-                        return extract_nested_result_types(&assoc.ty);
+                    let segment = trait_bound.path.segments.last()?;
+                    if segment.ident != "Stream" {
+                        return None;
                     }
-                }
-            }
-
-            Err(Error::new_spanned(
-                ty,
-                "expected impl Stream<Item = Result<Result<ReplyType, ErrorType>>>",
-            ))
+                    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                        return None;
+                    };
+                    args.args.iter().find_map(|arg| {
+                        let GenericArgument::AssocType(assoc) = arg else {
+                            return None;
+                        };
+                        if assoc.ident == "Item" {
+                            Some(extract_nested_result_types(&assoc.ty))
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .unwrap_or_else(|| {
+                    Err(Error::new_spanned(
+                        ty,
+                        "expected impl Stream<Item = Result<Result<ReplyType, ErrorType>>>",
+                    ))
+                })
         }
         _ => Err(Error::new_spanned(
             ty,
