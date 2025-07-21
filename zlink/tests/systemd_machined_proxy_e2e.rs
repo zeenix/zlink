@@ -108,7 +108,7 @@ async fn introspect_machined() {
 }
 
 #[tokio::test]
-async fn test_machine_proxy() {
+async fn machine_proxy() {
     run_test_with_service(|socket_path| async move {
         // Connect to machine service (real or mock)
         let mut conn = timeout(Duration::from_secs(5), unix::connect(&socket_path))
