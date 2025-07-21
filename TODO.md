@@ -2,21 +2,23 @@
 
 ## Release 0.1.0
 
+* zlink
+  * in systemd-machined e2e test
+    * Fix list method call against real machined service
+      * (don't pass name?)
+      * Expects `more`
+    * 2 variants for `List` method in `proxy`, one with `more` and one without.
+  * Any method call can return varlink_service::Error
+    * Perhaps ReadConnection::receive_reply should take care of this.
 * zlink-macros
   * `proxy` attribute macro
-    * User provides a trait that we implement for `Connection`
-      * Similar to `zlink_core::varlink_service::Proxy`, except:
-        * They can just write `async fn` instead of returning `impl Future`. **If** Rust complains,
-          the macro should convert the method appropriately.
-        * No chaining/pipelining for now. We'll add that in a later release.
-    * Similar to `zbus`'s `proxy` macro but simpler (e.g no type introspection needed).
-    * gated behind (default) `proxy` feature (in zlink-core, zlink & zlink-tokio as well)
-* zlink-core
-  * re-export `zlink_macros::proxy` in root (which in turn re-exports from higher-level crates)
-* zlink
-  * Use `proxy` macro to add test case in systemd-machined e2e test for the `io.systemd.Machine`
-    interface
-    * Will first need to implement the `io.systemd.Machine` interface in the mock service.
+    * `BufferOverflow` error wrongly returned
+    * check macro code for other cleanups refactors possible
+    * chaining/pipelining.
+      * similar to how `varlink_service::Proxy` does it
+    * Avoid cloning in the macro code, where possible (use references).
+* Replace `println!` with `tracing` logging in tests
+  * May need to add a subscriber for tests
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
   * tests
@@ -45,8 +47,6 @@
 ## Release 0.3.0
 
 * zlink-macros
-  * `proxy` pipelining
-    * similar to how `varlink_service::Proxy` does it
   * embedded feature
     * Manual Deserialize impl
     * assume fields in a specific order
