@@ -1,13 +1,13 @@
 //! Chain method calls.
 
 mod reply_stream;
+#[doc(hidden)]
+pub use reply_stream::ReplyStream;
 
 use crate::{connection::Socket, reply, Call, Connection, Result};
 use core::fmt::Debug;
 use futures_util::stream::Stream;
 use serde::{Deserialize, Serialize};
-
-use reply_stream::ReplyStream;
 
 /// A chain of method calls that will be sent together.
 ///

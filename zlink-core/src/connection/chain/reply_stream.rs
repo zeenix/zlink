@@ -16,7 +16,7 @@ use crate::{
 pin_project! {
     /// A stream of replies from a chain of method calls.
     #[derive(Debug)]
-    pub(super) struct ReplyStream<'c, Read: ReadHalf, F, Fut, Params, ReplyError> {
+    pub struct ReplyStream<'c, Read: ReadHalf, F, Fut, Params, ReplyError> {
         #[pin]
         state: ReplyStreamState<Fut>,
         connection: &'c mut ReadConnection<Read>,
@@ -36,11 +36,11 @@ where
     Params: Deserialize<'c> + Debug,
     ReplyError: Deserialize<'c> + Debug,
 {
-    pub(super) fn new(
-        connection: &'c mut ReadConnection<Read>,
-        func: F,
-        call_count: usize,
-    ) -> Self {
+    /// Create a new reply stream.
+    ///
+    /// This is used internally by the proxy macro for streaming methods.
+    #[doc(hidden)]
+    pub fn new(connection: &'c mut ReadConnection<Read>, func: F, call_count: usize) -> Self {
         ReplyStream {
             state: ReplyStreamState::Init,
             connection,
