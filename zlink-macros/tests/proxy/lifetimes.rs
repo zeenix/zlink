@@ -9,12 +9,12 @@ fn lifetimes_compile() {
         async fn process<'a>(
             &mut self,
             data: &'a str,
-        ) -> zlink::Result<Result<Response<'a>, Error>>;
+        ) -> zlink::Result<Result<Response<'_>, Error>>;
         async fn with_lifetime<'b>(
             &mut self,
             input: &'b str,
             count: i32,
-        ) -> zlink::Result<Result<Vec<&'b str>, Error>>;
+        ) -> zlink::Result<Result<Vec<&str>, Error>>;
     }
 
     #[derive(Debug, Serialize, Deserialize)]

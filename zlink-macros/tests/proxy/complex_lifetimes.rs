@@ -25,7 +25,7 @@ fn complex_lifetimes_compile() {
         async fn generic_result<'a>(
             &mut self,
             input: &'a str,
-        ) -> zlink::Result<Result<Response<'a>, CustomError<'a>>>;
+        ) -> zlink::Result<Result<Response<'_>, CustomError<'_>>>;
     }
 
     #[derive(Debug, Serialize, Deserialize)]
