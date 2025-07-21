@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
     parse2, spanned::Spanned, Attribute, Error, Expr, FnArg, GenericArgument, ItemTrait, Lifetime,
     Lit, Meta, Pat, PathArguments, ReturnType, TraitItem, Type, TypeReference,
@@ -128,7 +128,7 @@ fn generate_method_impl(
                     };
 
                     // Check if this argument has lifetimes
-                    let has_lifetime = ty_for_params.to_token_stream().to_string().contains('&');
+                    let has_lifetime = type_contains_lifetime(&ty_for_params);
 
                     return Some(ArgInfo {
                         name,
@@ -708,6 +708,31 @@ fn convert_to_single_lifetime(ty: &Type) -> Type {
             })
         }
         _ => ty.clone(),
+    }
+}
+
+/// Check if a type contains any lifetime references.
+/// This recursively checks all nested types.
+fn type_contains_lifetime(ty: &Type) -> bool {
+    match ty {
+        Type::Reference(_) => true,
+        Type::Path(type_path) => type_path.path.segments.iter().any(|segment| {
+            let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                return false;
+            };
+            args.args.iter().any(|arg| match arg {
+                GenericArgument::Lifetime(_) => true,
+                GenericArgument::Type(ty) => type_contains_lifetime(ty),
+                _ => false,
+            })
+        }),
+        Type::Slice(type_slice) => type_contains_lifetime(&type_slice.elem),
+        Type::Array(type_array) => type_contains_lifetime(&type_array.elem),
+        Type::Tuple(type_tuple) => type_tuple.elems.iter().any(type_contains_lifetime),
+        Type::Ptr(type_ptr) => type_contains_lifetime(&type_ptr.elem),
+        Type::Paren(type_paren) => type_contains_lifetime(&type_paren.elem),
+        Type::Group(type_group) => type_contains_lifetime(&type_group.elem),
+        _ => false,
     }
 }
 
