@@ -270,10 +270,10 @@ impl Service for MockMachinedService {
             Method::Machine(MachineMethod::List { .. }) => {
                 // Return a mock machine
                 let list_reply = ListReply {
-                    name: "test-machine",
+                    name: ".host",
                     id: Some("1234567890abcdef1234567890abcdef"),
                     service: Some("mock-service"),
-                    class: "container",
+                    class: "host",
                     leader: Some(ProcessId {
                         pid: 12345,
                         pidfd_id: None,

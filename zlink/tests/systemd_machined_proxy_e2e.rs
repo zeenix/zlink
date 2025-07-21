@@ -117,27 +117,15 @@ async fn machine_proxy() {
             .expect("Failed to connect to machine socket");
 
         // Test the proxy macro with the Machine interface
-        let machine_name = "test-machine";
-        let result = conn
-            .list(
-                Some(machine_name),
-                None,
-                Some(false),
-                Some(AcquireMetadata::Yes),
-            )
-            .await;
+        let machine_name = ".host";
+        let result = conn.list(Some(machine_name), None, None, None).await;
 
         match result {
             Ok(Ok(machine)) => {
                 // We got a successful response with machine data
                 println!("Machine data: {:?}", machine);
-                // Verify it's the expected mock data
-                assert_eq!(machine.name, "test-machine");
-                assert_eq!(machine.class, "container");
-
-                // Test that we can use references from the result
-                let machine_name_ref = &machine.name;
-                println!("Machine name reference: {}", machine_name_ref);
+                assert_eq!(machine.name, ".host");
+                assert_eq!(machine.class, "host");
             }
             Ok(Err(error)) => {
                 // This is acceptable - no machines might be running or other error
