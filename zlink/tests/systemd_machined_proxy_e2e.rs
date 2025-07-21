@@ -158,7 +158,7 @@ trait MachineProxy {
     async fn list(
         &mut self,
         name: Option<&str>,
-        pid: Option<ProcessId>,
+        pid: Option<ProcessId<'_>>,
         allow_interactive_authentication: Option<bool>,
         acquire_metadata: Option<AcquireMetadata>,
     ) -> zlink::Result<Result<ListReply<'_>, MachinedError>>;

@@ -46,7 +46,7 @@ pub enum MachineMethod<'a> {
         class: &'a str,
         leader: Option<u32>,
         #[serde(rename = "leaderProcessId")]
-        leader_process_id: Option<ProcessId>,
+        leader_process_id: Option<ProcessId<'a>>,
         #[serde(rename = "rootDirectory")]
         root_directory: Option<&'a str>,
         #[serde(rename = "ifIndices")]
@@ -64,19 +64,19 @@ pub enum MachineMethod<'a> {
     },
     Unregister {
         name: Option<&'a str>,
-        pid: Option<ProcessId>,
+        pid: Option<ProcessId<'a>>,
         #[serde(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
     },
     Terminate {
         name: Option<&'a str>,
-        pid: Option<ProcessId>,
+        pid: Option<ProcessId<'a>>,
         #[serde(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
     },
     Kill {
         name: Option<&'a str>,
-        pid: Option<ProcessId>,
+        pid: Option<ProcessId<'a>>,
         #[serde(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
         whom: Option<&'a str>,
@@ -84,7 +84,7 @@ pub enum MachineMethod<'a> {
     },
     List {
         name: Option<&'a str>,
-        pid: Option<ProcessId>,
+        pid: Option<ProcessId<'a>>,
         #[serde(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
         #[serde(rename = "acquireMetadata")]
@@ -92,7 +92,7 @@ pub enum MachineMethod<'a> {
     },
     Open {
         name: Option<&'a str>,
-        pid: Option<ProcessId>,
+        pid: Option<ProcessId<'a>>,
         #[serde(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
         mode: MachineOpenMode,
@@ -126,7 +126,7 @@ pub struct ListReply<'a> {
     pub id: Option<&'a str>,
     pub service: Option<&'a str>,
     pub class: &'a str,
-    pub leader: Option<ProcessId>,
+    pub leader: Option<ProcessId<'a>>,
     #[serde(rename = "rootDirectory")]
     pub root_directory: Option<&'a str>,
     pub unit: Option<String>, // Needs owned type for escaped content
@@ -170,12 +170,14 @@ pub enum MachineOpenMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
-pub struct ProcessId {
+pub struct ProcessId<'a> {
     pub pid: i64,
     #[serde(rename = "pidfdId")]
     pub pidfd_id: Option<u64>,
     #[serde(rename = "bootId")]
-    pub boot_id: Option<u64>,
+    // According to the IDL, this should be a number but we actually get a string.
+    // See https://github.com/systemd/systemd/issues/38276
+    pub boot_id: Option<&'a str>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
