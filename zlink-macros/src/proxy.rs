@@ -1,8 +1,9 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse2, spanned::Spanned, Attribute, Error, Expr, FnArg, GenericArgument, ItemTrait, Lifetime,
-    Lit, Meta, Pat, PathArguments, ReturnType, TraitItem, Type, TypeReference,
+    parse2, punctuated::Punctuated, spanned::Spanned, Attribute, Error, Expr, FnArg,
+    GenericArgument, ItemTrait, Lifetime, Lit, Meta, Pat, PathArguments, ReturnType, TraitItem,
+    Type, TypeReference,
 };
 
 pub(crate) fn proxy(attr: TokenStream, input: TokenStream) -> TokenStream {
@@ -56,18 +57,54 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
         .items
         .iter_mut()
         .filter_map(|item| match item {
-            TraitItem::Fn(method) => Some(generate_method_impl(method, &interface_name)),
+            TraitItem::Fn(method) => Some(generate_method_impl(method, &interface_name, generics)),
             _ => None,
         })
         .collect::<Result<Vec<_>, _>>()?;
 
+    // Build impl generics combining trait generics with socket generic
+    let mut impl_generics = generics.clone();
+    impl_generics.params.push(syn::parse_quote!(S));
+
+    // Create trait generics without bounds for impl line
+    let mut trait_generics_no_bounds = generics.clone();
+    for param in &mut trait_generics_no_bounds.params {
+        if let syn::GenericParam::Type(type_param) = param {
+            type_param.bounds.clear(); // Remove inline bounds for impl line
+        }
+    }
+
+    // Build where clause combining existing constraints with socket constraint and trait bounds
+    let socket_constraint = syn::parse_quote!(S: ::zlink::connection::socket::Socket);
+    let mut combined_where_clause = if let Some(existing) = where_clause.clone() {
+        existing
+    } else {
+        syn::parse_quote!(where)
+    };
+
+    // Add socket constraint
+    combined_where_clause.predicates.push(socket_constraint);
+
+    // Add trait generic bounds to where clause
+    for param in &generics.params {
+        if let syn::GenericParam::Type(type_param) = param {
+            if !type_param.bounds.is_empty() {
+                let type_name = &type_param.ident;
+                let bounds = &type_param.bounds;
+                combined_where_clause
+                    .predicates
+                    .push(syn::parse_quote!(#type_name: #bounds));
+            }
+        }
+    }
+
+    let combined_where_clause = Some(combined_where_clause);
+
     let output = quote! {
         #trait_def
 
-        impl<S> #trait_name #generics for ::zlink::Connection<S>
-        where
-            S: ::zlink::connection::socket::Socket,
-            #where_clause
+        impl #impl_generics #trait_name #trait_generics_no_bounds for ::zlink::Connection<S>
+        #combined_where_clause
         {
             #(#methods)*
         }
@@ -79,6 +116,7 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
 fn generate_method_impl(
     method: &mut syn::TraitItemFn,
     interface_name: &str,
+    trait_generics: &syn::Generics,
 ) -> Result<TokenStream, Error> {
     let method_name = &method.sig.ident;
     let method_name_str = method_name.to_string();
@@ -150,16 +188,55 @@ fn generate_method_impl(
     // Parse return type
     let (reply_type, error_type) = parse_return_type(&method.sig.output, is_streaming)?;
 
+    // Separate method generics for proper positioning of where clause
+    let method_generic_params = &method.sig.generics.params;
+    let method_where_clause = &method.sig.generics.where_clause;
+
     // Generate the method parameters as an Option
     let (params_struct_def, params_init) = if !arg_names.is_empty() {
-        let lifetime_decl = if has_any_lifetime {
-            if has_explicit_lifetimes {
-                // Use all the explicit lifetimes from the method
-                let lifetimes: Vec<_> = method.sig.generics.lifetimes().collect();
-                quote! { <#(#lifetimes),*> }
-            } else {
-                quote! { <'__proxy_params> }
+        // Collect which type parameters are actually used in method arguments
+        let mut used_type_params = std::collections::HashSet::new();
+        for info in &arg_infos {
+            collect_used_type_params(&info.ty_for_params, &mut used_type_params);
+        }
+
+        // Include only used trait generics and method generics for Params struct (without bounds)
+        let mut combined_generics: Punctuated<syn::GenericParam, syn::Token![,]> =
+            Punctuated::new();
+
+        // Add trait generics that are actually used (without bounds)
+        for param in &trait_generics.params {
+            match param {
+                syn::GenericParam::Type(type_param) => {
+                    if used_type_params.contains(&type_param.ident.to_string()) {
+                        let mut clean_param = type_param.clone();
+                        clean_param.bounds.clear();
+                        combined_generics.push(syn::GenericParam::Type(clean_param));
+                    }
+                }
+                other => combined_generics.push(other.clone()),
             }
+        }
+
+        // Add method generics that are actually used (without bounds)
+        for param in &method.sig.generics.params {
+            match param {
+                syn::GenericParam::Type(type_param) => {
+                    if used_type_params.contains(&type_param.ident.to_string()) {
+                        let mut clean_param = type_param.clone();
+                        clean_param.bounds.clear();
+                        combined_generics.push(syn::GenericParam::Type(clean_param));
+                    }
+                }
+                other => combined_generics.push(other.clone()),
+            }
+        }
+
+        // Add lifetime if needed
+        let generics_decl = if !combined_generics.is_empty() {
+            quote! { <#combined_generics> }
+        } else if has_any_lifetime && !has_explicit_lifetimes {
+            quote! { <'__proxy_params> }
         } else {
             quote! {}
         };
@@ -181,9 +258,41 @@ fn generate_method_impl(
             }
         });
 
+        // Add where clause with bounds from method's where clause for used type parameters
+        let params_where_clause =
+            if let Some(method_where_clause) = &method.sig.generics.where_clause {
+                let mut where_predicates = syn::punctuated::Punctuated::new();
+
+                for predicate in &method_where_clause.predicates {
+                    if let syn::WherePredicate::Type(type_predicate) = predicate {
+                        if let syn::Type::Path(type_path) = &type_predicate.bounded_ty {
+                            if type_path.path.segments.len() == 1 {
+                                let type_name = &type_path.path.segments[0].ident;
+                                if used_type_params.contains(&type_name.to_string()) {
+                                    where_predicates.push(predicate.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !where_predicates.is_empty() {
+                    Some(syn::WhereClause {
+                        where_token: syn::token::Where::default(),
+                        predicates: where_predicates,
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
         let struct_def = quote! {
             #[derive(::serde::Serialize, ::core::fmt::Debug)]
-            struct Params #lifetime_decl {
+            struct Params #generics_decl
+            #params_where_clause
+            {
                 #(#struct_fields,)*
             }
         };
@@ -204,9 +313,6 @@ fn generate_method_impl(
             },
         )
     };
-
-    // Use the original method generics - don't modify them
-    let method_generics = &method.sig.generics;
 
     // Common method call setup
     let method_call_setup = quote! {
@@ -262,9 +368,11 @@ fn generate_method_impl(
         };
 
         Ok(quote! {
-            async fn #method_name #method_generics (
+            async fn #method_name <#method_generic_params> (
                 #full_args
-            ) -> #return_type {
+            ) -> #return_type
+            #method_where_clause
+            {
                 #implementation
             }
         })
@@ -291,9 +399,11 @@ fn generate_method_impl(
         };
 
         Ok(quote! {
-            async fn #method_name #method_generics (
+            async fn #method_name <#method_generic_params> (
                 #full_args
-            ) -> #return_type {
+            ) -> #return_type
+            #method_where_clause
+            {
                 #implementation
             }
         })
@@ -319,9 +429,8 @@ fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, b
         }
 
         // Parse all meta items in this zlink attribute in one pass
-        let meta_items = list.parse_args_with(
-            syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated,
-        )?;
+        let meta_items =
+            list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)?;
 
         let mut found_valid_attr = false;
         for meta in meta_items {
@@ -737,6 +846,45 @@ fn type_contains_lifetime(ty: &Type) -> bool {
         Type::Paren(type_paren) => type_contains_lifetime(&type_paren.elem),
         Type::Group(type_group) => type_contains_lifetime(&type_group.elem),
         _ => false,
+    }
+}
+
+/// Collect all type parameter names used in a type
+fn collect_used_type_params(ty: &Type, used: &mut std::collections::HashSet<String>) {
+    match ty {
+        Type::Path(type_path) => {
+            for segment in &type_path.path.segments {
+                // Check if the segment itself is a type parameter (simple identifier)
+                if type_path.path.segments.len() == 1 {
+                    used.insert(segment.ident.to_string());
+                }
+
+                // Check generic arguments
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    for arg in &args.args {
+                        match arg {
+                            GenericArgument::Type(inner_ty) => {
+                                collect_used_type_params(inner_ty, used)
+                            }
+                            GenericArgument::Lifetime(_) => {} // Skip lifetimes
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        Type::Reference(type_ref) => collect_used_type_params(&type_ref.elem, used),
+        Type::Slice(type_slice) => collect_used_type_params(&type_slice.elem, used),
+        Type::Array(type_array) => collect_used_type_params(&type_array.elem, used),
+        Type::Tuple(type_tuple) => {
+            for elem in &type_tuple.elems {
+                collect_used_type_params(elem, used);
+            }
+        }
+        Type::Ptr(type_ptr) => collect_used_type_params(&type_ptr.elem, used),
+        Type::Paren(type_paren) => collect_used_type_params(&type_paren.elem, used),
+        Type::Group(type_group) => collect_used_type_params(&type_group.elem, used),
+        _ => {} // Other types don't contain type parameters we care about
     }
 }
 
