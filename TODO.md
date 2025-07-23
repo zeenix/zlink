@@ -2,12 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink
-  * in systemd-machined e2e test
-    * Fix list method call against real machined service
-      * (don't pass name?)
-      * Expects `more`
-    * 2 variants for `List` method in `proxy`, one with `more` and one without.
 * zlink-macros
   * `proxy` attribute macro
     * `BufferOverflow` error wrongly returned
@@ -15,12 +9,13 @@
     * chaining/pipelining.
       * similar to how `varlink_service::Proxy` does it
     * Avoid cloning in the macro code, where possible (use references).
-* Any method call can return varlink_service::Error
-  * All client-side API to require `std` feature
-  * Add `VarlinkService` variant to `zlink_core::Error`
-  * ReadConnection::receive_reply
-    * untagged enum with `varlink_service::Error` as one variant and `ReplyError` as another.
-    * in case of `varlink_service::Error`, return `zlink_core::Error::VarlinkService`
+* zlink-core
+  * Any method call can return varlink_service::Error
+    * All client-side API to require `std` feature
+    * Add `VarlinkService` variant to `zlink_core::Error`
+    * ReadConnection::receive_reply
+      * untagged enum with `varlink_service::Error` as one variant and `ReplyError` as another.
+      * in case of `varlink_service::Error`, return `zlink_core::Error::VarlinkService`
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
 * zlink-codegen (generates code from IDL)
