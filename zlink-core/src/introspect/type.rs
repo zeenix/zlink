@@ -22,6 +22,7 @@ impl_type!(bool => idl::Type::Bool);
 impl_type!(i8, i16, i32, i64, u8, u16, u32, u64 => idl::Type::Int);
 impl_type!(f32, f64 => idl::Type::Float);
 impl_type!(&str => idl::Type::String);
+impl_type!(str => idl::Type::String);
 
 #[cfg(feature = "std")]
 impl_type!(String => idl::Type::String);
@@ -43,6 +44,11 @@ impl<T: Type, const N: usize> Type for mayheap::Vec<T, N> {
 
 impl<T: Type> Type for &[T] {
     const TYPE: &'static idl::Type<'static> = &idl::Type::Array(TypeRef::new(T::TYPE));
+}
+
+#[cfg(feature = "std")]
+impl<T: Type + ToOwned + ?Sized> Type for std::borrow::Cow<'_, T> {
+    const TYPE: &'static idl::Type<'static> = T::TYPE;
 }
 
 // For raw objects.
