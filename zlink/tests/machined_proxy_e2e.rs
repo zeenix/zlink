@@ -4,6 +4,7 @@
 
 mod mock_machined_service;
 
+use futures_util::{pin_mut, Stream, TryStreamExt};
 use std::path::Path;
 use tempfile::TempDir;
 use tokio::{
@@ -116,23 +117,32 @@ async fn machine_proxy() {
             .expect("Connection timeout")
             .expect("Failed to connect to machine socket");
 
-        // Test the proxy macro with the Machine interface
+        // List a specific machine by name.
         let machine_name = ".host";
-        let result = conn.list(Some(machine_name), None, None, None).await;
+        let machine = conn.list(machine_name, None, None, None).await??;
+        assert_eq!(machine.name, ".host");
+        assert_eq!(machine.class, "host");
 
-        match result {
-            Ok(Ok(machine)) => {
-                // We got a successful response with machine data
-                println!("Machine data: {:?}", machine);
-                assert_eq!(machine.name, ".host");
+        // Now we ask for a whole list as a streaming response.
+        let stream = conn.list_more(None, None, None, None).await?;
+        pin_mut!(stream);
+
+        let mut found_host = false;
+        while let Some(res) = stream.try_next().await? {
+            let machine = res?;
+            if machine.name == ".host" {
                 assert_eq!(machine.class, "host");
+                found_host = true;
+
+                break;
             }
-            Ok(Err(error)) => {
-                // This is acceptable - no machines might be running or other error
-                println!("Method error: {:?}", error);
-            }
-            Err(e) => panic!("Connection error: {:?}", e),
         }
+        assert!(found_host);
+        // Due to how `List` is currently implemented in machined, the stream ends after listing all
+        // current machines. See https://github.com/systemd/systemd/issues/38301
+        // So this will not hang. However, if the interface is fixed, we'll need to update this code
+        // and the mock service.
+        while stream.try_next().await?.is_some() {}
 
         Ok(())
     })
@@ -145,11 +155,21 @@ async fn machine_proxy() {
 trait MachineProxy {
     async fn list(
         &mut self,
-        name: Option<&str>,
+        // name is mandatory when not requesting a streaming response.
+        name: &str,
         pid: Option<ProcessId<'_>>,
         allow_interactive_authentication: Option<bool>,
         acquire_metadata: Option<AcquireMetadata>,
     ) -> zlink::Result<Result<ListReply<'_>, MachinedError>>;
+
+    #[zlink(more, rename = "List")]
+    async fn list_more(
+        &mut self,
+        name: Option<&str>,
+        pid: Option<ProcessId<'_>>,
+        allow_interactive_authentication: Option<bool>,
+        acquire_metadata: Option<AcquireMetadata>,
+    ) -> zlink::Result<impl Stream<Item = zlink::Result<Result<ListReply<'_>, MachinedError>>>>;
 }
 
 /// Run test with either real systemd service or mock service.

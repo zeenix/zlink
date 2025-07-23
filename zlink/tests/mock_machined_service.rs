@@ -2,6 +2,8 @@
 
 #![cfg(all(feature = "introspection", feature = "idl-parse"))]
 
+use std::borrow::Cow;
+
 use mayheap::Vec;
 use serde::{Deserialize, Serialize};
 use serde_prefix_all::prefix_all;
@@ -120,7 +122,7 @@ pub enum MachineReply<'a> {
     Open(OpenReply),
 }
 
-#[derive(Debug, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListReply<'a> {
     pub name: &'a str,
     pub id: Option<&'a str>,
@@ -129,7 +131,8 @@ pub struct ListReply<'a> {
     pub leader: Option<ProcessId<'a>>,
     #[serde(rename = "rootDirectory")]
     pub root_directory: Option<&'a str>,
-    pub unit: Option<String>, // Needs owned type for escaped content
+    // Needs owned variant for deserializing because of escaped content.
+    pub unit: Option<Cow<'a, str>>,
     pub timestamp: Option<Timestamp>,
     #[serde(rename = "vSockCid")]
     pub v_sock_cid: Option<u64>,
@@ -269,29 +272,7 @@ impl Service for MockMachinedService {
             }
             Method::Machine(MachineMethod::List { .. }) => {
                 // Return a mock machine
-                let list_reply = ListReply {
-                    name: ".host",
-                    id: Some("1234567890abcdef1234567890abcdef"),
-                    service: Some("mock-service"),
-                    class: "host",
-                    leader: Some(ProcessId {
-                        pid: 12345,
-                        pidfd_id: None,
-                        boot_id: None,
-                    }),
-                    root_directory: Some("/var/lib/machines/test-machine"),
-                    unit: Some("machine-test\\x2dmachine.scope".to_string()), // Needs escaping
-                    timestamp: Some(Timestamp {
-                        realtime: Some(1234567890000000),
-                        monotonic: Some(9876543210000),
-                    }),
-                    v_sock_cid: None,
-                    ssh_address: None,
-                    ssh_private_key_path: None,
-                    addresses: None,
-                    os_release: None,
-                    uid_shift: None,
-                };
+                let list_reply = MOCK_LIST_REPLY.clone();
                 MethodReply::Single(Some(Reply::Machine(MachineReply::List(list_reply))))
             }
             Method::Machine(MachineMethod::Open { .. }) => {
@@ -338,6 +319,54 @@ pub enum MachinedError {
     /// There is no IPC service (such as system bus or varlink) in the container.
     NoIPC,
 }
+
+impl core::fmt::Display for MachinedError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MachinedError::NoSuchMachine => write!(f, "No such machine"),
+            MachinedError::MachineExists => write!(f, "Machine already exists"),
+            MachinedError::NoPrivateNetworking => {
+                write!(f, "Machine does not use private networking")
+            }
+            MachinedError::NoOSReleaseInformation => {
+                write!(f, "Machine does not contain OS release information")
+            }
+            MachinedError::NoUIDShift => write!(
+                f,
+                "Machine uses a complex UID/GID mapping, cannot determine shift"
+            ),
+            MachinedError::NotAvailable => write!(f, "Requested information is not available"),
+            MachinedError::NotSupported => write!(f, "Requested operation is not supported"),
+            MachinedError::NoIPC => write!(f, "There is no IPC service in the container"),
+        }
+    }
+}
+
+impl core::error::Error for MachinedError {}
+
+const MOCK_LIST_REPLY: ListReply<'static> = ListReply {
+    name: ".host",
+    id: Some("1234567890abcdef1234567890abcdef"),
+    service: Some("mock-service"),
+    class: "host",
+    leader: Some(ProcessId {
+        pid: 12345,
+        pidfd_id: None,
+        boot_id: None,
+    }),
+    root_directory: Some("/var/lib/machines/test-machine"),
+    unit: Some(Cow::Borrowed("machine-test\\x2dmachine.scope")), // Needs escaping
+    timestamp: Some(Timestamp {
+        realtime: Some(1234567890000000),
+        monotonic: Some(9876543210000),
+    }),
+    v_sock_cid: None,
+    ssh_address: None,
+    ssh_private_key_path: None,
+    addresses: None,
+    os_release: None,
+    uid_shift: None,
+};
 
 /// Interface definition for io.systemd.Machine matching the actual systemd-machined service.
 const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
