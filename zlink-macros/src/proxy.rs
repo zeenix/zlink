@@ -259,20 +259,24 @@ fn generate_method_impl(
         });
 
         // Add where clause with bounds from method's where clause for used type parameters
-        let params_where_clause =
-            if let Some(method_where_clause) = &method.sig.generics.where_clause {
+        let params_where_clause = match &method.sig.generics.where_clause {
+            None => None,
+            Some(method_where_clause) => {
                 let mut where_predicates = syn::punctuated::Punctuated::new();
 
                 for predicate in &method_where_clause.predicates {
-                    if let syn::WherePredicate::Type(type_predicate) = predicate {
-                        if let syn::Type::Path(type_path) = &type_predicate.bounded_ty {
-                            if type_path.path.segments.len() == 1 {
-                                let type_name = &type_path.path.segments[0].ident;
-                                if used_type_params.contains(&type_name.to_string()) {
-                                    where_predicates.push(predicate.clone());
-                                }
-                            }
-                        }
+                    let syn::WherePredicate::Type(type_predicate) = predicate else {
+                        continue;
+                    };
+                    let syn::Type::Path(type_path) = &type_predicate.bounded_ty else {
+                        continue;
+                    };
+                    if type_path.path.segments.len() != 1 {
+                        continue;
+                    }
+                    let type_name = &type_path.path.segments[0].ident;
+                    if used_type_params.contains(&type_name.to_string()) {
+                        where_predicates.push(predicate.clone());
                     }
                 }
 
@@ -284,9 +288,8 @@ fn generate_method_impl(
                 } else {
                     None
                 }
-            } else {
-                None
-            };
+            }
+        };
 
         let struct_def = quote! {
             #[derive(::serde::Serialize, ::core::fmt::Debug)]
@@ -551,15 +554,11 @@ fn extract_nested_result_types(ty: &Type) -> Result<(Type, Type), Error> {
                     let PathArguments::AngleBracketed(args) = &segment.arguments else {
                         return None;
                     };
-                    args.args.iter().find_map(|arg| {
-                        let GenericArgument::AssocType(assoc) = arg else {
-                            return None;
-                        };
-                        if assoc.ident == "Output" {
+                    args.args.iter().find_map(|arg| match arg {
+                        GenericArgument::AssocType(assoc) if assoc.ident == "Output" => {
                             Some(extract_nested_result_types(&assoc.ty))
-                        } else {
-                            None
                         }
+                        _ => None,
                     })
                 })
                 .unwrap_or_else(|| {
@@ -666,15 +665,11 @@ fn extract_streaming_result_types(ty: &Type) -> Result<(Type, Type), Error> {
                     let PathArguments::AngleBracketed(args) = &segment.arguments else {
                         return None;
                     };
-                    args.args.iter().find_map(|arg| {
-                        let GenericArgument::AssocType(assoc) = arg else {
-                            return None;
-                        };
-                        if assoc.ident == "Output" {
+                    args.args.iter().find_map(|arg| match arg {
+                        GenericArgument::AssocType(assoc) if assoc.ident == "Output" => {
                             Some(extract_streaming_result_types(&assoc.ty))
-                        } else {
-                            None
                         }
+                        _ => None,
                     })
                 })
                 .unwrap_or_else(|| {
@@ -709,15 +704,11 @@ fn extract_stream_item_types(ty: &Type) -> Result<(Type, Type), Error> {
                     let PathArguments::AngleBracketed(args) = &segment.arguments else {
                         return None;
                     };
-                    args.args.iter().find_map(|arg| {
-                        let GenericArgument::AssocType(assoc) = arg else {
-                            return None;
-                        };
-                        if assoc.ident == "Item" {
+                    args.args.iter().find_map(|arg| match arg {
+                        GenericArgument::AssocType(assoc) if assoc.ident == "Item" => {
                             Some(extract_nested_result_types(&assoc.ty))
-                        } else {
-                            None
                         }
+                        _ => None,
                     })
                 })
                 .unwrap_or_else(|| {
@@ -860,15 +851,12 @@ fn collect_used_type_params(ty: &Type, used: &mut std::collections::HashSet<Stri
                 }
 
                 // Check generic arguments
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    for arg in &args.args {
-                        match arg {
-                            GenericArgument::Type(inner_ty) => {
-                                collect_used_type_params(inner_ty, used)
-                            }
-                            GenericArgument::Lifetime(_) => {} // Skip lifetimes
-                            _ => {}
-                        }
+                let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                    continue;
+                };
+                for arg in &args.args {
+                    if let GenericArgument::Type(inner_ty) = arg {
+                        collect_used_type_params(inner_ty, used);
                     }
                 }
             }
