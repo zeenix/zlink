@@ -93,11 +93,11 @@ jobs:
       - name: Build and Test
         run: |
           cargo test --release --features introspection,idl-parse
-          cargo test -p zlink-core --release --no-default-features --features embedded,introspection
+          cargo test -p zlink-core --release --no-default-features --features embedded,introspection,proxy
           # The tests enable the `alloc` feature of `serde` and hence the previous command doesn't
           # really ensure if the serde bits build successfully without `std` and `alloc`. Hence why
           # this is needed.
-          cargo check -p zlink-core --release --no-default-features --features embedded,introspection
+          cargo check -p zlink-core --release --no-default-features --features embedded,introspection,proxy
 
   doc_build:
     runs-on: ubuntu-latest
