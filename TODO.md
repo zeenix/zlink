@@ -2,13 +2,15 @@
 
 ## Release 0.1.0
 
+* zlink-core
+  * Add `Error::MissingParameters`
 * zlink-macros
   * `proxy` attribute macro
     * `BufferOverflow` error wrongly returned
-    * check macro code for other cleanups refactors possible
-    * chaining/pipelining.
-      * similar to how `varlink_service::Proxy` does it
-    * Avoid cloning in the macro code, where possible (use references).
+      * Same issue in `varlink_service::Proxy`
+      * Use `Error::MissingParameters` instead
+      * Support methods returning `Result<(), Error>`.
+      * Add `oneway` attribute that sets `Call::set_oneway(true)`.
 * zlink-core
   * Any method call can return varlink_service::Error
     * All client-side API to require `std` feature
@@ -16,6 +18,12 @@
     * ReadConnection::receive_reply
       * untagged enum with `varlink_service::Error` as one variant and `ReplyError` as another.
       * in case of `varlink_service::Error`, return `zlink_core::Error::VarlinkService`
+* zlink-macros
+  * `proxy` attribute macro
+    * check macro code for other cleanups refactors possible
+    * chaining/pipelining.
+      * similar to how `varlink_service::Proxy` does it
+    * Avoid cloning in the macro code, where possible (use references).
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
 * zlink-codegen (generates code from IDL)
