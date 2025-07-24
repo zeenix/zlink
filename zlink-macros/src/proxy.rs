@@ -362,7 +362,7 @@ fn generate_method_impl(
                 match result {
                     Ok(Ok(reply)) => match reply.into_parameters() {
                         Some(params) => Ok(Ok(params)),
-                        None => Err(::zlink::Error::BufferOverflow),
+                        None => Err(::zlink::Error::MissingParameters),
                     },
                     Ok(Err(error)) => Ok(Err(error)),
                     Err(err) => Err(err),
@@ -392,10 +392,7 @@ fn generate_method_impl(
             match self.call_method::<_, #reply_type, #error_type>(&call).await? {
                 Ok(reply) => match reply.into_parameters() {
                     Some(params) => Ok(Ok(params)),
-                    None => {
-                        // Return an error for missing parameters
-                        return Err(::zlink::Error::BufferOverflow);
-                    },
+                    None => return Err(::zlink::Error::MissingParameters),
                 },
                 Err(error) => Ok(Err(error)),
             }
