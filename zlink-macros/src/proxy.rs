@@ -348,7 +348,7 @@ fn generate_method_impl(
         let implementation = quote! {
             #method_call_setup
 
-            let call = ::zlink::Call::new(method_call).set_more(Some(true));
+            let call = ::zlink::Call::new(method_call).set_more(true);
             self.send_call(&call).await?;
 
             let stream = ::zlink::connection::chain::ReplyStream::new(

@@ -43,7 +43,7 @@ where
         Method: Serialize + Debug,
     {
         connection.write.enqueue_call(call)?;
-        let reply_count = if call.oneway() == Some(true) { 0 } else { 1 };
+        let reply_count = if call.oneway() { 0 } else { 1 };
         Ok(Chain {
             connection,
             call_count: 1,
@@ -64,7 +64,7 @@ where
         Method: Serialize + Debug,
     {
         self.connection.write.enqueue_call(call)?;
-        if call.oneway() != Some(true) {
+        if !call.oneway() {
             self.reply_count += 1;
         };
         self.call_count += 1;
@@ -202,7 +202,7 @@ mod tests {
         let mut conn = Connection::new(socket);
 
         let get_user = Call::new(GetUser { id: 1 });
-        let oneway_call = Call::new(GetUser { id: 2 }).set_oneway(Some(true));
+        let oneway_call = Call::new(GetUser { id: 2 }).set_oneway(true);
 
         let replies = conn
             .chain_call::<GetUser, User, ApiError>(&get_user)?
@@ -233,7 +233,7 @@ mod tests {
         let socket = MockSocket::new(&responses);
         let mut conn = Connection::new(socket);
 
-        let more_call = Call::new(GetUser { id: 1 }).set_more(Some(true));
+        let more_call = Call::new(GetUser { id: 1 }).set_more(true);
         let regular_call = Call::new(GetUser { id: 2 });
 
         let replies = conn
