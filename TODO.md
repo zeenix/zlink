@@ -2,15 +2,15 @@
 
 ## Release 0.1.0
 
-* zlink-core
-  * Add `Error::MissingParameters`
 * zlink-macros
   * `proxy` attribute macro
-    * `BufferOverflow` error wrongly returned
-      * Same issue in `varlink_service::Proxy`
-      * Use `Error::MissingParameters` instead
-      * Support methods returning `Result<(), Error>`.
-      * Add `oneway` attribute that sets `Call::set_oneway(true)`.
+    * Method returning `Result<(), Error>` should allow no parameters in response.
+      * tests/proxy/basic.rs already has the test case for it.
+    * Add `oneway` attribute that sets `Call::set_oneway(true)`.
+    * Allow renaming of method parameters.
+      * Make sure renamed params in mock machined service also get renamed on proxy side.
+    * Make all the tests actually run
+      * simple hardcoded server impls
 * zlink-core
   * Any method call can return varlink_service::Error
     * All client-side API to require `std` feature
