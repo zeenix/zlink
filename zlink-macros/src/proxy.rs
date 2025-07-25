@@ -138,12 +138,13 @@ fn generate_method_impl(
         ty_for_params: syn::Type,
         is_optional: bool,
         has_lifetime: bool,
+        serialized_name: Option<String>,
     }
 
     let arg_infos: Vec<ArgInfo<'_>> = method
         .sig
         .inputs
-        .iter()
+        .iter_mut()
         .skip(1)
         .filter_map(|arg| {
             let FnArg::Typed(pat_type) = arg else {
@@ -155,6 +156,11 @@ fn generate_method_impl(
 
             let name = &pat_ident.ident;
             let ty = &pat_type.ty;
+
+            // Extract parameter rename attribute and remove it
+            let serialized_name = extract_param_rename_attr(&mut pat_type.attrs)
+                .ok()
+                .flatten();
 
             // Check if the type is optional
             let is_optional = is_option_type_syn(ty);
@@ -174,6 +180,7 @@ fn generate_method_impl(
                 ty_for_params,
                 is_optional,
                 has_lifetime,
+                serialized_name,
             })
         })
         .collect();
@@ -181,9 +188,6 @@ fn generate_method_impl(
     // Extract the data we need from the processed arguments
     let arg_names: Vec<_> = arg_infos.iter().map(|info| info.name).collect();
     let has_any_lifetime = arg_infos.iter().any(|info| info.has_lifetime);
-
-    // Use the original method signature for the implementation
-    let full_args = &method.sig.inputs;
 
     // Check for incompatible attributes
     if attrs.is_streaming && attrs.is_oneway {
@@ -260,15 +264,27 @@ fn generate_method_impl(
             let name = info.name;
             let ty = &info.ty_for_params;
 
-            if info.is_optional {
+            let serde_attrs = if let Some(ref renamed) = info.serialized_name {
+                if info.is_optional {
+                    quote! {
+                        #[serde(rename = #renamed, skip_serializing_if = "Option::is_none")]
+                    }
+                } else {
+                    quote! {
+                        #[serde(rename = #renamed)]
+                    }
+                }
+            } else if info.is_optional {
                 quote! {
                     #[serde(skip_serializing_if = "Option::is_none")]
-                    #name: #ty
                 }
             } else {
-                quote! {
-                    #name: #ty
-                }
+                quote! {}
+            };
+
+            quote! {
+                #serde_attrs
+                #name: #ty
             }
         });
 
@@ -423,6 +439,7 @@ fn generate_method_impl(
     };
 
     // Generate the method implementation
+    let full_args = &method.sig.inputs;
     Ok(quote! {
         async fn #method_name <#method_generic_params> (
             #full_args
@@ -524,6 +541,74 @@ impl MethodAttrs {
 
         Ok(method_attrs)
     }
+}
+
+/// Extract parameter rename attribute from zlink attributes and remove processed attributes
+fn extract_param_rename_attr(attrs: &mut Vec<Attribute>) -> Result<Option<String>, Error> {
+    let mut zlink_attr_indices = Vec::new();
+    let mut rename_value = None;
+
+    for (i, attr) in attrs.iter().enumerate() {
+        if !attr.path().is_ident("zlink") {
+            continue;
+        }
+
+        let Meta::List(list) = &attr.meta else {
+            continue;
+        };
+
+        if list.tokens.is_empty() {
+            continue;
+        }
+
+        // Parse all meta items in this zlink attribute
+        let meta_items =
+            list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)?;
+
+        let mut found_rename = false;
+        for meta in meta_items {
+            match &meta {
+                syn::Meta::NameValue(nv) if nv.path.is_ident("rename") => {
+                    if let Expr::Lit(syn::ExprLit {
+                        lit: Lit::Str(lit_str),
+                        ..
+                    }) = &nv.value
+                    {
+                        if rename_value.is_some() {
+                            return Err(Error::new_spanned(
+                                &meta,
+                                "duplicate `rename` attribute on parameter",
+                            ));
+                        }
+                        rename_value = Some(lit_str.value());
+                        found_rename = true;
+                    } else {
+                        return Err(Error::new_spanned(
+                            &nv.value,
+                            "rename value must be a string literal",
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(Error::new_spanned(
+                        &meta,
+                        "unknown zlink attribute on parameter",
+                    ));
+                }
+            }
+        }
+
+        if found_rename {
+            zlink_attr_indices.push(i);
+        }
+    }
+
+    // Remove the zlink attributes we processed (in reverse order to preserve indices)
+    for &index in zlink_attr_indices.iter().rev() {
+        attrs.remove(index);
+    }
+
+    Ok(rename_value)
 }
 
 fn parse_return_type(output: &ReturnType, is_streaming: bool) -> Result<(Type, Type), Error> {
