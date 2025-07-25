@@ -361,30 +361,21 @@ fn generate_method_impl(
         }
     };
 
-    if attrs.is_oneway {
-        // Generate oneway method implementation
+    // Generate return type and implementation based on method attributes
+    let (return_type, implementation) = if attrs.is_oneway {
+        // Oneway method implementation
         let return_type = quote! {
             ::zlink::Result<()>
         };
-
         let implementation = quote! {
             #method_call_setup
 
             let call = ::zlink::Call::new(method_call).set_oneway(true);
             self.send_call(&call).await
         };
-
-        Ok(quote! {
-            async fn #method_name <#method_generic_params> (
-                #full_args
-            ) -> #return_type
-            #method_where_clause
-            {
-                #implementation
-            }
-        })
+        (return_type, implementation)
     } else if attrs.is_streaming {
-        // Generate streaming method implementation
+        // Streaming method implementation
         let return_type = quote! {
             ::zlink::Result<
                 impl ::futures_util::stream::Stream<
@@ -392,7 +383,6 @@ fn generate_method_impl(
                 >
             >
         };
-
         let implementation = quote! {
             #method_call_setup
 
@@ -414,22 +404,12 @@ fn generate_method_impl(
                 }
             }))
         };
-
-        Ok(quote! {
-            async fn #method_name <#method_generic_params> (
-                #full_args
-            ) -> #return_type
-            #method_where_clause
-            {
-                #implementation
-            }
-        })
+        (return_type, implementation)
     } else {
-        // Generate regular method implementation
+        // Regular method implementation
         let return_type = quote! {
             ::zlink::Result<::core::result::Result<#reply_type, #error_type>>
         };
-
         let implementation = quote! {
             #method_call_setup
 
@@ -439,17 +419,19 @@ fn generate_method_impl(
                 Err(error) => Ok(Err(error)),
             }
         };
+        (return_type, implementation)
+    };
 
-        Ok(quote! {
-            async fn #method_name <#method_generic_params> (
-                #full_args
-            ) -> #return_type
-            #method_where_clause
-            {
-                #implementation
-            }
-        })
-    }
+    // Generate the method implementation
+    Ok(quote! {
+        async fn #method_name <#method_generic_params> (
+            #full_args
+        ) -> #return_type
+        #method_where_clause
+        {
+            #implementation
+        }
+    })
 }
 
 /// Attributes that can be applied to proxy methods via #[zlink(...)]
