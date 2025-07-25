@@ -4,8 +4,6 @@
 
 * zlink-macros
   * `proxy` attribute macro
-    * Method returning `Result<(), Error>` should allow no parameters in response.
-      * tests/proxy/basic.rs already has the test case for it.
     * Add `oneway` attribute that sets `Call::set_oneway(true)`.
     * Allow renaming of method parameters.
       * Make sure renamed params in mock machined service also get renamed on proxy side.
