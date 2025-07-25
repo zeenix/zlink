@@ -121,8 +121,8 @@ fn generate_method_impl(
     let method_name = &method.sig.ident;
     let method_name_str = method_name.to_string();
 
-    // Look for #[zlink(rename = "...")] and #[zlink(more)] attributes
-    let (method_name_override, is_streaming) = extract_method_attrs(&mut method.attrs)?;
+    // Look for #[zlink(rename = "...")] and #[zlink(more)] and #[zlink(oneway)] attributes
+    let (method_name_override, is_streaming, is_oneway) = extract_method_attrs(&mut method.attrs)?;
     let converted_name = snake_case_to_pascal_case(&method_name_str);
     let actual_method_name = method_name_override.as_deref().unwrap_or(&converted_name);
 
@@ -185,8 +185,22 @@ fn generate_method_impl(
     // Use the original method signature for the implementation
     let full_args = &method.sig.inputs;
 
+    // Check for incompatible attributes
+    if is_streaming && is_oneway {
+        return Err(Error::new_spanned(
+            &method.sig,
+            "method cannot be both streaming (`more`) and oneway (`oneway`)",
+        ));
+    }
+
     // Parse return type
-    let (reply_type, error_type) = parse_return_type(&method.sig.output, is_streaming)?;
+    let (reply_type, error_type) = if is_oneway {
+        // For oneway methods, we don't parse the return type - just use dummy values
+        // since we don't use them in the generated code
+        (syn::parse_quote!(()), syn::parse_quote!(::zlink::Error))
+    } else {
+        parse_return_type(&method.sig.output, is_streaming)?
+    };
 
     // Separate method generics for proper positioning of where clause
     let method_generic_params = &method.sig.generics.params;
@@ -347,7 +361,29 @@ fn generate_method_impl(
         }
     };
 
-    if is_streaming {
+    if is_oneway {
+        // Generate oneway method implementation
+        let return_type = quote! {
+            ::zlink::Result<()>
+        };
+
+        let implementation = quote! {
+            #method_call_setup
+
+            let call = ::zlink::Call::new(method_call).set_oneway(true);
+            self.send_call(&call).await
+        };
+
+        Ok(quote! {
+            async fn #method_name <#method_generic_params> (
+                #full_args
+            ) -> #return_type
+            #method_where_clause
+            {
+                #implementation
+            }
+        })
+    } else if is_streaming {
         // Generate streaming method implementation
         let return_type = quote! {
             ::zlink::Result<
@@ -416,9 +452,10 @@ fn generate_method_impl(
     }
 }
 
-fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, bool), Error> {
+fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, bool, bool), Error> {
     let mut rename_value = None;
     let mut is_streaming = false;
+    let mut is_oneway = false;
     let mut zlink_attr_indices = Vec::new();
 
     for (i, attr) in attrs.iter().enumerate() {
@@ -466,6 +503,13 @@ fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, b
                     is_streaming = true;
                     found_valid_attr = true;
                 }
+                syn::Meta::Path(path) if path.is_ident("oneway") => {
+                    if is_oneway {
+                        return Err(Error::new_spanned(&meta, "duplicate `oneway` attribute"));
+                    }
+                    is_oneway = true;
+                    found_valid_attr = true;
+                }
                 _ => {
                     return Err(Error::new_spanned(&meta, "unknown zlink attribute"));
                 }
@@ -482,7 +526,7 @@ fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, b
         attrs.remove(index);
     }
 
-    Ok((rename_value, is_streaming))
+    Ok((rename_value, is_streaming, is_oneway))
 }
 
 fn parse_return_type(output: &ReturnType, is_streaming: bool) -> Result<(Type, Type), Error> {
