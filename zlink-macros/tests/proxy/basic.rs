@@ -1,17 +1,10 @@
-#[test]
-fn basic_compiles() {
+#[tokio::test]
+async fn proxy_no_in_or_out_params() {
     use serde::{Deserialize, Serialize};
-    use zlink::proxy;
+    use zlink::{proxy, test_utils::mock_socket::MockSocket, Connection};
 
     #[proxy("org.example.Basic")]
-    #[allow(dead_code)]
     trait BasicProxy {
-        async fn get_value(&mut self, key: &str) -> zlink::Result<Result<String, BasicError>>;
-        async fn set_value(
-            &mut self,
-            key: &str,
-            value: &str,
-        ) -> zlink::Result<Result<(), BasicError>>;
         async fn ping(&mut self) -> zlink::Result<Result<(), BasicError>>;
     }
 
@@ -21,4 +14,12 @@ fn basic_compiles() {
         NotFound,
         InvalidKey,
     }
+
+    // Test that methods returning `()` should accept empty {} response and empty parameters.
+    let responses = [r#"{}"#, r#"{parameters: {}}"#];
+    let socket = MockSocket::new(&responses);
+
+    let mut conn = Connection::new(socket);
+
+    conn.ping().await.unwrap().unwrap();
 }
