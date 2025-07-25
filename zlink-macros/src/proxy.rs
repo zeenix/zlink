@@ -334,6 +334,18 @@ fn generate_method_impl(
             parameters: params,
         };
     };
+    let out_params_extract = match &reply_type {
+        Type::Tuple(tuple) if tuple.elems.is_empty() => {
+            // Unit type ()
+            quote!(Ok(Ok(())))
+        }
+        _ => {
+            quote!(match reply.into_parameters() {
+                Some(params) => Ok(Ok(params)),
+                None => Err(::zlink::Error::MissingParameters),
+            })
+        }
+    };
 
     if is_streaming {
         // Generate streaming method implementation
@@ -360,10 +372,7 @@ fn generate_method_impl(
             use ::futures_util::stream::{Stream, StreamExt};
             Ok(stream.map(|result| {
                 match result {
-                    Ok(Ok(reply)) => match reply.into_parameters() {
-                        Some(params) => Ok(Ok(params)),
-                        None => Err(::zlink::Error::MissingParameters),
-                    },
+                    Ok(Ok(reply)) => #out_params_extract,
                     Ok(Err(error)) => Ok(Err(error)),
                     Err(err) => Err(err),
                 }
@@ -390,10 +399,7 @@ fn generate_method_impl(
 
             let call = ::zlink::Call::new(method_call);
             match self.call_method::<_, #reply_type, #error_type>(&call).await? {
-                Ok(reply) => match reply.into_parameters() {
-                    Some(params) => Ok(Ok(params)),
-                    None => return Err(::zlink::Error::MissingParameters),
-                },
+                Ok(reply) => #out_params_extract,
                 Err(error) => Ok(Err(error)),
             }
         };
