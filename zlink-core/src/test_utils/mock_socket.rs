@@ -140,6 +140,12 @@ pub struct CountingWriteHalf {
     count: usize,
 }
 
+impl Default for CountingWriteHalf {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CountingWriteHalf {
     /// Create a new counting write half.
     pub fn new() -> Self {
