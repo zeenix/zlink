@@ -3,8 +3,11 @@
 ## Release 0.1.0
 
 * zlink-macros
-  * `proxy` attribute macro
-    * Add `oneway` attribute that sets `Call::set_oneway(true)`.
+  * `proxy`
+    * Add `oneway` attribute
+      * Requires return value to be `Result<(), zlink::Error>`
+      * set `Call::set_oneway(true)`
+      * use `Connection::send_call` instead of `Connection::call_method`
     * Allow renaming of method parameters.
       * Make sure renamed params in mock machined service also get renamed on proxy side.
     * Make all the tests actually run
