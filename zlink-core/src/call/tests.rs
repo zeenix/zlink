@@ -145,9 +145,9 @@ mod std {
             }
             _ => panic!("Expected Method variant"),
         }
-        assert_eq!(call.oneway(), false);
-        assert_eq!(call.more(), false);
-        assert_eq!(call.upgrade(), false);
+        assert!(!call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -156,9 +156,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), true);
-        assert_eq!(call.more(), false);
-        assert_eq!(call.upgrade(), false);
+        assert!(call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -167,9 +167,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), false);
-        assert_eq!(call.more(), false);
-        assert_eq!(call.upgrade(), false);
+        assert!(!call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -178,9 +178,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), false);
-        assert_eq!(call.more(), true);
-        assert_eq!(call.upgrade(), false);
+        assert!(!call.oneway());
+        assert!(call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -189,9 +189,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), false);
-        assert_eq!(call.more(), false);
-        assert_eq!(call.upgrade(), true);
+        assert!(!call.oneway());
+        assert!(!call.more());
+        assert!(call.upgrade());
     }
 
     #[test]
@@ -206,9 +206,9 @@ mod std {
             }
             _ => panic!("Expected Method variant"),
         }
-        assert_eq!(call.oneway(), true);
-        assert_eq!(call.more(), false);
-        assert_eq!(call.upgrade(), true);
+        assert!(call.oneway());
+        assert!(!call.more());
+        assert!(call.upgrade());
     }
 
     #[test]
@@ -218,9 +218,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), true);
-        assert_eq!(call.more(), false);
-        assert_eq!(call.upgrade(), false);
+        assert!(call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -267,8 +267,8 @@ mod std {
         for json in &simple_jsons {
             let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
             assert!(matches!(call.method(), TestServiceMethods::Simple));
-            assert_eq!(call.oneway(), true);
-            assert_eq!(call.more(), false);
+            assert!(call.oneway());
+            assert!(!call.more());
         }
 
         // Test with Method that has parameters - various field orderings.
@@ -288,7 +288,7 @@ mod std {
                 }
                 _ => panic!("Expected Method variant"),
             }
-            assert_eq!(call.oneway(), true);
+            assert!(call.oneway());
         }
 
         // Test parameter field order within parameters object.
@@ -406,7 +406,7 @@ mod std {
             }
             _ => panic!("Expected WithFlattened variant"),
         }
-        assert_eq!(deserialized.oneway(), true);
+        assert!(deserialized.oneway());
 
         // Test roundtrip serialization maintains flattened structure.
         let json2 = serde_json::to_string(&deserialized).unwrap();
