@@ -1045,6 +1045,7 @@ dependencies = [
  "serde-prefix-all",
  "serde_json",
  "syn",
+ "tokio",
  "zlink",
 ]
 
