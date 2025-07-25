@@ -122,9 +122,9 @@ fn generate_method_impl(
     let method_name_str = method_name.to_string();
 
     // Look for #[zlink(rename = "...")] and #[zlink(more)] and #[zlink(oneway)] attributes
-    let (method_name_override, is_streaming, is_oneway) = extract_method_attrs(&mut method.attrs)?;
+    let attrs = MethodAttrs::extract(&mut method.attrs)?;
     let converted_name = snake_case_to_pascal_case(&method_name_str);
-    let actual_method_name = method_name_override.as_deref().unwrap_or(&converted_name);
+    let actual_method_name = attrs.rename.as_deref().unwrap_or(&converted_name);
 
     // Build the full method path: interface.method
     let method_path = format!("{interface_name}.{actual_method_name}");
@@ -186,7 +186,7 @@ fn generate_method_impl(
     let full_args = &method.sig.inputs;
 
     // Check for incompatible attributes
-    if is_streaming && is_oneway {
+    if attrs.is_streaming && attrs.is_oneway {
         return Err(Error::new_spanned(
             &method.sig,
             "method cannot be both streaming (`more`) and oneway (`oneway`)",
@@ -194,12 +194,12 @@ fn generate_method_impl(
     }
 
     // Parse return type
-    let (reply_type, error_type) = if is_oneway {
+    let (reply_type, error_type) = if attrs.is_oneway {
         // For oneway methods, we don't parse the return type - just use dummy values
         // since we don't use them in the generated code
         (syn::parse_quote!(()), syn::parse_quote!(::zlink::Error))
     } else {
-        parse_return_type(&method.sig.output, is_streaming)?
+        parse_return_type(&method.sig.output, attrs.is_streaming)?
     };
 
     // Separate method generics for proper positioning of where clause
@@ -361,7 +361,7 @@ fn generate_method_impl(
         }
     };
 
-    if is_oneway {
+    if attrs.is_oneway {
         // Generate oneway method implementation
         let return_type = quote! {
             ::zlink::Result<()>
@@ -383,7 +383,7 @@ fn generate_method_impl(
                 #implementation
             }
         })
-    } else if is_streaming {
+    } else if attrs.is_streaming {
         // Generate streaming method implementation
         let return_type = quote! {
             ::zlink::Result<
@@ -452,81 +452,96 @@ fn generate_method_impl(
     }
 }
 
-fn extract_method_attrs(attrs: &mut Vec<Attribute>) -> Result<(Option<String>, bool, bool), Error> {
-    let mut rename_value = None;
-    let mut is_streaming = false;
-    let mut is_oneway = false;
-    let mut zlink_attr_indices = Vec::new();
+/// Attributes that can be applied to proxy methods via #[zlink(...)]
+#[derive(Default)]
+struct MethodAttrs {
+    /// Rename the method for the Varlink call
+    rename: Option<String>,
+    /// Method returns a stream of responses
+    is_streaming: bool,
+    /// Method is one-way (fire and forget)
+    is_oneway: bool,
+}
 
-    for (i, attr) in attrs.iter().enumerate() {
-        if !attr.path().is_ident("zlink") {
-            continue;
-        }
+impl MethodAttrs {
+    /// Extract method attributes from a method's attribute list
+    fn extract(attrs: &mut Vec<Attribute>) -> Result<Self, Error> {
+        let mut method_attrs = Self::default();
+        let mut zlink_attr_indices = Vec::new();
 
-        let Meta::List(list) = &attr.meta else {
-            continue;
-        };
+        for (i, attr) in attrs.iter().enumerate() {
+            if !attr.path().is_ident("zlink") {
+                continue;
+            }
 
-        if list.tokens.is_empty() {
-            continue;
-        }
+            let Meta::List(list) = &attr.meta else {
+                continue;
+            };
 
-        // Parse all meta items in this zlink attribute in one pass
-        let meta_items =
-            list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)?;
+            if list.tokens.is_empty() {
+                continue;
+            }
 
-        let mut found_valid_attr = false;
-        for meta in meta_items {
-            match &meta {
-                syn::Meta::NameValue(nv) if nv.path.is_ident("rename") => {
-                    if let Expr::Lit(syn::ExprLit {
-                        lit: Lit::Str(lit_str),
-                        ..
-                    }) = &nv.value
-                    {
-                        if rename_value.is_some() {
-                            return Err(Error::new_spanned(&meta, "duplicate `rename` attribute"));
+            // Parse all meta items in this zlink attribute in one pass
+            let meta_items =
+                list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)?;
+
+            let mut found_valid_attr = false;
+            for meta in meta_items {
+                match &meta {
+                    syn::Meta::NameValue(nv) if nv.path.is_ident("rename") => {
+                        if let Expr::Lit(syn::ExprLit {
+                            lit: Lit::Str(lit_str),
+                            ..
+                        }) = &nv.value
+                        {
+                            if method_attrs.rename.is_some() {
+                                return Err(Error::new_spanned(
+                                    &meta,
+                                    "duplicate `rename` attribute",
+                                ));
+                            }
+                            method_attrs.rename = Some(lit_str.value());
+                            found_valid_attr = true;
+                        } else {
+                            return Err(Error::new_spanned(
+                                &nv.value,
+                                "rename value must be a string literal",
+                            ));
                         }
-                        rename_value = Some(lit_str.value());
+                    }
+                    syn::Meta::Path(path) if path.is_ident("more") => {
+                        if method_attrs.is_streaming {
+                            return Err(Error::new_spanned(&meta, "duplicate `more` attribute"));
+                        }
+                        method_attrs.is_streaming = true;
                         found_valid_attr = true;
-                    } else {
-                        return Err(Error::new_spanned(
-                            &nv.value,
-                            "rename value must be a string literal",
-                        ));
+                    }
+                    syn::Meta::Path(path) if path.is_ident("oneway") => {
+                        if method_attrs.is_oneway {
+                            return Err(Error::new_spanned(&meta, "duplicate `oneway` attribute"));
+                        }
+                        method_attrs.is_oneway = true;
+                        found_valid_attr = true;
+                    }
+                    _ => {
+                        return Err(Error::new_spanned(&meta, "unknown zlink attribute"));
                     }
                 }
-                syn::Meta::Path(path) if path.is_ident("more") => {
-                    if is_streaming {
-                        return Err(Error::new_spanned(&meta, "duplicate `more` attribute"));
-                    }
-                    is_streaming = true;
-                    found_valid_attr = true;
-                }
-                syn::Meta::Path(path) if path.is_ident("oneway") => {
-                    if is_oneway {
-                        return Err(Error::new_spanned(&meta, "duplicate `oneway` attribute"));
-                    }
-                    is_oneway = true;
-                    found_valid_attr = true;
-                }
-                _ => {
-                    return Err(Error::new_spanned(&meta, "unknown zlink attribute"));
-                }
+            }
+
+            if found_valid_attr {
+                zlink_attr_indices.push(i);
             }
         }
 
-        if found_valid_attr {
-            zlink_attr_indices.push(i);
+        // Remove the zlink attributes we processed (in reverse order to preserve indices)
+        for &index in zlink_attr_indices.iter().rev() {
+            attrs.remove(index);
         }
-    }
 
-    // Remove the zlink attributes we processed (in reverse order to preserve indices)
-    for &index in zlink_attr_indices.iter().rev() {
-        attrs.remove(index);
+        Ok(method_attrs)
     }
-
-    Ok((rename_value, is_streaming, is_oneway))
 }
 
 fn parse_return_type(output: &ReturnType, is_streaming: bool) -> Result<(Type, Type), Error> {
