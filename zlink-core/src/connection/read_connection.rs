@@ -176,6 +176,11 @@ impl<Read: ReadHalf> ReadConnection<Read> {
 
         Ok(())
     }
+
+    /// The underlying read half of the socket.
+    pub fn read_half(&self) -> &Read {
+        &self.socket
+    }
 }
 
 fn from_slice<'a, T>(buffer: &'a [u8]) -> Result<T>
