@@ -1,10 +1,10 @@
-#[test]
-fn lifetimes_compile() {
+#[tokio::test]
+async fn lifetimes_test() {
     use serde::{Deserialize, Serialize};
-    use zlink::proxy;
+    use serde_json::json;
+    use zlink::{proxy, test_utils::mock_socket::MockSocket, Connection};
 
     #[proxy("org.example.Lifetimes")]
-    #[allow(dead_code)]
     trait LifetimeProxy {
         async fn process<'a>(
             &mut self,
@@ -25,4 +25,30 @@ fn lifetimes_compile() {
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Error;
+
+    // Test process method
+    let responses = json!({
+        "parameters": {
+            "data": "test response",
+            "length": 13
+        }
+    })
+    .to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let result = conn.process("test input").await.unwrap().unwrap();
+    assert_eq!(result.data, "test response");
+    assert_eq!(result.length, 13);
+
+    // Test with_lifetime method
+    let responses = json!({
+        "parameters": ["item1", "item2", "item3"]
+    })
+    .to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let result = conn.with_lifetime("test", 3).await.unwrap().unwrap();
+    assert_eq!(result, vec!["item1", "item2", "item3"]);
 }

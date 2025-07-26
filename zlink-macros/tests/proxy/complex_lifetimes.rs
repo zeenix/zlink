@@ -1,11 +1,11 @@
-#[test]
-fn complex_lifetimes_compile() {
+#[tokio::test]
+async fn complex_lifetimes_test() {
     use serde::{Deserialize, Serialize};
+    use serde_json::json;
     use std::collections::HashMap;
-    use zlink::proxy;
+    use zlink::{proxy, test_utils::mock_socket::MockSocket, Connection};
 
     #[proxy("org.example.Complex")]
-    #[allow(dead_code)]
     trait ComplexProxy {
         async fn process_array(
             &mut self,
@@ -49,4 +49,71 @@ fn complex_lifetimes_compile() {
         code: u32,
         message: &'a str,
     }
+
+    // Test process_array
+    let responses = json!({
+        "parameters": [{
+            "id": 1,
+            "name": "Test Item",
+            "tags": ["tag1", "tag2"]
+        }]
+    })
+    .to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let items = vec!["item1".to_string()];
+    let result = conn.process_array(&items).await.unwrap().unwrap();
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].id, 1);
+
+    // Test process_nested
+    let responses = json!({
+        "parameters": ["result1", "result2"]
+    })
+    .to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let mut data = HashMap::new();
+    data.insert(
+        "key1".to_string(),
+        vec![Some(Item {
+            id: 1,
+            name: "test".to_string(),
+            tags: vec!["tag".to_string()],
+        })],
+    );
+    let result = conn.process_nested(data).await.unwrap().unwrap();
+    assert_eq!(
+        result,
+        Some(vec!["result1".to_string(), "result2".to_string()])
+    );
+
+    // Test with_tuples
+    let responses = json!({
+        "parameters": [true, "success"]
+    })
+    .to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let pairs = vec![("key1".to_string(), 100), ("key2".to_string(), 200)];
+    let result = conn.with_tuples(pairs).await.unwrap().unwrap();
+    assert_eq!(result, (true, Some("success".to_string())));
+
+    // Test generic_result
+    let responses = json!({
+        "parameters": {
+            "message": "test response",
+            "success": true
+        }
+    })
+    .to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let result = conn.generic_result("test input").await.unwrap().unwrap();
+    assert_eq!(result.message, "test response");
+    assert_eq!(result.success, true);
 }

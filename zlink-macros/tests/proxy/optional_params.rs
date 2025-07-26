@@ -1,10 +1,10 @@
-#[test]
-fn optional_params_compiles() {
+#[tokio::test]
+async fn optional_params_test() {
     use serde::{Deserialize, Serialize};
-    use zlink::proxy;
+    use serde_json::json;
+    use zlink::{proxy, test_utils::mock_socket::MockSocket, Connection};
 
     #[proxy("org.example.Optional")]
-    #[allow(dead_code)]
     trait OptionalProxy {
         async fn with_optionals(
             &mut self,
@@ -27,4 +27,26 @@ fn optional_params_compiles() {
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Error;
+
+    // Test with_optionals
+    let responses = json!({"parameters": "success with optionals"}).to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    let result = conn
+        .with_optionals("required", Some("optional"), Some(42), None)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(result, "success with optionals");
+
+    // Test mixed_optionals
+    let responses = json!({}).to_string();
+    let socket = MockSocket::new(&[&responses]);
+    let mut conn = Connection::new(socket);
+
+    conn.mixed_optionals("first", None, 100, Some(true), "third", None)
+        .await
+        .unwrap()
+        .unwrap();
 }
