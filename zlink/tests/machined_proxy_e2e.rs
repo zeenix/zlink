@@ -158,8 +158,9 @@ trait MachineProxy {
         // name is mandatory when not requesting a streaming response.
         name: &str,
         pid: Option<ProcessId<'_>>,
+        #[zlink(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
-        acquire_metadata: Option<AcquireMetadata>,
+        #[zlink(rename = "acquireMetadata")] acquire_metadata: Option<AcquireMetadata>,
     ) -> zlink::Result<Result<ListReply<'_>, MachinedError>>;
 
     #[zlink(more, rename = "List")]
@@ -167,8 +168,9 @@ trait MachineProxy {
         &mut self,
         name: Option<&str>,
         pid: Option<ProcessId<'_>>,
+        #[zlink(rename = "allowInteractiveAuthentication")]
         allow_interactive_authentication: Option<bool>,
-        acquire_metadata: Option<AcquireMetadata>,
+        #[zlink(rename = "acquireMetadata")] acquire_metadata: Option<AcquireMetadata>,
     ) -> zlink::Result<impl Stream<Item = zlink::Result<Result<ListReply<'_>, MachinedError>>>>;
 }
 
