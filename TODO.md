@@ -4,8 +4,6 @@
 
 * zlink-macros
   * `proxy`
-    * Allow renaming of method parameters.
-      * Make sure renamed params in mock machined service also get renamed on proxy side.
     * Make all the tests actually run
       * simple hardcoded server impls
 * zlink-core
