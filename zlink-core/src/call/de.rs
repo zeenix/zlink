@@ -103,9 +103,9 @@ where
                     .map_err(de::Error::custom)?;
 
                 // 4) Extract boolean fields from Cells
-                let oneway = oneway_cell.get();
-                let more = more_cell.get();
-                let upgrade = upgrade_cell.get();
+                let oneway = oneway_cell.get().unwrap_or_default();
+                let more = more_cell.get().unwrap_or_default();
+                let upgrade = upgrade_cell.get().unwrap_or_default();
 
                 Ok(Call {
                     method,

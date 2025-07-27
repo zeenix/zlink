@@ -8,9 +8,10 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["std", "io-buffer-2kb"]
+default = ["std", "io-buffer-2kb", "proxy"]
 std = ["dep:serde_json", "memchr/std", "mayheap/alloc", "serde/std", "tracing"]
 embedded = ["dep:serde-json-core", "mayheap/heapless", "defmt"]
+proxy = ["zlink-macros/proxy"]
 # I/O buffer sizes: 2kb (default), 4kb, 16kb, 64kb, 1mb (highest selected if multiple enabled).
 io-buffer-2kb = []
 io-buffer-4kb = []

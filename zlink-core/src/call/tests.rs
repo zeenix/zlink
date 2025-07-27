@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 mod std {
+    use serde_json::Value;
+
     use super::*;
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -60,7 +62,7 @@ mod std {
     #[test]
     fn serialize_call_with_oneway_true() {
         let method = TestServiceMethods::Simple;
-        let call = Call::new(method).set_oneway(Some(true));
+        let call = Call::new(method).set_oneway(true);
 
         let json = serde_json::to_string(&call).unwrap();
         let expected = r#"{"method":"org.example.test.Simple","oneway":true}"#;
@@ -70,17 +72,17 @@ mod std {
     #[test]
     fn serialize_call_with_oneway_false() {
         let method = TestServiceMethods::Simple;
-        let call = Call::new(method).set_oneway(Some(false));
+        let call = Call::new(method);
 
         let json = serde_json::to_string(&call).unwrap();
-        let expected = r#"{"method":"org.example.test.Simple","oneway":false}"#;
+        let expected = r#"{"method":"org.example.test.Simple"}"#;
         assert_eq!(json, expected);
     }
 
     #[test]
     fn serialize_call_with_more_true() {
         let method = TestServiceMethods::Simple;
-        let call = Call::new(method).set_more(Some(true));
+        let call = Call::new(method).set_more(true);
 
         let json = serde_json::to_string(&call).unwrap();
         let expected = r#"{"method":"org.example.test.Simple","more":true}"#;
@@ -90,7 +92,7 @@ mod std {
     #[test]
     fn serialize_call_with_upgrade_true() {
         let method = TestServiceMethods::Simple;
-        let call = Call::new(method).set_upgrade(Some(true));
+        let call = Call::new(method).set_upgrade(true);
 
         let json = serde_json::to_string(&call).unwrap();
         let expected = r#"{"method":"org.example.test.Simple","upgrade":true}"#;
@@ -103,10 +105,7 @@ mod std {
             name: "test",
             value: 42,
         };
-        let call = Call::new(method)
-            .set_oneway(Some(true))
-            .set_more(Some(false))
-            .set_upgrade(Some(true));
+        let call = Call::new(method).set_oneway(true).set_upgrade(true);
 
         let json = serde_json::to_string(&call).unwrap();
         // Note: The order might vary, so we parse and check the structure.
@@ -116,17 +115,17 @@ mod std {
         assert_eq!(parsed["parameters"]["name"], "test");
         assert_eq!(parsed["parameters"]["value"], 42);
         assert_eq!(parsed["oneway"], true);
-        assert_eq!(parsed["more"], false);
+        assert_eq!(parsed["more"], Value::Null);
         assert_eq!(parsed["upgrade"], true);
     }
 
     #[test]
-    fn serialize_call_with_none_flags() {
+    fn serialize_call_with_false_flags() {
         let method = TestServiceMethods::Simple;
         let call = Call::new(method)
-            .set_oneway(None)
-            .set_more(None)
-            .set_upgrade(None);
+            .set_oneway(false)
+            .set_more(false)
+            .set_upgrade(false);
 
         let json = serde_json::to_string(&call).unwrap();
         let expected = r#"{"method":"org.example.test.Simple"}"#;
@@ -146,9 +145,9 @@ mod std {
             }
             _ => panic!("Expected Method variant"),
         }
-        assert_eq!(call.oneway(), None);
-        assert_eq!(call.more(), None);
-        assert_eq!(call.upgrade(), None);
+        assert!(!call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -157,9 +156,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), Some(true));
-        assert_eq!(call.more(), None);
-        assert_eq!(call.upgrade(), None);
+        assert!(call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -168,9 +167,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), Some(false));
-        assert_eq!(call.more(), None);
-        assert_eq!(call.upgrade(), None);
+        assert!(!call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -179,9 +178,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), None);
-        assert_eq!(call.more(), Some(true));
-        assert_eq!(call.upgrade(), None);
+        assert!(!call.oneway());
+        assert!(call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -190,9 +189,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), None);
-        assert_eq!(call.more(), None);
-        assert_eq!(call.upgrade(), Some(true));
+        assert!(!call.oneway());
+        assert!(!call.more());
+        assert!(call.upgrade());
     }
 
     #[test]
@@ -207,9 +206,9 @@ mod std {
             }
             _ => panic!("Expected Method variant"),
         }
-        assert_eq!(call.oneway(), Some(true));
-        assert_eq!(call.more(), Some(false));
-        assert_eq!(call.upgrade(), Some(true));
+        assert!(call.oneway());
+        assert!(!call.more());
+        assert!(call.upgrade());
     }
 
     #[test]
@@ -219,9 +218,9 @@ mod std {
         let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
 
         assert!(matches!(call.method(), TestServiceMethods::Simple));
-        assert_eq!(call.oneway(), Some(true));
-        assert_eq!(call.more(), None);
-        assert_eq!(call.upgrade(), None);
+        assert!(call.oneway());
+        assert!(!call.more());
+        assert!(!call.upgrade());
     }
 
     #[test]
@@ -230,10 +229,7 @@ mod std {
             name: "roundtrip",
             value: 123,
         };
-        let original = Call::new(method)
-            .set_oneway(Some(false))
-            .set_more(Some(true))
-            .set_upgrade(Some(false));
+        let original = Call::new(method).set_more(true);
 
         let json = serde_json::to_string(&original).unwrap();
         let deserialized: Call<TestServiceMethods<'_>> = serde_json::from_str(&json).unwrap();
@@ -271,8 +267,8 @@ mod std {
         for json in &simple_jsons {
             let call: Call<TestServiceMethods<'_>> = serde_json::from_str(json).unwrap();
             assert!(matches!(call.method(), TestServiceMethods::Simple));
-            assert_eq!(call.oneway(), Some(true));
-            assert_eq!(call.more(), Some(false));
+            assert!(call.oneway());
+            assert!(!call.more());
         }
 
         // Test with Method that has parameters - various field orderings.
@@ -292,7 +288,7 @@ mod std {
                 }
                 _ => panic!("Expected Method variant"),
             }
-            assert_eq!(call.oneway(), Some(true));
+            assert!(call.oneway());
         }
 
         // Test parameter field order within parameters object.
@@ -327,9 +323,7 @@ mod std {
         ];
 
         for method in methods {
-            let call = Call::new(method.clone())
-                .set_oneway(Some(true))
-                .set_more(Some(false));
+            let call = Call::new(method.clone()).set_oneway(true);
 
             let json = serde_json::to_string(&call).unwrap();
             let deserialized: Call<TestServiceMethods<'_>> = serde_json::from_str(&json).unwrap();
@@ -385,7 +379,7 @@ mod std {
             priority: 5,
         };
         let method = TestServiceMethods::WithFlattened(extended_params);
-        let call = Call::new(method).set_oneway(Some(true));
+        let call = Call::new(method).set_oneway(true);
 
         let json = serde_json::to_string(&call).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -412,7 +406,7 @@ mod std {
             }
             _ => panic!("Expected WithFlattened variant"),
         }
-        assert_eq!(deserialized.oneway(), Some(true));
+        assert!(deserialized.oneway());
 
         // Test roundtrip serialization maintains flattened structure.
         let json2 = serde_json::to_string(&deserialized).unwrap();
@@ -460,7 +454,7 @@ mod embedded {
         let method = SimpleMethod {
             method: "org.example.test.Simple",
         };
-        let call = Call::new(method).set_oneway(Some(true));
+        let call = Call::new(method).set_oneway(true);
 
         let mut buf = [0u8; 256];
         let json_len = serde_json_core::to_slice(&call, &mut buf).unwrap();
@@ -478,7 +472,7 @@ mod embedded {
             method: "org.example.test.GetInfo",
             parameters: GetInfoParams { id: 123 },
         };
-        let original_call = Call::new(original_method).set_more(Some(true));
+        let original_call = Call::new(original_method).set_more(true);
 
         let mut buf = [0u8; 256];
         let json_len = serde_json_core::to_slice(&original_call, &mut buf).unwrap();
@@ -490,9 +484,9 @@ mod embedded {
             deserialized.method().parameters.id,
             original_call.method().parameters.id
         );
-        assert_eq!(deserialized.oneway(), None);
-        assert_eq!(deserialized.more(), Some(true));
-        assert_eq!(deserialized.upgrade(), None);
+        assert_eq!(deserialized.oneway(), false);
+        assert_eq!(deserialized.more(), true);
+        assert_eq!(deserialized.upgrade(), false);
     }
 
     #[test]
@@ -504,7 +498,7 @@ mod embedded {
                 value: 99,
             },
         };
-        let original = Call::new(method).set_upgrade(Some(true));
+        let original = Call::new(method).set_upgrade(true);
 
         let mut buf = [0u8; 256];
         let json_len = serde_json_core::to_slice(&original, &mut buf).unwrap();

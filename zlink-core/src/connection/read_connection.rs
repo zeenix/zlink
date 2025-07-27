@@ -66,10 +66,10 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     /// #[derive(Debug, Deserialize, Serialize)]
     /// #[serde(tag = "error", content = "parameters")]
     /// enum MyError {
-    ///    // The name needs to be the fully-qualified name of the error.
-    ///    Alpha { param1: u32, param2: String },
-    ///    Bravo,
-    ///    Charlie { param1: String },
+    ///     // The name needs to be the fully-qualified name of the error.
+    ///     Alpha { param1: u32, param2: String },
+    ///     Bravo,
+    ///     Charlie { param1: String },
     /// }
     /// ```
     pub async fn receive_reply<'r, ReplyParams, ReplyError>(
@@ -175,6 +175,11 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         }
 
         Ok(())
+    }
+
+    /// The underlying read half of the socket.
+    pub fn read_half(&self) -> &Read {
+        &self.socket
     }
 }
 

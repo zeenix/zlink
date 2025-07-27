@@ -2,12 +2,14 @@
 
 #![cfg(all(feature = "introspection", feature = "idl-parse"))]
 
+use std::borrow::Cow;
+
 use mayheap::Vec;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_prefix_all::prefix_all;
 use zlink::{
-    idl::{self, Comment, EnumVariant, Interface, Parameter, Type::Optional, TypeRef},
-    introspect::{ReplyError, Type},
+    idl::{self, Comment, Interface, Parameter},
+    introspect::{CustomType, ReplyError, Type},
     service::MethodReply,
     varlink_service::{self, Error, Info, InterfaceDescription},
     Call, Service,
@@ -23,9 +25,180 @@ impl MockMachinedService {
     }
 }
 
+/// Combined method enum for both varlink service and Machine methods.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Method<'a> {
+    #[serde(borrow)]
+    VarlinkService(varlink_service::Method<'a>),
+    #[serde(borrow)]
+    Machine(MachineMethod<'a>),
+}
+
+/// Machine interface methods.
+#[prefix_all("io.systemd.Machine.")]
+#[derive(Debug, Deserialize)]
+#[serde(tag = "method", content = "parameters")]
+#[allow(dead_code)]
+pub enum MachineMethod<'a> {
+    Register {
+        name: &'a str,
+        id: Option<&'a str>,
+        service: Option<&'a str>,
+        class: &'a str,
+        leader: Option<u32>,
+        #[serde(rename = "leaderProcessId")]
+        leader_process_id: Option<ProcessId<'a>>,
+        #[serde(rename = "rootDirectory")]
+        root_directory: Option<&'a str>,
+        #[serde(rename = "ifIndices")]
+        if_indices: Option<Vec<u64, 32>>,
+        #[serde(rename = "vSockCid")]
+        v_sock_cid: Option<u64>,
+        #[serde(rename = "sshAddress")]
+        ssh_address: Option<&'a str>,
+        #[serde(rename = "sshPrivateKeyPath")]
+        ssh_private_key_path: Option<&'a str>,
+        #[serde(rename = "allocateUnit")]
+        allocate_unit: Option<bool>,
+        #[serde(rename = "allowInteractiveAuthentication")]
+        allow_interactive_authentication: Option<bool>,
+    },
+    Unregister {
+        name: Option<&'a str>,
+        pid: Option<ProcessId<'a>>,
+        #[serde(rename = "allowInteractiveAuthentication")]
+        allow_interactive_authentication: Option<bool>,
+    },
+    Terminate {
+        name: Option<&'a str>,
+        pid: Option<ProcessId<'a>>,
+        #[serde(rename = "allowInteractiveAuthentication")]
+        allow_interactive_authentication: Option<bool>,
+    },
+    Kill {
+        name: Option<&'a str>,
+        pid: Option<ProcessId<'a>>,
+        #[serde(rename = "allowInteractiveAuthentication")]
+        allow_interactive_authentication: Option<bool>,
+        whom: Option<&'a str>,
+        signal: i64,
+    },
+    List {
+        name: Option<&'a str>,
+        pid: Option<ProcessId<'a>>,
+        #[serde(rename = "allowInteractiveAuthentication")]
+        allow_interactive_authentication: Option<bool>,
+        #[serde(rename = "acquireMetadata")]
+        acquire_metadata: Option<AcquireMetadata>,
+    },
+    Open {
+        name: Option<&'a str>,
+        pid: Option<ProcessId<'a>>,
+        #[serde(rename = "allowInteractiveAuthentication")]
+        allow_interactive_authentication: Option<bool>,
+        mode: MachineOpenMode,
+        user: Option<&'a str>,
+        path: Option<&'a str>,
+        args: Option<Vec<&'a str, 32>>,
+        environment: Option<Vec<&'a str, 32>>,
+    },
+}
+
+/// Combined reply enum for both varlink service and Machine replies.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum Reply<'ser> {
+    #[serde(borrow)]
+    VarlinkService(varlink_service::Reply<'ser>),
+    Machine(MachineReply<'ser>),
+}
+
+/// Machine interface replies.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum MachineReply<'a> {
+    List(ListReply<'a>),
+    Open(OpenReply),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ListReply<'a> {
+    pub name: &'a str,
+    pub id: Option<&'a str>,
+    pub service: Option<&'a str>,
+    pub class: &'a str,
+    pub leader: Option<ProcessId<'a>>,
+    #[serde(rename = "rootDirectory")]
+    pub root_directory: Option<&'a str>,
+    // Needs owned variant for deserializing because of escaped content.
+    pub unit: Option<Cow<'a, str>>,
+    pub timestamp: Option<Timestamp>,
+    #[serde(rename = "vSockCid")]
+    pub v_sock_cid: Option<u64>,
+    #[serde(rename = "sshAddress")]
+    pub ssh_address: Option<&'a str>,
+    #[serde(rename = "sshPrivateKeyPath")]
+    pub ssh_private_key_path: Option<&'a str>,
+    pub addresses: Option<Vec<Address, 32>>,
+    #[serde(rename = "OSRelease")]
+    pub os_release: Option<Vec<&'a str, 32>>,
+    #[serde(rename = "UIDShift")]
+    pub uid_shift: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct OpenReply {
+    #[serde(rename = "ptyFileDescriptor")]
+    pub pty_file_descriptor: i64,
+    #[serde(rename = "ptyPath")]
+    pub pty_path: String,
+}
+
+// Custom types for the Machine interface
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
+#[serde(rename_all = "lowercase")]
+pub enum AcquireMetadata {
+    No,
+    Yes,
+    Graceful,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
+#[serde(rename_all = "lowercase")]
+pub enum MachineOpenMode {
+    Tty,
+    Login,
+    Shell,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
+pub struct ProcessId<'a> {
+    pub pid: i64,
+    #[serde(rename = "pidfdId")]
+    pub pidfd_id: Option<u64>,
+    #[serde(rename = "bootId")]
+    // According to the IDL, this should be a number but we actually get a string.
+    // See https://github.com/systemd/systemd/issues/38276
+    pub boot_id: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
+pub struct Timestamp {
+    pub realtime: Option<u64>,
+    pub monotonic: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, CustomType)]
+pub struct Address {
+    pub ifindex: Option<u64>,
+    pub family: i64,
+    pub address: Vec<u64, 32>,
+}
+
 impl Service for MockMachinedService {
-    type MethodCall<'de> = varlink_service::Method<'de>;
-    type ReplyParams<'ser> = varlink_service::Reply<'ser>;
+    type MethodCall<'de> = Method<'de>;
+    type ReplyParams<'ser> = Reply<'ser>;
     type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
     type ReplyStreamParams = ();
     type ReplyError<'ser> = MockError<'ser>;
@@ -35,7 +208,7 @@ impl Service for MockMachinedService {
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            varlink_service::Method::GetInfo => {
+            Method::VarlinkService(varlink_service::Method::GetInfo) => {
                 // Return hardcoded info that matches the systemd machine service
                 let mut interfaces = Vec::new();
                 let interface_list = [
@@ -56,9 +229,13 @@ impl Service for MockMachinedService {
                     interfaces,
                 );
 
-                MethodReply::Single(Some(varlink_service::Reply::Info(info)))
+                MethodReply::Single(Some(Reply::VarlinkService(varlink_service::Reply::Info(
+                    info,
+                ))))
             }
-            varlink_service::Method::GetInterfaceDescription { interface } => {
+            Method::VarlinkService(varlink_service::Method::GetInterfaceDescription {
+                interface,
+            }) => {
                 let description = match *interface {
                     "org.varlink.service" => {
                         InterfaceDescription::from(varlink_service::DESCRIPTION)
@@ -73,9 +250,38 @@ impl Service for MockMachinedService {
                     }
                 };
 
-                MethodReply::Single(Some(varlink_service::Reply::InterfaceDescription(
-                    description,
+                MethodReply::Single(Some(Reply::VarlinkService(
+                    varlink_service::Reply::InterfaceDescription(description),
                 )))
+            }
+            Method::Machine(MachineMethod::Register { .. }) => {
+                // For the mock, just return success (no parameters)
+                MethodReply::Single(None)
+            }
+            Method::Machine(MachineMethod::Unregister { .. }) => {
+                // For the mock, just return success (no parameters)
+                MethodReply::Single(None)
+            }
+            Method::Machine(MachineMethod::Terminate { .. }) => {
+                // For the mock, just return success (no parameters)
+                MethodReply::Single(None)
+            }
+            Method::Machine(MachineMethod::Kill { .. }) => {
+                // For the mock, just return success (no parameters)
+                MethodReply::Single(None)
+            }
+            Method::Machine(MachineMethod::List { .. }) => {
+                // Return a mock machine
+                let list_reply = MOCK_LIST_REPLY.clone();
+                MethodReply::Single(Some(Reply::Machine(MachineReply::List(list_reply))))
+            }
+            Method::Machine(MachineMethod::Open { .. }) => {
+                // Return a mock PTY
+                let open_reply = OpenReply {
+                    pty_file_descriptor: 42,
+                    pty_path: "/dev/pts/42".to_string(),
+                };
+                MethodReply::Single(Some(Reply::Machine(MachineReply::Open(open_reply))))
             }
         }
     }
@@ -91,7 +297,7 @@ pub enum MockError<'a> {
 
 /// Errors that can be returned by the `io.systemd.Machine` interface.
 #[prefix_all("io.systemd.Machine.")]
-#[derive(Debug, Clone, PartialEq, Serialize, ReplyError)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ReplyError)]
 #[zlink(crate = "zlink")]
 #[serde(tag = "error", content = "parameters")]
 #[allow(unused)]
@@ -114,20 +320,66 @@ pub enum MachinedError {
     NoIPC,
 }
 
+impl core::fmt::Display for MachinedError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MachinedError::NoSuchMachine => write!(f, "No such machine"),
+            MachinedError::MachineExists => write!(f, "Machine already exists"),
+            MachinedError::NoPrivateNetworking => {
+                write!(f, "Machine does not use private networking")
+            }
+            MachinedError::NoOSReleaseInformation => {
+                write!(f, "Machine does not contain OS release information")
+            }
+            MachinedError::NoUIDShift => write!(
+                f,
+                "Machine uses a complex UID/GID mapping, cannot determine shift"
+            ),
+            MachinedError::NotAvailable => write!(f, "Requested information is not available"),
+            MachinedError::NotSupported => write!(f, "Requested operation is not supported"),
+            MachinedError::NoIPC => write!(f, "There is no IPC service in the container"),
+        }
+    }
+}
+
+impl core::error::Error for MachinedError {}
+
+const MOCK_LIST_REPLY: ListReply<'static> = ListReply {
+    name: ".host",
+    id: Some("1234567890abcdef1234567890abcdef"),
+    service: Some("mock-service"),
+    class: "host",
+    leader: Some(ProcessId {
+        pid: 12345,
+        pidfd_id: None,
+        boot_id: None,
+    }),
+    root_directory: Some("/var/lib/machines/test-machine"),
+    unit: Some(Cow::Borrowed("machine-test\\x2dmachine.scope")), // Needs escaping
+    timestamp: Some(Timestamp {
+        realtime: Some(1234567890000000),
+        monotonic: Some(9876543210000),
+    }),
+    v_sock_cid: None,
+    ssh_address: None,
+    ssh_private_key_path: None,
+    addresses: None,
+    os_release: None,
+    uid_shift: None,
+};
+
 /// Interface definition for io.systemd.Machine matching the actual systemd-machined service.
 const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
-    const PROCESS_ID_TYPE: &idl::Type<'static> =
-        &Optional(TypeRef::new(&idl::Type::Custom("ProcessId")));
-    const ACQUIRE_METADATA_TYPE: &idl::Type<'static> =
-        &Optional(TypeRef::new(&idl::Type::Custom("AcquireMetadata")));
+    const PROCESS_ID_TYPE: &idl::Type<'static> = <Option<ProcessId>>::TYPE;
+    const ACQUIRE_METADATA_TYPE: &idl::Type<'static> = <Option<AcquireMetadata>>::TYPE;
 
     // Method definitions with scoped parameters
     const REGISTER_METHOD: &idl::Method<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
-            &Parameter::new("name", &idl::Type::String, &[]),
-            &Parameter::new("id", <Option<String>>::TYPE, &[]),
-            &Parameter::new("service", <Option<String>>::TYPE, &[]),
-            &Parameter::new("class", &idl::Type::String, &[]),
+            &Parameter::new("name", <&str>::TYPE, &[]),
+            &Parameter::new("id", <Option<&str>>::TYPE, &[]),
+            &Parameter::new("service", <Option<&str>>::TYPE, &[]),
+            &Parameter::new("class", <&str>::TYPE, &[]),
             &Parameter::new(
                 "leader",
                 <Option<u32>>::TYPE,
@@ -138,11 +390,11 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
                 PROCESS_ID_TYPE,
                 &[&Comment::new("The leader PID as ProcessId structure.")],
             ),
-            &Parameter::new("rootDirectory", <Option<String>>::TYPE, &[]),
+            &Parameter::new("rootDirectory", <Option<&str>>::TYPE, &[]),
             &Parameter::new("ifIndices", <Option<&[u64]>>::TYPE, &[]),
             &Parameter::new("vSockCid", <Option<u64>>::TYPE, &[]),
-            &Parameter::new("sshAddress", <Option<String>>::TYPE, &[]),
-            &Parameter::new("sshPrivateKeyPath", <Option<String>>::TYPE, &[]),
+            &Parameter::new("sshAddress", <Option<&str>>::TYPE, &[]),
+            &Parameter::new("sshPrivateKeyPath", <Option<&str>>::TYPE, &[]),
             &Parameter::new(
                 "allocateUnit",
                 <Option<bool>>::TYPE,
@@ -163,7 +415,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -184,7 +436,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -210,7 +462,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -225,12 +477,12 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
             ),
             &Parameter::new(
                 "whom",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("Identifier that specifies what precisely to send the signal to (either 'leader' or 'all').")]
             ),
             &Parameter::new(
                 "signal",
-                &idl::Type::Int,
+                <i64>::TYPE,
                 &[&Comment::new("Numeric UNIX signal integer.")],
             ),
         ];
@@ -245,12 +497,10 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
     };
 
     const LIST_METHOD: &idl::Method<'static> = &{
-        const TIMESTAMP_TYPE: &idl::Type<'static> =
-            &Optional(TypeRef::new(&idl::Type::Custom("Timestamp")));
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -269,94 +519,14 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
                 &[&Comment::new("If 'yes' the output will include machine metadata fields such as 'Addresses', 'OSRelease', and 'UIDShift'. If 'graceful' it's equal to true but gracefully eats up errors")]
             ),
         ];
-        const OUTPUT_PARAMS: &[&Parameter<'static>] = &[
-            &Parameter::new(
-                "name",
-                &idl::Type::String,
-                &[&Comment::new("Name of the machine")],
-            ),
-            &Parameter::new(
-                "id",
-                <Option<String>>::TYPE,
-                &[&Comment::new(
-                    "128bit ID identifying this machine, formatted in hexadecimal",
-                )],
-            ),
-            &Parameter::new(
-                "service",
-                <Option<String>>::TYPE,
-                &[&Comment::new(
-                    "Name of the software that registered this machine",
-                )],
-            ),
-            &Parameter::new(
-                "class",
-                &idl::Type::String,
-                &[&Comment::new("The class of this machine")],
-            ),
-            &Parameter::new(
-                "leader",
-                PROCESS_ID_TYPE,
-                &[&Comment::new("Leader process PID of this machine")],
-            ),
-            &Parameter::new(
-                "rootDirectory",
-                <Option<String>>::TYPE,
-                &[&Comment::new(
-                    "Root directory of this machine, if known, relative to host file system",
-                )],
-            ),
-            &Parameter::new(
-                "unit",
-                <Option<String>>::TYPE,
-                &[&Comment::new(
-                    "The service manager unit this machine resides in",
-                )],
-            ),
-            &Parameter::new(
-                "timestamp",
-                TIMESTAMP_TYPE,
-                &[&Comment::new("Timestamp when the machine was activated")],
-            ),
-            &Parameter::new(
-                "vSockCid",
-                <Option<u64>>::TYPE,
-                &[&Comment::new(
-                    "AF_VSOCK CID of the machine if known and applicable",
-                )],
-            ),
-            &Parameter::new(
-                "sshAddress",
-                <Option<String>>::TYPE,
-                &[&Comment::new("SSH address to connect to")],
-            ),
-            &Parameter::new(
-                "sshPrivateKeyPath",
-                <Option<String>>::TYPE,
-                &[&Comment::new("Path to private SSH key")],
-            ),
-            &Parameter::new(
-                "addresses",
-                <Option<&[&str]>>::TYPE,
-                &[&Comment::new(
-                    "List of addresses of the machine (simplified)",
-                )],
-            ),
-            &Parameter::new(
-                "OSRelease",
-                <Option<&[&str]>>::TYPE,
-                &[&Comment::new("OS release information of the machine")],
-            ),
-            &Parameter::new(
-                "UIDShift",
-                <Option<u64>>::TYPE,
-                &[&Comment::new("Return the base UID/GID of the machine")],
-            ),
-        ];
+
+        // Use the ListReply TYPE to get the fields
+        let output_params = ListReply::TYPE.as_object().unwrap().as_borrowed().unwrap();
+
         idl::Method::new(
             "List",
             PARAMS,
-            OUTPUT_PARAMS,
+            output_params,
             &[
                 &Comment::new("List running machines"),
                 &Comment::new("[Supports 'more' flag]"),
@@ -368,7 +538,7 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         const PARAMS: &[&Parameter<'static>] = &[
             &Parameter::new(
                 "name",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new("If non-null the name of a machine")],
             ),
             &Parameter::new(
@@ -383,21 +553,21 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
             ),
             &Parameter::new(
                 "mode",
-                &idl::Type::Custom("MachineOpenMode"),
+                MachineOpenMode::TYPE,
                 &[&Comment::new(
                     "There are three possible values: 'tty', 'login', and 'shell'.",
                 )],
             ),
             &Parameter::new(
                 "user",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new(
                     "See description of mode='shell'. Valid only when mode='shell'",
                 )],
             ),
             &Parameter::new(
                 "path",
-                <Option<String>>::TYPE,
+                <Option<&str>>::TYPE,
                 &[&Comment::new(
                     "See description of mode='shell'. Valid only when mode='shell'",
                 )],
@@ -417,22 +587,14 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
                 )],
             ),
         ];
-        const OUTPUT_PARAMS: &[&Parameter<'static>] = &[
-            &Parameter::new(
-                "ptyFileDescriptor",
-                &idl::Type::Int,
-                &[&Comment::new("File descriptor of the allocated pseudo TTY")],
-            ),
-            &Parameter::new(
-                "ptyPath",
-                &idl::Type::String,
-                &[&Comment::new("Path to the allocated pseudo TTY")],
-            ),
-        ];
+
+        // Use the OpenReply TYPE to get the fields
+        let output_params = OpenReply::TYPE.as_object().unwrap().as_borrowed().unwrap();
+
         idl::Method::new(
             "Open",
             PARAMS,
-            OUTPUT_PARAMS,
+            output_params,
             &[&Comment::new(
                 "Allocates a pseudo TTY in the container in various modes",
             )],
@@ -448,72 +610,14 @@ const MACHINE_SERVICE_DESCRIPTION: &Interface<'static> = &{
         OPEN_METHOD,
     ];
 
-    // Custom types
-    const CUSTOM_TYPES: &[&idl::CustomType<'static>] = {
-        // Enum variants
-        const ACQUIRE_METADATA_VARIANTS: &[&EnumVariant<'static>] = &[
-            &EnumVariant::new("no", &[]),
-            &EnumVariant::new("yes", &[]),
-            &EnumVariant::new("graceful", &[]),
-        ];
-
-        const MACHINE_OPEN_MODE_VARIANTS: &[&EnumVariant<'static>] = &[
-            &EnumVariant::new("tty", &[]),
-            &EnumVariant::new("login", &[]),
-            &EnumVariant::new("shell", &[]),
-        ];
-        const PROCESS_ID_FIELDS: &[&idl::Field<'static>] = &[
-            &idl::Field::new(
-                "pid",
-                &idl::Type::Int,
-                &[&Comment::new("Numeric UNIX PID value")],
-            ),
-            &idl::Field::new(
-                "pidfdId",
-                <Option<u64>>::TYPE,
-                &[&Comment::new("64bit inode number of pidfd if known")],
-            ),
-            &idl::Field::new(
-                "bootId",
-                <Option<u64>>::TYPE,
-                &[&Comment::new(
-                    "Boot ID of the system the inode number belongs to",
-                )],
-            ),
-        ];
-
-        const TIMESTAMP_FIELDS: &[&idl::Field<'static>] = &[
-            &idl::Field::new(
-                "realtime",
-                <Option<u64>>::TYPE,
-                &[&Comment::new(
-                    "Timestamp in µs in the CLOCK_REALTIME clock (wallclock)",
-                )],
-            ),
-            &idl::Field::new(
-                "monotonic",
-                <Option<u64>>::TYPE,
-                &[&Comment::new(
-                    "Timestamp in µs in the CLOCK_MONOTONIC clock",
-                )],
-            ),
-        ];
-
-        const ADDRESS_FIELDS: &[&idl::Field<'static>] = &[
-            &idl::Field::new("ifindex", <Option<u64>>::TYPE, &[]),
-            &idl::Field::new("family", &idl::Type::Int, &[]),
-            &idl::Field::new("address", <&[u64]>::TYPE, &[]),
-        ];
-
-        // Custom type references
-        &[
-            &idl::CustomType::Enum(idl::CustomEnum::new("AcquireMetadata", ACQUIRE_METADATA_VARIANTS, &[&Comment::new("A enum field allowing to gracefully get metadata")])),
-            &idl::CustomType::Enum(idl::CustomEnum::new("MachineOpenMode", MACHINE_OPEN_MODE_VARIANTS, &[&Comment::new("A enum field which defines way to open TTY for a machine")])),
-            &idl::CustomType::Object(idl::CustomObject::new("ProcessId", PROCESS_ID_FIELDS, &[&Comment::new("An object for referencing UNIX processes")])),
-            &idl::CustomType::Object(idl::CustomObject::new("Timestamp", TIMESTAMP_FIELDS, &[&Comment::new("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps")])),
-            &idl::CustomType::Object(idl::CustomObject::new("Address", ADDRESS_FIELDS, &[&Comment::new("An address object")])),
-        ]
-    };
+    // Use the custom types from their CUSTOM_TYPE implementations
+    const CUSTOM_TYPES: &[&idl::CustomType<'static>] = &[
+        AcquireMetadata::CUSTOM_TYPE,
+        MachineOpenMode::CUSTOM_TYPE,
+        ProcessId::CUSTOM_TYPE,
+        Timestamp::CUSTOM_TYPE,
+        Address::CUSTOM_TYPE,
+    ];
 
     Interface::new(
         "io.systemd.Machine",

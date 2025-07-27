@@ -19,6 +19,9 @@ mod custom_type;
 #[cfg(feature = "introspection")]
 mod reply_error;
 
+#[cfg(feature = "proxy")]
+mod proxy;
+
 /// Derives `Type` for structs and enums, generating appropriate `Type::Object` or `Type::Enum`
 /// representation.
 ///
@@ -332,4 +335,100 @@ pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 #[proc_macro_derive(ReplyError, attributes(zlink))]
 pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     reply_error::derive_reply_error(input)
+}
+
+/// Creates a client-side proxy for calling Varlink methods on a connection.
+///
+/// **Requires the `proxy` feature to be enabled.**
+///
+/// This attribute macro generates an implementation of the provided trait for `Connection<S>`,
+/// automatically handling the serialization of method calls and deserialization of responses.
+/// Each proxy trait targets a single Varlink interface.
+///
+/// # Example
+///
+/// ```rust
+/// use zlink::proxy;
+/// use serde::{Deserialize, Serialize};
+/// use serde_prefix_all::prefix_all;
+/// use futures_util::stream::Stream;
+///
+/// #[proxy("org.example.MyService")]
+/// trait MyServiceProxy {
+///     async fn get_status(&mut self) -> zlink::Result<Result<Status<'_>, MyError<'_>>>;
+///     async fn set_value(
+///         &mut self,
+///         key: &str,
+///         value: i32,
+///     ) -> zlink::Result<Result<(), MyError<'_>>>;
+///     // This will call the `io.systemd.Machine.List` method when `list_machines()` is invoked.
+///     #[zlink(rename = "ListMachines")]
+///     async fn list_machines(&mut self) -> zlink::Result<Result<Vec<Machine<'_>>, MyError<'_>>>;
+///     // Streaming version of get_status - calls the same method but returns a stream
+///     #[zlink(rename = "GetStatus", more)]
+///     async fn stream_status(
+///         &mut self,
+///     ) -> zlink::Result<
+///         impl Stream<Item = zlink::Result<Result<Status<'_>, MyError<'_>>>>,
+///     >;
+/// }
+///
+/// // The macro generates:
+/// // impl<S: Socket> MyServiceProxy for Connection<S> { ... }
+///
+/// #[derive(Debug, Serialize, Deserialize)]
+/// struct Status<'m> {
+///     active: bool,
+///     message: &'m str,
+/// }
+///
+/// #[derive(Debug, Serialize, Deserialize)]
+/// struct Machine<'m> { name: &'m str }
+///
+/// #[prefix_all("org.example.MyService.")]
+/// #[derive(Debug, Serialize, Deserialize)]
+/// #[serde(tag = "error", content = "parameters")]
+/// enum MyError<'a> {
+///     NotFound,
+///     InvalidRequest,
+///     // Parameters must be named.
+///     CodedError { code: u32, message: &'a str },
+/// }
+/// ```
+///
+/// # Method Requirements
+///
+/// Proxy methods must:
+/// - Take `&mut self` as the first parameter
+/// - Can be either `async fn` or return `impl Future`
+/// - Return `zlink::Result<Result<ReplyType, ErrorType>>` (outer Result for connection errors,
+///   inner for method errors)
+/// - The arguments can be any type that implement `serde::Serialize`
+/// - The reply type (`Ok` case of the inner `Result`) must be a type that implements
+///   `serde::Deserialize` and deserializes itself from a JSON object. Typically you'd just use a
+///   struct that derives `serde::Deserialize`.
+/// - The reply error type (`Err` case of the inner `Result`) must be a type `serde::Deserialize`
+///   that deserializes itself from a JSON object with two fields:
+///   - `error`: a string containing the fully qualified error name
+///   - `parameters`: an optional object containing all the fields of the error
+///
+/// # Method Names
+///
+/// By default, method names are converted from snake_case to PascalCase for the Varlink call.
+/// To specify a different Varlink method name, use the `#[zlink(rename = "...")]` attribute. See
+/// `list_machines` in the example above.
+///
+/// # Streaming Methods
+///
+/// For methods that support streaming (the 'more' flag), use the `#[zlink(more)]` attribute.
+/// Streaming methods must return `Result<impl Stream<Item = Result<Result<ReplyType,
+/// ErrorType>>>>`. The proxy will automatically set the 'more' flag on the call and return a
+/// stream of replies.
+#[cfg(feature = "proxy")]
+#[proc_macro_attribute]
+pub fn proxy(
+    attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    proxy::proxy(attr.into(), input.into()).into()
 }

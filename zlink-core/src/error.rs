@@ -27,6 +27,8 @@ pub enum Error {
     /// An error occurred while parsing IDL.
     #[cfg(feature = "idl-parse")]
     IdlParse(String),
+    /// Missing required parameters.
+    MissingParameters,
 }
 
 /// The Result type for the zlink crate.
@@ -105,6 +107,7 @@ impl core::fmt::Display for Error {
             Error::Io(e) => write!(f, "I/O error: {e}"),
             #[cfg(feature = "idl-parse")]
             Error::IdlParse(e) => write!(f, "IDL parse error: {e}"),
+            Error::MissingParameters => write!(f, "Missing required parameters"),
         }
     }
 }
@@ -133,6 +136,7 @@ impl defmt::Format for Error {
             Error::Io(_) => defmt::write!(fmt, "I/O error"),
             #[cfg(feature = "idl-parse")]
             Error::IdlParse(_) => defmt::write!(fmt, "IDL parse error"),
+            Error::MissingParameters => defmt::write!(fmt, "Missing required parameters"),
         }
     }
 }

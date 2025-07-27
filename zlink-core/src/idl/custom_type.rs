@@ -2,8 +2,6 @@
 
 use core::fmt;
 
-#[cfg(test)]
-use super::EnumVariant;
 use super::{CustomEnum, CustomObject};
 
 /// A custom type definition in Varlink IDL.
@@ -76,10 +74,11 @@ impl<'a> fmt::Display for CustomType<'a> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "introspection")]
 mod tests {
     use super::*;
     use crate::{
-        idl::{self, Field},
+        idl::{self, EnumVariant, Field},
         introspect,
     };
 

@@ -8,8 +8,9 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["tokio"]
+default = ["tokio", "proxy"]
 tokio = ["dep:zlink-tokio"]
+proxy = ["zlink-tokio/proxy"]
 idl = ["zlink-tokio/idl"]
 idl-parse = ["zlink-tokio/idl-parse"]
 introspection = ["zlink-tokio/introspection"]

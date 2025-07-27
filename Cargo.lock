@@ -1038,9 +1038,14 @@ dependencies = [
 name = "zlink-macros"
 version = "0.0.1-alpha.1"
 dependencies = [
+ "futures-util",
  "proc-macro2",
  "quote",
+ "serde",
+ "serde-prefix-all",
+ "serde_json",
  "syn",
+ "tokio",
  "zlink",
 ]
 

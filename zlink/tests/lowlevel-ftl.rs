@@ -60,7 +60,7 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
     let mut conn = connect(SOCKET_PATH).await?;
-    let call = Call::new(FtlMethod::GetDriveCondition).set_more(Some(true));
+    let call = Call::new(FtlMethod::GetDriveCondition).set_more(true);
     let mut drive_monitor_stream = pin!(
         conn.chain_call::<FtlMethod, FtlReply, FtlError>(&call)?
             .send()
@@ -222,14 +222,14 @@ impl Service for Ftl {
         call: Call<Self::MethodCall<'_>>,
     ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
         match call.method() {
-            Method::Ftl(FtlMethod::GetDriveCondition) if call.more().unwrap_or_default() => {
+            Method::Ftl(FtlMethod::GetDriveCondition) if call.more() => {
                 MethodReply::Multi(self.drive_condition.stream())
             }
             Method::Ftl(FtlMethod::GetDriveCondition) => {
                 MethodReply::Single(Some(Reply::Ftl(self.drive_condition.get().into())))
             }
             Method::Ftl(FtlMethod::SetDriveCondition { condition }) => {
-                if call.more().unwrap_or_default() {
+                if call.more() {
                     return MethodReply::Error(ReplyError::Ftl(FtlError::ParameterOutOfRange));
                 }
                 self.drive_condition.set(*condition);
@@ -239,7 +239,7 @@ impl Service for Ftl {
                 MethodReply::Single(Some(Reply::Ftl(FtlReply::Coordinates(self.coordinates))))
             }
             Method::Ftl(FtlMethod::Jump { config }) => {
-                if call.more().unwrap_or_default() {
+                if call.more() {
                     return MethodReply::Error(ReplyError::Ftl(FtlError::ParameterOutOfRange));
                 }
                 let tylium_required = config.speed * config.duration;

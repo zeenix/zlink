@@ -11,6 +11,8 @@ repository.workspace = true
 proc-macro = true
 
 [features]
+default = ["proxy"]
+proxy = ["syn/full", "syn/clone-impls"]
 introspection = ["zlink/introspection"]
 
 [dependencies]
@@ -25,3 +27,8 @@ syn = { version = "2.0", default-features = false, features = [
 
 [dev-dependencies]
 zlink = { path = "../zlink", default-features = false, features = ["tokio"] }
+serde = "1.0"
+serde_json = "1.0"
+serde-prefix-all = "0.1.0"
+futures-util = { version = "0.3.31", default-features = false }
+tokio = { version = "1.42.0", features = ["macros", "rt"] }

@@ -220,9 +220,7 @@ where
         match result {
             Ok(reply) => match reply.into_parameters() {
                 Some(response) => Ok(Ok(response)),
-                None => Ok(Err(Error::InvalidParameter {
-                    parameter: "missing parameters in reply",
-                })),
+                None => Err(crate::Error::MissingParameters),
             },
             Err(error) => Ok(Err(error)),
         }

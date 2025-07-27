@@ -18,14 +18,14 @@ where
         let flat_ser = FlatSerializer(&mut map);
         self.method.serialize(flat_ser)?;
 
-        if let Some(oneway) = self.oneway {
-            map.serialize_entry("oneway", &oneway)?;
+        if self.oneway {
+            map.serialize_entry("oneway", &true)?;
         }
-        if let Some(more) = self.more {
-            map.serialize_entry("more", &more)?;
+        if self.more {
+            map.serialize_entry("more", &true)?;
         }
-        if let Some(upgrade) = self.upgrade {
-            map.serialize_entry("upgrade", &upgrade)?;
+        if self.upgrade {
+            map.serialize_entry("upgrade", &true)?;
         }
 
         map.end()

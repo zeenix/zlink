@@ -13,7 +13,8 @@ use mayheap::Vec;
 /// Responses should be provided as individual strings, and the mock will automatically
 /// add null byte separators between them.
 #[derive(Debug)]
-pub(crate) struct MockSocket {
+#[doc(hidden)]
+pub struct MockSocket {
     read_data: Vec<u8, 1024>,
     read_pos: usize,
 }
@@ -23,7 +24,7 @@ impl MockSocket {
     ///
     /// Each response string will be automatically null-terminated.
     /// An additional null byte is added at the end to mark the end of all messages.
-    pub(crate) fn new(responses: &[&str]) -> Self {
+    pub fn new(responses: &[&str]) -> Self {
         let mut data = Vec::new();
 
         for response in responses {
@@ -59,15 +60,15 @@ impl Socket for MockSocket {
 
 /// Mock read half implementation.
 #[derive(Debug)]
-pub(crate) struct MockReadHalf {
+#[doc(hidden)]
+pub struct MockReadHalf {
     data: Vec<u8, 1024>,
     pos: usize,
 }
 
 impl MockReadHalf {
     /// Get the remaining unread data in the buffer.
-    #[allow(dead_code)]
-    pub(crate) fn remaining_data(&self) -> &[u8] {
+    pub fn remaining_data(&self) -> &[u8] {
         &self.data[self.pos..]
     }
 }
@@ -88,14 +89,14 @@ impl ReadHalf for MockReadHalf {
 
 /// Mock write half implementation.
 #[derive(Debug)]
-pub(crate) struct MockWriteHalf {
+#[doc(hidden)]
+pub struct MockWriteHalf {
     written: Vec<u8, 1024>,
 }
 
 impl MockWriteHalf {
     /// Get all data that has been written to this mock.
-    #[allow(dead_code)]
-    pub(crate) fn written_data(&self) -> &[u8] {
+    pub fn written_data(&self) -> &[u8] {
         &self.written
     }
 }
@@ -111,13 +112,14 @@ impl WriteHalf for MockWriteHalf {
 ///
 /// This is useful for testing that writes are exactly the expected size.
 #[derive(Debug)]
-pub(crate) struct TestWriteHalf {
+#[doc(hidden)]
+pub struct TestWriteHalf {
     expected_len: usize,
 }
 
 impl TestWriteHalf {
     /// Create a new test write half that expects writes of the given length.
-    pub(crate) fn new(expected_len: usize) -> Self {
+    pub fn new(expected_len: usize) -> Self {
         Self { expected_len }
     }
 }
@@ -133,18 +135,25 @@ impl WriteHalf for TestWriteHalf {
 ///
 /// This is useful for testing pipelining behavior or write frequency.
 #[derive(Debug)]
-pub(crate) struct CountingWriteHalf {
+#[doc(hidden)]
+pub struct CountingWriteHalf {
     count: usize,
+}
+
+impl Default for CountingWriteHalf {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CountingWriteHalf {
     /// Create a new counting write half.
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self { count: 0 }
     }
 
     /// Get the number of write operations that have been performed.
-    pub(crate) fn count(&self) -> usize {
+    pub fn count(&self) -> usize {
         self.count
     }
 }

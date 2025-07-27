@@ -120,6 +120,11 @@ impl<Write: WriteHalf> WriteConnection<Write> {
         Ok(())
     }
 
+    /// The underlying write half of the socket.
+    pub fn write_half(&self) -> &Write {
+        &self.socket
+    }
+
     async fn write<T>(&mut self, value: &T) -> crate::Result<()>
     where
         T: Serialize + ?Sized + Debug,
