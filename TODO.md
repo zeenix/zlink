@@ -2,16 +2,16 @@
 
 ## Release 0.1.0
 
-* zlink-macros
-  * `proxy`
-    * Make all the tests actually run
-      * simple hardcoded server impls
 * zlink-core
   * Any method call can return varlink_service::Error
-    * All client-side API to require `std` feature
+    *  manually impl `Deserialize` for `varlink_service::api` enums, in `no_std` case
+      * Assume tag fields to be first in the JSON.
     * Add `VarlinkService` variant to `zlink_core::Error`
     * ReadConnection::receive_reply
-      * untagged enum with `varlink_service::Error` as one variant and `ReplyError` as another.
+      * untagged Enum, `Response` with `Reply` as one variant and `ReplyError` as another.
+        * For `std`, use `Deserialize` derive.
+        * For `no_std`, manually impl Deserialize that assume error to be the first field.
+      * Add `varlink_service::Error` variant to `Response`.
       * in case of `varlink_service::Error`, return `zlink_core::Error::VarlinkService`
 * zlink-macros
   * `proxy` attribute macro
