@@ -15,12 +15,12 @@ async fn complex_lifetimes_test() {
         async fn process_nested(
             &mut self,
             data: HashMap<String, Vec<Option<Item>>>,
-        ) -> zlink::Result<Result<Option<Vec<String>>, Error>>;
+        ) -> zlink::Result<Result<ProcessNestedReply<'_>, Error>>;
 
         async fn with_tuples(
             &mut self,
             pairs: Vec<(String, i32)>,
-        ) -> zlink::Result<Result<(bool, Option<String>), Error>>;
+        ) -> zlink::Result<Result<TuplesReply, Error>>;
 
         async fn generic_result<'a>(
             &mut self,
@@ -50,6 +50,18 @@ async fn complex_lifetimes_test() {
         message: &'a str,
     }
 
+    #[derive(Debug, Serialize, Deserialize)]
+    struct ProcessNestedReply<'a> {
+        #[serde(borrow)]
+        items: Option<Vec<&'a str>>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct TuplesReply {
+        success: bool,
+        message: Option<String>,
+    }
+
     // Test process_array
     let responses = json!({
         "parameters": [{
@@ -69,7 +81,9 @@ async fn complex_lifetimes_test() {
 
     // Test process_nested
     let responses = json!({
-        "parameters": ["result1", "result2"]
+        "parameters": {
+            "items": ["result1", "result2"]
+        }
     })
     .to_string();
     let socket = MockSocket::new(&[&responses]);
@@ -85,14 +99,14 @@ async fn complex_lifetimes_test() {
         })],
     );
     let result = conn.process_nested(data).await.unwrap().unwrap();
-    assert_eq!(
-        result,
-        Some(vec!["result1".to_string(), "result2".to_string()])
-    );
+    assert_eq!(result.items, Some(vec!["result1", "result2"]));
 
     // Test with_tuples
     let responses = json!({
-        "parameters": [true, "success"]
+        "parameters": {
+            "success": true,
+            "message": "success"
+        }
     })
     .to_string();
     let socket = MockSocket::new(&[&responses]);
@@ -100,7 +114,8 @@ async fn complex_lifetimes_test() {
 
     let pairs = vec![("key1".to_string(), 100), ("key2".to_string(), 200)];
     let result = conn.with_tuples(pairs).await.unwrap().unwrap();
-    assert_eq!(result, (true, Some("success".to_string())));
+    assert_eq!(result.success, true);
+    assert_eq!(result.message, Some("success".to_string()));
 
     // Test generic_result
     let responses = json!({

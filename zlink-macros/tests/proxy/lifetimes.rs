@@ -14,7 +14,7 @@ async fn lifetimes_test() {
             &mut self,
             input: &'b str,
             count: i32,
-        ) -> zlink::Result<Result<Vec<&str>, Error>>;
+        ) -> zlink::Result<Result<LifetimeReply<'_>, Error>>;
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -25,6 +25,12 @@ async fn lifetimes_test() {
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Error;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct LifetimeReply<'a> {
+        #[serde(borrow)]
+        items: Vec<&'a str>,
+    }
 
     // Test process method
     let responses = json!({
@@ -43,12 +49,14 @@ async fn lifetimes_test() {
 
     // Test with_lifetime method
     let responses = json!({
-        "parameters": ["item1", "item2", "item3"]
+        "parameters": {
+            "items": ["item1", "item2", "item3"]
+        }
     })
     .to_string();
     let socket = MockSocket::new(&[&responses]);
     let mut conn = Connection::new(socket);
 
     let result = conn.with_lifetime("test", 3).await.unwrap().unwrap();
-    assert_eq!(result, vec!["item1", "item2", "item3"]);
+    assert_eq!(result.items, vec!["item1", "item2", "item3"]);
 }

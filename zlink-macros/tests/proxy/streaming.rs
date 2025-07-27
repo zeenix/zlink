@@ -9,12 +9,12 @@ async fn streaming_test() {
 
     #[proxy("org.example.Stream")]
     trait StreamProxy {
-        async fn get_single(&mut self) -> zlink::Result<Result<String, Error>>;
+        async fn get_single(&mut self) -> zlink::Result<Result<SingleReply<'_>, Error>>;
 
         #[zlink(more)]
         async fn get_stream(
             &mut self,
-        ) -> zlink::Result<impl Stream<Item = zlink::Result<Result<String, Error>>>>;
+        ) -> zlink::Result<impl Stream<Item = zlink::Result<Result<StreamReply<'_>, Error>>>>;
 
         #[zlink(rename = "CustomStream", more)]
         async fn custom_stream(
@@ -32,19 +32,31 @@ async fn streaming_test() {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Error;
 
+    #[derive(Debug, Serialize, Deserialize)]
+    struct SingleReply<'a> {
+        #[serde(borrow)]
+        result: &'a str,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct StreamReply<'a> {
+        #[serde(borrow)]
+        result: &'a str,
+    }
+
     // Test get_single
-    let responses = json!({"parameters": "single result"}).to_string();
+    let responses = json!({"parameters": {"result": "single result"}}).to_string();
     let socket = MockSocket::new(&[&responses]);
     let mut conn = Connection::new(socket);
 
     let result = conn.get_single().await.unwrap().unwrap();
-    assert_eq!(result, "single result");
+    assert_eq!(result.result, "single result");
 
     // Test streaming method
     let responses = [
-        json!({"continues": true, "parameters": "stream item 1"}).to_string(),
-        json!({"continues": true, "parameters": "stream item 2"}).to_string(),
-        json!({"continues": false, "parameters": "stream item 3"}).to_string(),
+        json!({"continues": true, "parameters": {"result": "stream item 1"}}).to_string(),
+        json!({"continues": true, "parameters": {"result": "stream item 2"}}).to_string(),
+        json!({"continues": false, "parameters": {"result": "stream item 3"}}).to_string(),
     ];
     let socket = MockSocket::new(&responses.iter().map(|s| s.as_str()).collect::<Vec<_>>());
     let mut conn = Connection::new(socket);
@@ -52,17 +64,13 @@ async fn streaming_test() {
     let stream = conn.get_stream().await.unwrap();
     futures_util::pin_mut!(stream);
     let items = stream
-        .try_collect::<Vec<Result<String, Error>>>()
+        .try_collect::<Vec<Result<StreamReply, Error>>>()
         .await
         .unwrap();
-    assert_eq!(
-        items,
-        vec![
-            Ok("stream item 1".to_string()),
-            Ok("stream item 2".to_string()),
-            Ok("stream item 3".to_string())
-        ]
-    );
+    assert_eq!(items.len(), 3);
+    assert_eq!(items[0].as_ref().unwrap().result, "stream item 1");
+    assert_eq!(items[1].as_ref().unwrap().result, "stream item 2");
+    assert_eq!(items[2].as_ref().unwrap().result, "stream item 3");
 
     // Test custom_stream method
     let responses = [

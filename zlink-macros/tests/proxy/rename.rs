@@ -7,7 +7,7 @@ async fn rename_test() {
     #[proxy("org.example.Rename")]
     trait RenameProxy {
         #[zlink(rename = "GetData")]
-        async fn get_data(&mut self) -> zlink::Result<Result<String, Error>>;
+        async fn get_data(&mut self) -> zlink::Result<Result<GetDataReply<'_>, Error>>;
 
         #[zlink(rename = "SetValue")]
         async fn update_value(&mut self, value: i32) -> zlink::Result<Result<(), Error>>;
@@ -19,13 +19,19 @@ async fn rename_test() {
     #[derive(Debug, Serialize, Deserialize)]
     struct Error;
 
+    #[derive(Debug, Serialize, Deserialize)]
+    struct GetDataReply<'a> {
+        #[serde(borrow)]
+        data: &'a str,
+    }
+
     // Test get_data with renamed method
-    let responses = json!({"parameters": "test data"}).to_string();
+    let responses = json!({"parameters": {"data": "test data"}}).to_string();
     let socket = MockSocket::new(&[&responses]);
     let mut conn = Connection::new(socket);
 
     let result = conn.get_data().await.unwrap().unwrap();
-    assert_eq!(result, "test data");
+    assert_eq!(result.data, "test data");
 
     // Verify the renamed method name is used
     let bytes_written = conn.write().write_half().written_data();

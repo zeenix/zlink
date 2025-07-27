@@ -12,7 +12,7 @@ async fn optional_params_test() {
             optional_string: Option<&str>,
             optional_number: Option<i32>,
             optional_bool: Option<bool>,
-        ) -> zlink::Result<Result<String, Error>>;
+        ) -> zlink::Result<Result<OptionalsReply<'_>, Error>>;
 
         async fn mixed_optionals(
             &mut self,
@@ -28,8 +28,14 @@ async fn optional_params_test() {
     #[derive(Debug, Serialize, Deserialize)]
     struct Error;
 
+    #[derive(Debug, Serialize, Deserialize)]
+    struct OptionalsReply<'a> {
+        #[serde(borrow)]
+        message: &'a str,
+    }
+
     // Test with_optionals
-    let responses = json!({"parameters": "success with optionals"}).to_string();
+    let responses = json!({"parameters": {"message": "success with optionals"}}).to_string();
     let socket = MockSocket::new(&[&responses]);
     let mut conn = Connection::new(socket);
 
@@ -38,7 +44,7 @@ async fn optional_params_test() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(result, "success with optionals");
+    assert_eq!(result.message, "success with optionals");
 
     // Test mixed_optionals
     let responses = json!({}).to_string();
