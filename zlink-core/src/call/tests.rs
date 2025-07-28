@@ -415,7 +415,7 @@ mod std {
     }
 }
 
-#[cfg(feature = "embedded")]
+#[cfg(not(feature = "std"))]
 mod embedded {
     use super::*;
     use serde_json_core;

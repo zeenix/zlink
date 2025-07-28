@@ -19,7 +19,7 @@ jobs:
           ]
     env:
       RUSTFLAGS: -D warnings
-      MSRV: 1.82.0
+      MSRV: 1.83.0
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -30,7 +30,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Check build with MSRV
         run: |
-          cargo --locked check --target ${{ matrix.TARGET }}
+          cargo --locked check --all-features --target ${{ matrix.TARGET }}
 
   fmt:
     runs-on: ubuntu-latest
@@ -92,7 +92,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build and Test
         run: |
-          cargo test --release --features introspection,idl-parse
+          cargo test --release --all-features
           cargo test -p zlink-core --release --no-default-features --features embedded,introspection,proxy
           # The tests enable the `alloc` feature of `serde` and hence the previous command doesn't
           # really ensure if the serde bits build successfully without `std` and `alloc`. Hence why

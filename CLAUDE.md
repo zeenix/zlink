@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Testing
 ```bash
 # Run the full test suite, including doc tests and compile-tests
-cargo test --features introspection,idl-parse
+cargo test --all-features
 # For embedded
 cargo test -p zlink-core --no-default-features --features embedded,introspection
 ```
@@ -21,7 +21,7 @@ cargo +nightly fmt --all
 cargo clippy -- -D warnings
 
 # Check all features compile
-cargo check --features introspection,idl-parse
+cargo check --all-features
 # For embedded
 cargo check -p zlink-core --no-default-features --features embedded,introspection
 ```
