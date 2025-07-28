@@ -61,7 +61,7 @@ mod tests {
 
         #[cfg(feature = "std")]
         let json = serde_json::to_string(&info).unwrap();
-        #[cfg(feature = "embedded")]
+        #[cfg(not(feature = "std"))]
         let json = {
             use mayheap::string::String;
             let mut buffer = [0u8; 256];

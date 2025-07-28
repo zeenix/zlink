@@ -223,7 +223,7 @@ mod tests {
             assert_eq!(write_conn.buffer.len(), BUFFER_SIZE * 3);
             assert_eq!(write_conn.pos, 0); // Reset after flush.
         }
-        #[cfg(feature = "embedded")]
+        #[cfg(not(feature = "std"))]
         {
             assert!(matches!(
                 res,
