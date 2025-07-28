@@ -82,14 +82,17 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         let id = self.id;
         let buffer = self.read_message_bytes().await?;
 
-        // First try to parse it as an error.
+        // First, check if the message has an "error" field to determine how to deserialize.
         // FIXME: This will mean the document will be parsed twice. We should instead try to
         // quickly check if `error` field is present and then parse to the appropriate type based on
         // that information. Perhaps a simple parser using `winnow`?
-        let ret = match from_slice::<ReplyError>(buffer) {
-            Ok(e) => Ok(Err(e)),
-            Err(_) => from_slice::<Reply<ReplyParams>>(buffer).map(Ok),
-        };
+        if extract_error_name(buffer).is_some() {
+            // It's an error response.
+            return from_slice::<ReplyError>(buffer).map(Err);
+        }
+
+        // It's a success response.
+        let ret = from_slice::<Reply<ReplyParams>>(buffer).map(Ok);
         trace!("connection {}: received reply: {:?}", id, ret);
 
         ret
@@ -198,4 +201,15 @@ where
             .map_err(Into::into)
             .map(|(e, _)| e)
     }
+}
+
+/// If the buffer contains a JSON object with an "error" field, this function will fetch it.
+fn extract_error_name(buffer: &[u8]) -> Option<&str> {
+    #[derive(Deserialize)]
+    struct Error<'a> {
+        error: &'a str,
+    }
+    from_slice::<Error<'_>>(buffer)
+        .ok()
+        .map(|error| error.error)
 }
