@@ -96,13 +96,13 @@ impl core::fmt::Display for Error<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::InterfaceNotFound { interface } => {
-                write!(f, "Interface not found: {}", interface)
+                write!(f, "Interface not found: {interface}")
             }
             Error::MethodNotFound { method } => {
-                write!(f, "Method not found: {}", method)
+                write!(f, "Method not found: {method}")
             }
             Error::InvalidParameter { parameter } => {
-                write!(f, "Invalid parameter: {}", parameter)
+                write!(f, "Invalid parameter: {parameter}")
             }
             Error::PermissionDenied => {
                 write!(f, "Permission denied")
@@ -111,7 +111,7 @@ impl core::fmt::Display for Error<'_> {
                 write!(f, "Expected more")
             }
             Error::MethodNotImplemented { method } => {
-                write!(f, "Method not implemented: {}", method)
+                write!(f, "Method not implemented: {method}")
             }
         }
     }
