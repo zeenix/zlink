@@ -1,3 +1,4 @@
+#[cfg(feature = "introspection")]
 use crate::introspect::Type;
 use mayheap::Vec;
 #[cfg(feature = "std")]
@@ -7,8 +8,9 @@ use serde::Serialize;
 /// Information about a Varlink service implementation.
 ///
 /// This is the return type for the `GetInfo` method of the `org.varlink.service` interface.
-#[derive(Debug, Clone, PartialEq, Serialize, Type)]
-#[zlink(crate = "crate")]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "introspection", derive(Type))]
+#[cfg_attr(feature = "introspection", zlink(crate = "crate"))]
 #[cfg_attr(feature = "std", derive(Deserialize))]
 pub struct Info<'a> {
     /// The vendor of the service.

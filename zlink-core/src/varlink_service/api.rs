@@ -7,9 +7,12 @@ use serde::{
     Deserialize,
 };
 
+#[cfg(feature = "introspection")]
 use crate::introspect;
 
-use super::{Info, InterfaceDescription};
+use super::Info;
+#[cfg(feature = "idl")]
+use super::InterfaceDescription;
 
 /// `org.varlink.service` interface methods.
 #[derive(Debug, Serialize)]
@@ -39,12 +42,14 @@ pub enum Reply<'a> {
     Info(Info<'a>),
     /// Reply for `GetInterfaceDescription` method.
     /// Note: InterfaceDescription only supports 'static lifetime for deserialization.
+    #[cfg(feature = "idl")]
     InterfaceDescription(InterfaceDescription<'static>),
 }
 
 /// Errors that can be returned by the `org.varlink.service` interface.
-#[derive(Debug, Clone, PartialEq, Serialize, introspect::ReplyError)]
-#[zlink(crate = "crate")]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "introspection", derive(introspect::ReplyError))]
+#[cfg_attr(feature = "introspection", zlink(crate = "crate"))]
 #[cfg_attr(feature = "std", derive(Deserialize))]
 #[serde(tag = "error", content = "parameters")]
 pub enum Error<'a> {
