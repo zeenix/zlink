@@ -51,6 +51,7 @@ pub enum Reply<'a> {
 #[cfg_attr(feature = "introspection", derive(introspect::ReplyError))]
 #[cfg_attr(feature = "introspection", zlink(crate = "crate"))]
 #[cfg_attr(feature = "std", derive(Deserialize))]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[serde(tag = "error", content = "parameters")]
 pub enum Error<'a> {
     /// The requested interface was not found.
