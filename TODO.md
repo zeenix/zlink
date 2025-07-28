@@ -4,15 +4,11 @@
 
 * zlink-core
   * Any method call can return varlink_service::Error
-    *  manually impl `Deserialize` for `varlink_service::api` enums, in `no_std` case
-      * Assume tag fields to be first in the JSON.
     * Add `VarlinkService` variant to `zlink_core::Error`
     * ReadConnection::receive_reply
-      * untagged Enum, `Response` with `Reply` as one variant and `ReplyError` as another.
-        * For `std`, use `Deserialize` derive.
-        * For `no_std`, manually impl Deserialize that assume error to be the first field.
-      * Add `varlink_service::Error` variant to `Response`.
-      * in case of `varlink_service::Error`, return `zlink_core::Error::VarlinkService`
+      * if error name has `org.varlink.service` prefix,
+        * deserialize to `varlink_service::Error`
+        * return `zlink_core::Error::VarlinkService`
 * zlink-macros
   * `proxy` attribute macro
     * check macro code for other cleanups refactors possible
