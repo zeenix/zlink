@@ -80,9 +80,8 @@ pub enum Error<'a> {
     ExpectedMore,
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Error<'_> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for Error<'_> {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         None
     }
 }
