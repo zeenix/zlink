@@ -32,7 +32,6 @@ pub use reply::Reply;
 pub mod idl;
 #[cfg(feature = "introspection")]
 pub mod introspect;
-#[cfg(feature = "introspection")]
 pub mod varlink_service;
 
 #[cfg(feature = "proxy")]

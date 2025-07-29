@@ -1,6 +1,8 @@
 use core::fmt::Debug;
 
-use crate::{idl::Interface, introspect::Type};
+use crate::idl::Interface;
+#[cfg(feature = "introspection")]
+use crate::introspect::Type;
 #[cfg(feature = "idl-parse")]
 use serde::Deserialize;
 use serde::Serialize;
@@ -10,8 +12,9 @@ use serde::Serialize;
 /// Use [`InterfaceDescription::parse`] to get the [`Interface`].
 ///
 /// Under the hood, the interface description is either a parsed [`Interface`] or a raw string.
-#[derive(Debug, Serialize, Type, Clone)]
-#[zlink(crate = "crate")]
+#[derive(Debug, Serialize, Clone)]
+#[cfg_attr(feature = "introspection", derive(Type))]
+#[cfg_attr(feature = "introspection", zlink(crate = "crate"))]
 pub struct InterfaceDescription<'a> {
     description: Description<'a>,
 }
@@ -94,6 +97,7 @@ enum Description<'a> {
     Raw(String),
 }
 
+#[cfg(feature = "introspection")]
 impl Type for Description<'_> {
     const TYPE: &'static crate::idl::Type<'static> = &crate::idl::Type::String;
 }

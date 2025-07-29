@@ -42,6 +42,10 @@ impl<T: Type, const N: usize> Type for mayheap::Vec<T, N> {
     const TYPE: &'static idl::Type<'static> = &idl::Type::Array(TypeRef::new(T::TYPE));
 }
 
+impl<const N: usize> Type for mayheap::string::String<N> {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+}
+
 impl<T: Type> Type for &[T] {
     const TYPE: &'static idl::Type<'static> = &idl::Type::Array(TypeRef::new(T::TYPE));
 }

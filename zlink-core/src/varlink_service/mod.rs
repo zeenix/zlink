@@ -13,10 +13,13 @@ mod proxy;
 #[cfg(feature = "idl-parse")]
 pub use proxy::{Chain, Proxy};
 
+#[cfg(feature = "idl")]
 mod interface_description;
+#[cfg(feature = "idl")]
 pub use interface_description::InterfaceDescription;
 
 /// The description of the `org.varlink.service` interface.
+#[cfg(feature = "introspection")]
 pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     use crate::{
         idl::{Comment, Interface, Method, Parameter},
