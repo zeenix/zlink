@@ -10,6 +10,17 @@
         * deserialize to `varlink_service::Error`
         * return `zlink_core::Error::VarlinkService`
 * zlink-macros
+  * Add `Interface` prefix to all intropsection derives
+    * The re-exports from zlink-core use alias to keep their name.
+  * Add `ReplyError` derive
+    * Takes enums only
+    * Adds
+      * `serde::Serialize` derive attribute
+      * `std`: `serde::Deserialize` derive attribute
+      * `no_std`: Manual `serde::Deserialize` impl
+        * Require `error` to be the first field to avoid allocation
+          * See `varlink_service::Error`'s `Deserialize` impl for example.
+    * Update documentation & tests.
   * `proxy` attribute macro
     * check macro code for other cleanups refactors possible
     * chaining/pipelining.
@@ -17,10 +28,12 @@
     * Avoid cloning in the macro code, where possible (use references).
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
+* zlink-core
+  * impl `introspect::Type` for common types
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
   * tests
-* mdbook-based tutorial
+* Populate README.md with examples, usage instructions and features documentation
 * More metadata in Cargo.toml files
 
 ## Release 0.2.0
@@ -38,7 +51,7 @@
   * tests
   * Update Service docs: Prefer using `service` macro over a manual implementation.
   * Update connection docs to recommend/show use of `proxy` & `service` macros.
-  * Update Tutorial
+* mdbook-based tutorial
 * zlink-core
   * cargo features to allow use of `idl` only
 
