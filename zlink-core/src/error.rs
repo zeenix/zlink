@@ -29,6 +29,8 @@ pub enum Error {
     IdlParse(String),
     /// Missing required parameters.
     MissingParameters,
+    /// A general service error.
+    VarlinkService(crate::varlink_service::Error),
 }
 
 /// The Result type for the zlink crate.
@@ -48,6 +50,7 @@ impl core::error::Error for Error {
             Error::InvalidUtf8(e) => Some(e),
             #[cfg(feature = "idl-parse")]
             Error::IdlParse(_) => None,
+            Error::VarlinkService(e) => Some(e),
             _ => None,
         }
     }
@@ -108,6 +111,7 @@ impl core::fmt::Display for Error {
             #[cfg(feature = "idl-parse")]
             Error::IdlParse(e) => write!(f, "IDL parse error: {e}"),
             Error::MissingParameters => write!(f, "Missing required parameters"),
+            Error::VarlinkService(e) => write!(f, "{e}"),
         }
     }
 }
@@ -137,6 +141,7 @@ impl defmt::Format for Error {
             #[cfg(feature = "idl-parse")]
             Error::IdlParse(_) => defmt::write!(fmt, "IDL parse error"),
             Error::MissingParameters => defmt::write!(fmt, "Missing required parameters"),
+            Error::VarlinkService(_) => defmt::write!(fmt, "Varlink service error"),
         }
     }
 }
