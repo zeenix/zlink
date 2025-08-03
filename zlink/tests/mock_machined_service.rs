@@ -201,7 +201,7 @@ impl Service for MockMachinedService {
     type ReplyParams<'ser> = Reply<'ser>;
     type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
     type ReplyStreamParams = ();
-    type ReplyError<'ser> = MockError<'ser>;
+    type ReplyError<'ser> = MockError;
 
     async fn handle<'ser>(
         &'ser mut self,
@@ -244,7 +244,7 @@ impl Service for MockMachinedService {
                     _ => {
                         return MethodReply::Error(MockError::VarlinkService(
                             Error::InterfaceNotFound {
-                                interface: "unknown.interface",
+                                interface: "unknown.interface".try_into().unwrap(),
                             },
                         ))
                     }
@@ -290,8 +290,8 @@ impl Service for MockMachinedService {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 #[allow(unused)]
-pub enum MockError<'a> {
-    VarlinkService(Error<'a>),
+pub enum MockError {
+    VarlinkService(Error),
     Machined(MachinedError),
 }
 

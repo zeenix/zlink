@@ -1,3 +1,4 @@
+use mayheap::string::String;
 #[cfg(feature = "std")]
 use serde::Deserialize;
 use serde::Serialize;
@@ -51,32 +52,31 @@ pub enum Reply<'a> {
 #[cfg_attr(feature = "introspection", derive(introspect::ReplyError))]
 #[cfg_attr(feature = "introspection", zlink(crate = "crate"))]
 #[cfg_attr(feature = "std", derive(Deserialize))]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[serde(tag = "error", content = "parameters")]
-pub enum Error<'a> {
+pub enum Error {
     /// The requested interface was not found.
     #[serde(rename = "org.varlink.service.InterfaceNotFound")]
     InterfaceNotFound {
         /// The interface that was not found.
-        interface: &'a str,
+        interface: String<MAX_INTERFACE_NAME_LENGTH>,
     },
     /// The requested method was not found.
     #[serde(rename = "org.varlink.service.MethodNotFound")]
     MethodNotFound {
         /// The method that was not found.
-        method: &'a str,
+        method: String<MAX_METHOD_NAME_LENGTH>,
     },
     /// The interface defines the requested method, but the service does not implement it.
     #[serde(rename = "org.varlink.service.MethodNotImplemented")]
     MethodNotImplemented {
         /// The method that is not implemented.
-        method: &'a str,
+        method: String<MAX_METHOD_NAME_LENGTH>,
     },
     /// One of the passed parameters is invalid.
     #[serde(rename = "org.varlink.service.InvalidParameter")]
     InvalidParameter {
         /// The parameter that is invalid.
-        parameter: &'a str,
+        parameter: String<MAX_PARAMETER_NAME_LENGTH>,
     },
     /// Client is denied access.
     #[serde(rename = "org.varlink.service.PermissionDenied")]
@@ -86,13 +86,13 @@ pub enum Error<'a> {
     ExpectedMore,
 }
 
-impl core::error::Error for Error<'_> {
+impl core::error::Error for Error {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         None
     }
 }
 
-impl core::fmt::Display for Error<'_> {
+impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Error::InterfaceNotFound { interface } => {
@@ -118,10 +118,10 @@ impl core::fmt::Display for Error<'_> {
 }
 
 /// Result type for Varlink service methods.
-pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 #[cfg(not(feature = "std"))]
-impl<'de> Deserialize<'de> for Error<'de> {
+impl<'de> Deserialize<'de> for Error {
     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -129,7 +129,7 @@ impl<'de> Deserialize<'de> for Error<'de> {
         struct ErrorVisitor;
 
         impl<'de> Visitor<'de> for ErrorVisitor {
-            type Value = Error<'de>;
+            type Value = Error;
 
             fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 formatter.write_str("a varlink service error")
@@ -148,13 +148,13 @@ impl<'de> Deserialize<'de> for Error<'de> {
                 let error_type: &str = map.next_value()?;
 
                 // Helper struct to deserialize parameters
-                struct ParamsMap<'de> {
-                    interface: Option<&'de str>,
-                    method: Option<&'de str>,
-                    parameter: Option<&'de str>,
+                struct ParamsMap {
+                    interface: Option<String<MAX_INTERFACE_NAME_LENGTH>>,
+                    method: Option<String<MAX_METHOD_NAME_LENGTH>>,
+                    parameter: Option<String<MAX_PARAMETER_NAME_LENGTH>>,
                 }
 
-                impl<'de> Deserialize<'de> for ParamsMap<'de> {
+                impl<'de> Deserialize<'de> for ParamsMap {
                     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
                     where
                         D: serde::Deserializer<'de>,
@@ -162,7 +162,7 @@ impl<'de> Deserialize<'de> for Error<'de> {
                         struct ParamsMapVisitor;
 
                         impl<'de> Visitor<'de> for ParamsMapVisitor {
-                            type Value = ParamsMap<'de>;
+                            type Value = ParamsMap;
 
                             fn expecting(
                                 &self,
@@ -214,7 +214,7 @@ impl<'de> Deserialize<'de> for Error<'de> {
                         };
                     };
                     if key == "parameters" {
-                        break map.next_value::<ParamsMap<'_>>()?;
+                        break map.next_value::<ParamsMap>()?;
                     }
                     // Unknown field, skip it.
                     let _: de::IgnoredAny = map.next_value()?;
@@ -268,14 +268,19 @@ impl<'de> Deserialize<'de> for Error<'de> {
     }
 }
 
+const MAX_INTERFACE_NAME_LENGTH: usize = 64;
+const MAX_METHOD_NAME_LENGTH: usize = 64;
+const MAX_PARAMETER_NAME_LENGTH: usize = 24;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::str::FromStr;
 
     #[test]
     fn error_serialization() {
         let err = Error::InterfaceNotFound {
-            interface: "com.example.missing",
+            interface: String::from_str("com.example.missing").unwrap(),
         };
 
         #[cfg(feature = "std")]
@@ -316,7 +321,7 @@ mod tests {
         assert_eq!(
             err,
             Error::InterfaceNotFound {
-                interface: "com.example.missing"
+                interface: String::from_str("com.example.missing").unwrap()
             }
         );
 
@@ -331,7 +336,7 @@ mod tests {
         assert_eq!(
             err,
             Error::MethodNotFound {
-                method: "NonExistentMethod"
+                method: String::from_str("NonExistentMethod").unwrap()
             }
         );
 
@@ -341,7 +346,7 @@ mod tests {
         assert_eq!(
             err,
             Error::InvalidParameter {
-                parameter: "invalid_param"
+                parameter: String::from_str("invalid_param").unwrap()
             }
         );
 
@@ -351,7 +356,7 @@ mod tests {
         assert_eq!(
             err,
             Error::MethodNotImplemented {
-                method: "UnimplementedMethod"
+                method: String::from_str("UnimplementedMethod").unwrap()
             }
         );
 
@@ -365,7 +370,7 @@ mod tests {
     fn error_round_trip_serialization() {
         // Test with error that has parameters
         let original = Error::InterfaceNotFound {
-            interface: "com.example.missing",
+            interface: String::from_str("com.example.missing").unwrap(),
         };
 
         test_round_trip_serialize(&original);
@@ -377,24 +382,24 @@ mod tests {
     }
 
     // Helper function to deserialize JSON string to Error, abstracting std vs nostd differences
-    fn deserialize_error(json: &str) -> Error<'_> {
+    fn deserialize_error(json: &str) -> Error {
         #[cfg(feature = "std")]
         {
             serde_json::from_str(json).unwrap()
         }
         #[cfg(not(feature = "std"))]
         {
-            let (err, _): (Error<'_>, usize) = serde_json_core::from_str(json).unwrap();
+            let (err, _): (Error, usize) = serde_json_core::from_str(json).unwrap();
             err
         }
     }
 
     // Helper function for round-trip serialization test, abstracting std vs nostd differences
-    fn test_round_trip_serialize<'a>(original: &Error<'a>) {
+    fn test_round_trip_serialize(original: &Error) {
         #[cfg(feature = "std")]
         {
             let json = serde_json::to_string(original).unwrap();
-            let deserialized: Error<'_> = serde_json::from_str(&json).unwrap();
+            let deserialized: Error = serde_json::from_str(&json).unwrap();
             assert_eq!(*original, deserialized);
         }
         #[cfg(not(feature = "std"))]
@@ -402,7 +407,7 @@ mod tests {
             let mut buffer = [0u8; 256];
             let len = serde_json_core::to_slice(original, &mut buffer).unwrap();
             let json_bytes = &buffer[..len];
-            let (deserialized, _): (Error<'_>, usize) =
+            let (deserialized, _): (Error, usize) =
                 serde_json_core::from_slice(json_bytes).unwrap();
             assert_eq!(*original, deserialized);
         }
