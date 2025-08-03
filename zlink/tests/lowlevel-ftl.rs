@@ -98,11 +98,11 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         // Unimplemented interface query should return an error.
         let error = conn
             .get_interface_description("org.varlink.unimplemented")
-            .await?
+            .await
             .unwrap_err();
         assert!(matches!(
             error,
-            varlink_service::Error::InterfaceNotFound { .. }
+            zlink::Error::VarlinkService(varlink_service::Error::InterfaceNotFound { .. })
         ));
 
         // Ask for the drive condition, then set them and then ask again.

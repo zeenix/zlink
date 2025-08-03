@@ -99,7 +99,6 @@ async fn introspect_machined() {
         let _ = conn
             .get_interface_description("invalid.interface.name")
             .await
-            .expect("Connection should succeed")
             .expect_err("Method should return error");
 
         Ok(())

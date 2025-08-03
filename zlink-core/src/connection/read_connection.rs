@@ -2,7 +2,7 @@
 
 use core::fmt::Debug;
 
-use crate::Result;
+use crate::{varlink_service, Result};
 
 #[cfg(feature = "std")]
 use super::MAX_BUFFER_SIZE;
@@ -86,16 +86,22 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         // FIXME: This will mean the document will be parsed twice. We should instead try to
         // quickly check if `error` field is present and then parse to the appropriate type based on
         // that information. Perhaps a simple parser using `winnow`?
-        if extract_error_name(buffer).is_some() {
-            // It's an error response.
-            return from_slice::<ReplyError>(buffer).map(Err);
+        match extract_error_name(buffer) {
+            Some(error_name) if error_name.starts_with(varlink_service::INTERFACE_NAME) => {
+                // Varlink service interface error need to be returned as the top-level error.
+                Err(crate::Error::VarlinkService(from_slice::<
+                    varlink_service::Error,
+                >(buffer)?))
+            }
+            Some(_) => from_slice::<ReplyError>(buffer).map(Err),
+            None => {
+                // It's a success response.
+                let ret = from_slice::<Reply<ReplyParams>>(buffer).map(Ok);
+                trace!("connection {}: received reply: {:?}", id, ret);
+
+                ret
+            }
         }
-
-        // It's a success response.
-        let ret = from_slice::<Reply<ReplyParams>>(buffer).map(Ok);
-        trace!("connection {}: received reply: {:?}", id, ret);
-
-        ret
     }
 
     /// Receive a method call over the socket.
