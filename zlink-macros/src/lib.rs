@@ -11,13 +11,7 @@
 mod utils;
 
 #[cfg(feature = "introspection")]
-mod r#type;
-
-#[cfg(feature = "introspection")]
-mod custom_type;
-
-#[cfg(feature = "introspection")]
-mod reply_error;
+mod introspect;
 
 #[cfg(feature = "proxy")]
 mod proxy;
@@ -178,9 +172,9 @@ mod proxy;
 /// }
 /// ```
 #[cfg(feature = "introspection")]
-#[proc_macro_derive(Type, attributes(zlink))]
-pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    r#type::derive_type(input)
+#[proc_macro_derive(IntrospectType, attributes(zlink))]
+pub fn derive_introspect_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    introspect::r#type::derive_type(input)
 }
 
 /// Derives `Type` for structs and enums, generating named custom type definitions.
@@ -275,9 +269,9 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 /// ```
 #[cfg(feature = "introspection")]
-#[proc_macro_derive(CustomType, attributes(zlink))]
-pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    custom_type::derive_custom_type(input)
+#[proc_macro_derive(IntrospectCustomType, attributes(zlink))]
+pub fn derive_introspect_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    introspect::custom_type::derive_custom_type(input)
 }
 
 /// Derives `ReplyError` for enums, generating error definitions for Varlink service errors.
@@ -332,9 +326,9 @@ pub fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// assert!(!ServiceError::VARIANTS[1].has_no_fields());
 /// ```
 #[cfg(feature = "introspection")]
-#[proc_macro_derive(ReplyError, attributes(zlink))]
-pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    reply_error::derive_reply_error(input)
+#[proc_macro_derive(IntrospectReplyError, attributes(zlink))]
+pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    introspect::reply_error::derive_reply_error(input)
 }
 
 /// Creates a client-side proxy for calling Varlink methods on a connection.
