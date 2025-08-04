@@ -3,7 +3,7 @@
 ## Release 0.1.0
 
 * zlink-macros
-  * Add `Interface` prefix to all intropsection derives
+  * Add `Introspect` prefix to all intropsection derives
     * The re-exports from zlink-core use alias to keep their name.
   * Add `ReplyError` derive
     * Takes enums only
