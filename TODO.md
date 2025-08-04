@@ -2,13 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-core
-  * Any method call can return varlink_service::Error
-    * Add `VarlinkService` variant to `zlink_core::Error`
-    * ReadConnection::receive_reply
-      * if error name has `org.varlink.service` prefix,
-        * deserialize to `varlink_service::Error`
-        * return `zlink_core::Error::VarlinkService`
 * zlink-macros
   * Add `Interface` prefix to all intropsection derives
     * The re-exports from zlink-core use alias to keep their name.
@@ -16,11 +9,14 @@
     * Takes enums only
     * Adds
       * `serde::Serialize` derive attribute
-      * `std`: `serde::Deserialize` derive attribute
-      * `no_std`: Manual `serde::Deserialize` impl
-        * Require `error` to be the first field to avoid allocation
+      * Manual `serde::Deserialize` impl
+        * For `no_std`, require `error` to be the first field to avoid allocation
           * See `varlink_service::Error`'s `Deserialize` impl for example.
-    * Update documentation & tests.
+        * Ensure lack or presence of empty `parameters` for unit variants isn't a problem
+          * See https://github.com/serde-rs/serde/issues/2045
+    * Re-export from `zlink_core` root
+    * Update documentation & all tests (use through `zlink_core` re-export only)
+      * Ensure the example code in macro's own docs also uses the `zlink_core` re-export.
   * `proxy` attribute macro
     * check macro code for other cleanups refactors possible
     * chaining/pipelining.
