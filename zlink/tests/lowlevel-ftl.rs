@@ -98,11 +98,11 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         // Unimplemented interface query should return an error.
         let error = conn
             .get_interface_description("org.varlink.unimplemented")
-            .await?
+            .await
             .unwrap_err();
         assert!(matches!(
             error,
-            varlink_service::Error::InterfaceNotFound { .. }
+            zlink::Error::VarlinkService(varlink_service::Error::InterfaceNotFound { .. })
         ));
 
         // Ask for the drive condition, then set them and then ask again.
@@ -215,7 +215,7 @@ impl Service for Ftl {
     type ReplyParams<'ser> = Reply<'ser>;
     type ReplyStream = notified::Stream<Self::ReplyStreamParams>;
     type ReplyStreamParams = FtlReply;
-    type ReplyError<'ser> = ReplyError<'ser>;
+    type ReplyError<'ser> = ReplyError;
 
     async fn handle<'ser>(
         &'ser mut self,
@@ -282,7 +282,7 @@ impl Service for Ftl {
                     _ => {
                         return MethodReply::Error(ReplyError::VarlinkSrv(
                             varlink_service::Error::InterfaceNotFound {
-                                interface: "unknown.interface",
+                                interface: "unknown.interface".try_into().unwrap(),
                             },
                         ))
                     }
@@ -360,9 +360,9 @@ enum Reply<'a> {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 #[allow(unused)]
-enum ReplyError<'a> {
+enum ReplyError {
     Ftl(FtlError),
-    VarlinkSrv(varlink_service::Error<'a>),
+    VarlinkSrv(varlink_service::Error),
 }
 
 //

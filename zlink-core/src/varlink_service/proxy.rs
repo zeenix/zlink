@@ -3,7 +3,7 @@
 //! This module provides the [`Proxy`] trait which offers convenient methods to call
 //! the standard Varlink service interface methods on any connection.
 
-use core::{fmt::Debug, future::Future};
+use core::{fmt::Debug, future::Future, str::FromStr};
 
 use crate::{
     connection::{chain, socket::Socket, Connection},
@@ -35,7 +35,7 @@ use super::{Error, Info, InterfaceDescription, Method};
 /// # let mut conn: Connection<zlink_core::connection::socket::impl_for_doc::Socket> = todo!();
 /// // For a single interface, use the provided Reply enum directly
 /// let chain = conn
-///     .chain_get_info::<Reply<'_>, Error<'_>>()?
+///     .chain_get_info::<Reply<'_>, Error>()?
 ///     .get_interface_description("org.example.interface")?
 ///     .get_info()?;
 ///
@@ -73,16 +73,15 @@ use super::{Error, Info, InterfaceDescription, Method};
 ///
 /// #[derive(Debug, Deserialize)]
 /// #[serde(untagged)]
-/// enum CombinedError<'a> {
-///     #[serde(borrow)]
-///     VarlinkService(Error<'a>),
+/// enum CombinedError {
+///     VarlinkService(Error),
 ///     // Add other interface error types here
-///     // OtherInterface(other_interface::Error<'a>),
+///     // OtherInterface(other_interface::Error),
 /// }
 ///
 /// // Then use the combined types for cross-interface chaining
 /// let combined_chain = conn
-///     .chain_get_info::<CombinedReply<'_>, CombinedError<'_>>()?;
+///     .chain_get_info::<CombinedReply<'_>, CombinedError>()?;
 ///     // .other_interface_method()?;  // Chain calls from other interfaces
 ///
 /// let combined_replies = combined_chain.send().await?;
@@ -122,7 +121,7 @@ pub trait Proxy {
     /// service information as [`Info`].
     fn get_info(
         &mut self,
-    ) -> impl Future<Output = crate::Result<core::result::Result<Info<'_>, Error<'_>>>>;
+    ) -> impl Future<Output = crate::Result<core::result::Result<Info<'_>, Error>>>;
 
     /// Get the IDL description of an interface.
     ///
@@ -138,9 +137,7 @@ pub trait Proxy {
     fn get_interface_description(
         &mut self,
         interface: &str,
-    ) -> impl Future<
-        Output = crate::Result<core::result::Result<InterfaceDescription<'static>, Error<'_>>>,
-    >;
+    ) -> impl Future<Output = crate::Result<core::result::Result<InterfaceDescription<'static>, Error>>>;
 
     /// Start a chain with a GetInfo call.
     ///
@@ -195,13 +192,14 @@ where
 {
     type Socket = S;
 
-    async fn get_info(&mut self) -> Result<core::result::Result<Info<'_>, Error<'_>>> {
+    async fn get_info(&mut self) -> Result<core::result::Result<Info<'_>, Error>> {
         let call = Call::new(Method::GetInfo);
-        match self.call_method::<_, Info<'_>, Error<'_>>(&call).await? {
+        match self.call_method::<_, Info<'_>, Error>(&call).await? {
             Ok(reply) => match reply.into_parameters() {
                 Some(info) => Ok(Ok(info)),
                 None => Ok(Err(Error::InvalidParameter {
-                    parameter: "missing parameters in reply",
+                    parameter: mayheap::string::String::from_str("missing parameters in reply")
+                        .unwrap(),
                 })),
             },
             Err(error) => Ok(Err(error)),
@@ -211,10 +209,10 @@ where
     async fn get_interface_description(
         &mut self,
         interface: &str,
-    ) -> Result<core::result::Result<InterfaceDescription<'static>, Error<'_>>> {
+    ) -> Result<core::result::Result<InterfaceDescription<'static>, Error>> {
         let call = Call::new(Method::GetInterfaceDescription { interface });
         let result = self
-            .call_method::<_, InterfaceDescription<'static>, Error<'_>>(&call)
+            .call_method::<_, InterfaceDescription<'static>, Error>(&call)
             .await?;
 
         match result {
@@ -332,9 +330,9 @@ mod tests {
         use super::{super::Reply, Error};
 
         // Test that we can create the chain APIs
-        let _chain1 = conn.chain_get_info::<Reply<'_>, Error<'_>>()?;
+        let _chain1 = conn.chain_get_info::<Reply<'_>, Error>()?;
         let _chain2 =
-            conn.chain_get_interface_description::<Reply<'_>, Error<'_>>("org.varlink.service")?;
+            conn.chain_get_interface_description::<Reply<'_>, Error>("org.varlink.service")?;
 
         Ok(())
     }
@@ -354,7 +352,7 @@ mod tests {
 
         // Test that we can chain calls using extension methods and actually read replies
         let chained = conn
-            .chain_get_info::<Reply<'_>, Error<'_>>()?
+            .chain_get_info::<Reply<'_>, Error>()?
             .get_interface_description("org.varlink.service")?
             .get_info()?;
 

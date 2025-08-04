@@ -18,6 +18,9 @@ mod interface_description;
 #[cfg(feature = "idl")]
 pub use interface_description::InterfaceDescription;
 
+/// The name of the `org.varlink.service` interface.
+pub const INTERFACE_NAME: &str = "org.varlink.service";
+
 /// The description of the `org.varlink.service` interface.
 #[cfg(feature = "introspection")]
 pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
@@ -49,7 +52,7 @@ pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     ];
 
     Interface::new(
-        "org.varlink.service",
+        INTERFACE_NAME,
         METHODS,
         &[],
         Error::VARIANTS,
