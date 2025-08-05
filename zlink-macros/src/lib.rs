@@ -13,6 +13,8 @@ mod utils;
 #[cfg(feature = "introspection")]
 mod introspect;
 
+mod reply_error;
+
 #[cfg(feature = "proxy")]
 mod proxy;
 
@@ -425,4 +427,78 @@ pub fn proxy(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     proxy::proxy(attr.into(), input.into()).into()
+}
+
+/// Implements `serde::{Serialize, Deserialize}` for service error enums.
+///
+/// This macro automatically generates both `Serialize` and `Deserialize` implementations for error
+/// types that are used in Varlink service replies.
+///
+/// The macro works in both `std` and `no_std` environments and requires the "error" field
+/// to appear before "parameters" field in JSON for efficient parsing.
+///
+/// # Supported Enum Variants
+///
+/// The macro supports:
+/// - **Unit variants**: Variants without any data
+/// - **Named field variants**: Variants with named fields
+///
+/// Tuple variants are **not** supported.
+///
+/// # Attributes
+///
+/// - `interface` - This mandatory attribute specifies the Varlink interface name (e.g.,
+///   "org.varlink.service")
+///
+/// # Example
+///
+/// ```rust
+/// use zlink::ReplyError;
+///
+/// #[derive(ReplyError)]
+/// #[zlink(interface = "com.example.MyService")]
+/// enum ServiceError {
+///     // Unit variant - no parameters
+///     NotFound,
+///     PermissionDenied,
+///
+///     // Named field variant - multiple parameters
+///     InvalidInput {
+///         field: String,
+///         reason: String,
+///     },
+///
+///     // Another variant with a single field
+///     Timeout {
+///         seconds: u32,
+///     },
+/// }
+///
+/// // The macro generates:
+/// // - `Serialize` impl that creates properly tagged enum format
+/// // - `Deserialize` impl that handles the tagged enum format efficiently
+/// ```
+///
+/// # Serialization Format
+///
+/// The generated serialization uses a tagged enum format:
+///
+/// ```json
+/// // Unit variant:
+/// {"error": "NotFound"}
+/// // or with empty parameters:
+/// {"error": "NotFound", "parameters": null}
+///
+/// // Variant with fields:
+/// {
+///   "error": "InvalidInput",
+///   "parameters": {
+///     "field": "username",
+///     "reason": "too short"
+///   }
+/// }
+/// ```
+#[proc_macro_derive(ReplyError, attributes(zlink))]
+pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    reply_error::derive_reply_error(input)
 }

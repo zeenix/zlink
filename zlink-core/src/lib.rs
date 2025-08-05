@@ -37,5 +37,7 @@ pub mod varlink_service;
 #[cfg(feature = "proxy")]
 pub use zlink_macros::proxy;
 
+pub use zlink_macros::ReplyError;
+
 #[doc(hidden)]
 pub mod test_utils;
