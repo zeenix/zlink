@@ -386,9 +386,8 @@ enum FtlReply {
     Coordinates(Coordinate),
 }
 
-#[prefix_all("org.example.ftl.")]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, introspect::ReplyError)]
-#[serde(tag = "error", content = "parameters")]
+#[derive(Debug, Clone, PartialEq, zlink::ReplyError, introspect::ReplyError)]
+#[zlink(interface = "org.example.ftl")]
 enum FtlError {
     NotEnoughEnergy,
     ParameterOutOfRange,

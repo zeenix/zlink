@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_prefix_all::prefix_all;
 use zlink::{
     idl::{self, Comment, Interface, Parameter},
-    introspect::{CustomType, ReplyError, Type},
+    introspect::{self, CustomType, ReplyError as _, Type},
     service::MethodReply,
     varlink_service::{self, Error, Info, InterfaceDescription},
-    Call, Service,
+    Call, ReplyError, Service,
 };
 
 /// Mock systemd-machined service that serves hardcoded responses.
@@ -296,10 +296,8 @@ pub enum MockError {
 }
 
 /// Errors that can be returned by the `io.systemd.Machine` interface.
-#[prefix_all("io.systemd.Machine.")]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ReplyError)]
-#[zlink(crate = "zlink")]
-#[serde(tag = "error", content = "parameters")]
+#[derive(Debug, Clone, PartialEq, ReplyError, introspect::ReplyError)]
+#[zlink(interface = "io.systemd.Machine")]
 #[allow(unused)]
 pub enum MachinedError {
     /// No matching machine currently running.
