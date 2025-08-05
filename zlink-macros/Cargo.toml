@@ -11,9 +11,10 @@ repository.workspace = true
 proc-macro = true
 
 [features]
-default = ["proxy"]
+default = ["proxy", "std"]
 proxy = ["syn/full", "syn/clone-impls"]
 introspection = ["zlink/introspection"]
+std = []
 
 [dependencies]
 proc-macro2 = "1.0"
