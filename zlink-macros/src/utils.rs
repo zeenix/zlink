@@ -24,9 +24,14 @@ pub(crate) fn parse_crate_path(attrs: &[Attribute]) -> Result<TokenStream2, Erro
                     let lit_str: syn::LitStr = value.parse()?;
                     let crate_path = lit_str.value();
                     result = Some(syn::parse_str(&crate_path)?);
+                } else {
+                    // Skip unknown attributes by consuming their values
+                    let _ = meta.value()?;
+                    let _: syn::Expr = meta.input.parse()?;
                 }
                 Ok(())
             })?;
+
             if let Some(path) = result {
                 return Ok(path);
             }
