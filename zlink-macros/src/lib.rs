@@ -185,7 +185,7 @@ pub fn derive_introspect_type(input: proc_macro::TokenStream) -> proc_macro::Tok
 ///
 /// This macro generates implementations of the `CustomType` trait, which provides named
 /// custom type definitions suitable for IDL generation. It also generates a `Type` implementation
-/// and therefore is mutually exclusive to [`Type`] derive macro.
+/// and therefore is mutually exclusive to `zlink::introspect::Type` derive macro.
 ///
 /// ## Structs
 ///
