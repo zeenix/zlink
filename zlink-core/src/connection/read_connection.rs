@@ -56,17 +56,18 @@ impl<Read: ReadHalf> ReadConnection<Read> {
     ///   deserialize itself from the `parameters` field of the reply.
     /// * `ReplyError` is the type of the error reply. This should be a type that can deserialize
     ///   itself from the whole reply object itself and must fail when there is no `error` field in
-    ///   the object. This can be easily achieved using the `serde::Deserialize` derive:
+    ///   the object. This can be easily achieved using the `zlink::ReplyError` derive:
     ///
     /// ```rust
-    /// use serde::{Deserialize, Serialize};
-    /// use serde_prefix_all::prefix_all;
+    /// use zlink_core::ReplyError;
     ///
-    /// #[prefix_all("org.example.ftl.")]
-    /// #[derive(Debug, Deserialize, Serialize)]
-    /// #[serde(tag = "error", content = "parameters")]
+    /// #[derive(Debug, ReplyError)]
+    /// #[zlink(
+    ///     interface = "org.example.ftl",
+    ///     // Not needed in the real code because you'll use `ReplyError` through `zlink` crate.
+    ///     crate = "zlink_core",
+    /// )]
     /// enum MyError {
-    ///     // The name needs to be the fully-qualified name of the error.
     ///     Alpha { param1: u32, param2: String },
     ///     Bravo,
     ///     Charlie { param1: String },
