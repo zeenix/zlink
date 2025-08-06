@@ -75,30 +75,11 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
     }
 
     // Build where clause combining existing constraints with socket constraint and trait bounds
-    let socket_constraint = syn::parse_quote!(S: ::zlink::connection::socket::Socket);
-    let mut combined_where_clause = if let Some(existing) = where_clause.clone() {
-        existing
-    } else {
-        syn::parse_quote!(where)
-    };
-
-    // Add socket constraint
-    combined_where_clause.predicates.push(socket_constraint);
-
-    // Add trait generic bounds to where clause
-    for param in &generics.params {
-        if let syn::GenericParam::Type(type_param) = param {
-            if !type_param.bounds.is_empty() {
-                let type_name = &type_param.ident;
-                let bounds = &type_param.bounds;
-                combined_where_clause
-                    .predicates
-                    .push(syn::parse_quote!(#type_name: #bounds));
-            }
-        }
-    }
-
-    let combined_where_clause = Some(combined_where_clause);
+    let combined_where_clause = Some(build_combined_where_clause(
+        where_clause.clone(),
+        syn::parse_quote!(S: ::zlink::connection::socket::Socket),
+        generics,
+    ));
 
     let output = quote! {
         #trait_def
@@ -465,63 +446,25 @@ struct MethodAttrs {
 impl MethodAttrs {
     /// Extract method attributes from a method's attribute list
     fn extract(attrs: &mut Vec<Attribute>) -> Result<Self, Error> {
-        let mut method_attrs = Self::default();
-        let mut zlink_attr_indices = Vec::new();
+        let attrs_result = extract_zlink_attrs(attrs, |meta_items| {
+            let mut method_attrs = Self::default();
 
-        for (i, attr) in attrs.iter().enumerate() {
-            if !attr.path().is_ident("zlink") {
-                continue;
-            }
-
-            let Meta::List(list) = &attr.meta else {
-                continue;
-            };
-
-            if list.tokens.is_empty() {
-                continue;
-            }
-
-            // Parse all meta items in this zlink attribute in one pass
-            let meta_items =
-                list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)?;
-
-            let mut found_valid_attr = false;
             for meta in meta_items {
                 match &meta {
                     syn::Meta::NameValue(nv) if nv.path.is_ident("rename") => {
-                        if let Expr::Lit(syn::ExprLit {
-                            lit: Lit::Str(lit_str),
-                            ..
-                        }) = &nv.value
-                        {
-                            if method_attrs.rename.is_some() {
-                                return Err(Error::new_spanned(
-                                    &meta,
-                                    "duplicate `rename` attribute",
-                                ));
-                            }
-                            method_attrs.rename = Some(lit_str.value());
-                            found_valid_attr = true;
-                        } else {
-                            return Err(Error::new_spanned(
-                                &nv.value,
-                                "rename value must be a string literal",
-                            ));
-                        }
+                        method_attrs.rename = parse_rename_value(&nv.value)?;
                     }
                     syn::Meta::Path(path) if path.is_ident("more") => {
                         if method_attrs.is_streaming {
                             return Err(Error::new_spanned(&meta, "duplicate `more` attribute"));
                         }
                         method_attrs.is_streaming = true;
-                        found_valid_attr = true;
                     }
                     syn::Meta::Path(path) if path.is_ident("oneway") => {
                         if method_attrs.is_oneway {
                             return Err(Error::new_spanned(&meta, "duplicate `oneway` attribute"));
                         }
                         method_attrs.is_oneway = true;
-                        found_valid_attr = true;
                     }
                     _ => {
                         return Err(Error::new_spanned(&meta, "unknown zlink attribute"));
@@ -529,65 +472,27 @@ impl MethodAttrs {
                 }
             }
 
-            if found_valid_attr {
-                zlink_attr_indices.push(i);
-            }
-        }
-
-        // Remove the zlink attributes we processed (in reverse order to preserve indices)
-        for &index in zlink_attr_indices.iter().rev() {
-            attrs.remove(index);
-        }
-
-        Ok(method_attrs)
+            Ok(method_attrs)
+        });
+        Ok(attrs_result.unwrap_or_default())
     }
 }
 
 /// Extract parameter rename attribute from zlink attributes and remove processed attributes
 fn extract_param_rename_attr(attrs: &mut Vec<Attribute>) -> Result<Option<String>, Error> {
-    let mut zlink_attr_indices = Vec::new();
-    let mut rename_value = None;
+    let rename_result = extract_zlink_attrs(attrs, |meta_items| {
+        let mut rename_value = None;
 
-    for (i, attr) in attrs.iter().enumerate() {
-        if !attr.path().is_ident("zlink") {
-            continue;
-        }
-
-        let Meta::List(list) = &attr.meta else {
-            continue;
-        };
-
-        if list.tokens.is_empty() {
-            continue;
-        }
-
-        // Parse all meta items in this zlink attribute
-        let meta_items =
-            list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)?;
-
-        let mut found_rename = false;
         for meta in meta_items {
             match &meta {
                 syn::Meta::NameValue(nv) if nv.path.is_ident("rename") => {
-                    if let Expr::Lit(syn::ExprLit {
-                        lit: Lit::Str(lit_str),
-                        ..
-                    }) = &nv.value
-                    {
-                        if rename_value.is_some() {
-                            return Err(Error::new_spanned(
-                                &meta,
-                                "duplicate `rename` attribute on parameter",
-                            ));
-                        }
-                        rename_value = Some(lit_str.value());
-                        found_rename = true;
-                    } else {
+                    if rename_value.is_some() {
                         return Err(Error::new_spanned(
-                            &nv.value,
-                            "rename value must be a string literal",
+                            &meta,
+                            "duplicate `rename` attribute on parameter",
                         ));
                     }
+                    rename_value = parse_rename_value(&nv.value)?;
                 }
                 _ => {
                     return Err(Error::new_spanned(
@@ -598,17 +503,9 @@ fn extract_param_rename_attr(attrs: &mut Vec<Attribute>) -> Result<Option<String
             }
         }
 
-        if found_rename {
-            zlink_attr_indices.push(i);
-        }
-    }
-
-    // Remove the zlink attributes we processed (in reverse order to preserve indices)
-    for &index in zlink_attr_indices.iter().rev() {
-        attrs.remove(index);
-    }
-
-    Ok(rename_value)
+        Ok(rename_value)
+    });
+    Ok(rename_result.unwrap_or(None))
 }
 
 fn parse_return_type(output: &ReturnType, is_streaming: bool) -> Result<(Type, Type), Error> {
@@ -630,80 +527,71 @@ fn parse_return_type(output: &ReturnType, is_streaming: bool) -> Result<(Type, T
 }
 
 fn extract_nested_result_types(ty: &Type) -> Result<(Type, Type), Error> {
+    const ERROR_MSG: &str = "expected Result<Result<ReplyType, ErrorType>> or \
+                             impl Future<Output = Result<Result<ReplyType, ErrorType>>>";
+
     match ty {
-        Type::Path(type_path) => {
-            // Direct Result<Result<T, E>>
-            let Some(segment) = type_path.path.segments.last() else {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<Result<ReplyType, ErrorType>> or \
-                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-                ));
-            };
-
-            if segment.ident != "Result" {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<Result<ReplyType, ErrorType>> or \
-                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-                ));
-            }
-
-            let PathArguments::AngleBracketed(args) = &segment.arguments else {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<Result<ReplyType, ErrorType>> or \
-                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-                ));
-            };
-
-            let Some(GenericArgument::Type(inner_ty)) = args.args.first() else {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<Result<ReplyType, ErrorType>> or \
-                     impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-                ));
-            };
-
-            extract_inner_result_types(inner_ty)
-        }
-        Type::ImplTrait(impl_trait) => {
-            // impl Future<Output = Result<Result<T, E>>>
-            impl_trait
-                .bounds
-                .iter()
-                .find_map(|bound| {
-                    let syn::TypeParamBound::Trait(trait_bound) = bound else {
-                        return None;
-                    };
-                    let segment = trait_bound.path.segments.last()?;
-                    if segment.ident != "Future" {
-                        return None;
-                    }
-                    let PathArguments::AngleBracketed(args) = &segment.arguments else {
-                        return None;
-                    };
-                    args.args.iter().find_map(|arg| match arg {
-                        GenericArgument::AssocType(assoc) if assoc.ident == "Output" => {
-                            Some(extract_nested_result_types(&assoc.ty))
-                        }
-                        _ => None,
-                    })
-                })
-                .unwrap_or_else(|| {
-                    Err(Error::new_spanned(
-                        ty,
-                        "expected Result<Result<ReplyType, ErrorType>> or \
-                         impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-                    ))
-                })
-        }
-        _ => Err(Error::new_spanned(
-            ty,
-            "expected Result<Result<ReplyType, ErrorType>> or \
-             impl Future<Output = Result<Result<ReplyType, ErrorType>>>",
-        )),
+        Type::Path(type_path) => extract_result_from_path(type_path, ERROR_MSG),
+        Type::ImplTrait(impl_trait) => extract_from_future_output(impl_trait, ERROR_MSG),
+        _ => Err(Error::new_spanned(ty, ERROR_MSG)),
     }
+}
+
+fn extract_result_from_path(
+    type_path: &syn::TypePath,
+    error_msg: &str,
+) -> Result<(Type, Type), Error> {
+    let segment = type_path
+        .path
+        .segments
+        .last()
+        .ok_or_else(|| Error::new_spanned(type_path, error_msg))?;
+
+    if segment.ident != "Result" {
+        return Err(Error::new_spanned(type_path, error_msg));
+    }
+
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Err(Error::new_spanned(type_path, error_msg));
+    };
+
+    let GenericArgument::Type(inner_ty) = args
+        .args
+        .first()
+        .ok_or_else(|| Error::new_spanned(type_path, error_msg))?
+    else {
+        return Err(Error::new_spanned(type_path, error_msg));
+    };
+
+    extract_inner_result_types(inner_ty)
+}
+
+fn extract_from_future_output(
+    impl_trait: &syn::TypeImplTrait,
+    error_msg: &str,
+) -> Result<(Type, Type), Error> {
+    impl_trait
+        .bounds
+        .iter()
+        .find_map(|bound| {
+            let syn::TypeParamBound::Trait(trait_bound) = bound else {
+                return None;
+            };
+            let segment = trait_bound.path.segments.last()?;
+            if segment.ident != "Future" {
+                return None;
+            }
+            let PathArguments::AngleBracketed(args) = &segment.arguments else {
+                return None;
+            };
+            args.args.iter().find_map(|arg| match arg {
+                GenericArgument::AssocType(assoc) if assoc.ident == "Output" => {
+                    Some(extract_nested_result_types(&assoc.ty))
+                }
+                _ => None,
+            })
+        })
+        .unwrap_or_else(|| Err(Error::new_spanned(impl_trait, error_msg)))
 }
 
 fn extract_inner_result_types(ty: &Type) -> Result<(Type, Type), Error> {
@@ -745,41 +633,38 @@ fn extract_inner_result_types(ty: &Type) -> Result<(Type, Type), Error> {
 }
 
 fn extract_streaming_result_types(ty: &Type) -> Result<(Type, Type), Error> {
+    const ERROR_MSG: &str =
+        "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>";
+
     match ty {
         Type::Path(type_path) => {
-            // Direct Result<impl Stream<Item = Result<Result<T, E>>>>
-            let Some(segment) = type_path.path.segments.last() else {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-                ));
-            };
+            // Direct Result<impl Stream<...>>
+            let segment = type_path
+                .path
+                .segments
+                .last()
+                .ok_or_else(|| Error::new_spanned(type_path, ERROR_MSG))?;
 
             if segment.ident != "Result" {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-                ));
+                return Err(Error::new_spanned(type_path, ERROR_MSG));
             }
 
             let PathArguments::AngleBracketed(args) = &segment.arguments else {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-                ));
+                return Err(Error::new_spanned(type_path, ERROR_MSG));
             };
 
-            let Some(GenericArgument::Type(stream_ty)) = args.args.first() else {
-                return Err(Error::new_spanned(
-                    ty,
-                    "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-                ));
+            let GenericArgument::Type(stream_ty) = args
+                .args
+                .first()
+                .ok_or_else(|| Error::new_spanned(type_path, ERROR_MSG))?
+            else {
+                return Err(Error::new_spanned(type_path, ERROR_MSG));
             };
 
             extract_stream_item_types(stream_ty)
         }
         Type::ImplTrait(impl_trait) => {
-            // impl Future<Output = Result<impl Stream<Item = Result<Result<T, E>>>>>
+            // impl Future<Output = Result<impl Stream<...>>>
             impl_trait
                 .bounds
                 .iter()
@@ -801,17 +686,9 @@ fn extract_streaming_result_types(ty: &Type) -> Result<(Type, Type), Error> {
                         _ => None,
                     })
                 })
-                .unwrap_or_else(|| {
-                    Err(Error::new_spanned(
-                        ty,
-                        "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-                    ))
-                })
+                .unwrap_or_else(|| Err(Error::new_spanned(impl_trait, ERROR_MSG)))
         }
-        _ => Err(Error::new_spanned(
-            ty,
-            "expected Result<impl Stream<Item = Result<Result<ReplyType, ErrorType>>>>",
-        )),
+        _ => Err(Error::new_spanned(ty, ERROR_MSG)),
     }
 }
 
@@ -1032,4 +909,93 @@ fn is_option_type_syn(ty: &Type) -> bool {
         }
         _ => false,
     }
+}
+
+/// Extract and process zlink attributes from a list of attributes.
+/// Returns the processed value and removes the attributes from the list.
+fn extract_zlink_attrs<T, F>(attrs: &mut Vec<Attribute>, processor: F) -> Option<T>
+where
+    F: FnOnce(Punctuated<syn::Meta, syn::Token![,]>) -> Result<T, Error>,
+{
+    let mut zlink_attr_indices = Vec::new();
+    let mut meta_items_to_process = None;
+
+    for (i, attr) in attrs.iter().enumerate() {
+        if !attr.path().is_ident("zlink") {
+            continue;
+        }
+
+        let Meta::List(list) = &attr.meta else {
+            continue;
+        };
+
+        if list.tokens.is_empty() {
+            continue;
+        }
+
+        // Parse all meta items in this zlink attribute
+        if meta_items_to_process.is_none() {
+            if let Ok(meta_items) =
+                list.parse_args_with(Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)
+            {
+                meta_items_to_process = Some(meta_items);
+                zlink_attr_indices.push(i);
+            }
+        }
+    }
+
+    // Process the found meta items if any
+    let result = if let Some(meta_items) = meta_items_to_process {
+        processor(meta_items).ok()
+    } else {
+        None
+    };
+
+    // Remove the zlink attributes we processed (in reverse order to preserve indices)
+    for &index in zlink_attr_indices.iter().rev() {
+        attrs.remove(index);
+    }
+
+    result
+}
+
+/// Parse a rename value from an expression.
+fn parse_rename_value(expr: &Expr) -> Result<Option<String>, Error> {
+    match expr {
+        Expr::Lit(syn::ExprLit {
+            lit: Lit::Str(lit_str),
+            ..
+        }) => Ok(Some(lit_str.value())),
+        _ => Err(Error::new_spanned(
+            expr,
+            "rename value must be a string literal",
+        )),
+    }
+}
+
+/// Build a combined where clause from existing constraints, new constraint, and generic bounds.
+fn build_combined_where_clause(
+    existing: Option<syn::WhereClause>,
+    new_constraint: syn::WherePredicate,
+    generics: &syn::Generics,
+) -> syn::WhereClause {
+    let mut where_clause = existing.unwrap_or_else(|| syn::parse_quote!(where));
+
+    // Add new constraint
+    where_clause.predicates.push(new_constraint);
+
+    // Add generic bounds to where clause
+    for param in &generics.params {
+        if let syn::GenericParam::Type(type_param) = param {
+            if !type_param.bounds.is_empty() {
+                let type_name = &type_param.ident;
+                let bounds = &type_param.bounds;
+                where_clause
+                    .predicates
+                    .push(syn::parse_quote!(#type_name: #bounds));
+            }
+        }
+    }
+
+    where_clause
 }
