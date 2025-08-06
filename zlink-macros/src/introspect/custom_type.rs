@@ -1,8 +1,10 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed};
+use syn::{Data, DataEnum, DeriveInput, Error, Fields};
 
 use crate::utils;
+
+use super::shared;
 
 /// Main entry point for the custom Type derive macro.
 pub(crate) fn derive_custom_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -22,10 +24,7 @@ fn derive_custom_type_impl(input: DeriveInput) -> Result<TokenStream2, Error> {
     let crate_path = utils::parse_crate_path(&input.attrs)?;
 
     let type_comments = utils::extract_doc_comments(&input.attrs);
-    let type_comment_objects: Vec<_> = type_comments
-        .iter()
-        .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-        .collect();
+    let type_comment_objects = shared::generate_comment_objects(&type_comments, &crate_path);
 
     let custom_type = match &input.data {
         Data::Struct(data_struct) => {
@@ -80,90 +79,12 @@ fn generate_field_definitions(
     fields: &Fields,
     crate_path: &TokenStream2,
 ) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
-    match fields {
-        Fields::Named(FieldsNamed { named, .. }) => {
-            let mut field_statics = Vec::new();
-            let mut field_refs = Vec::new();
-
-            for field in named {
-                let field_name = field
-                    .ident
-                    .as_ref()
-                    .ok_or_else(|| Error::new_spanned(field, "Field must have a name"))?;
-
-                let field_type = utils::remove_lifetimes_from_type(&field.ty);
-                let field_name_str = field_name.to_string();
-                let static_name =
-                    quote::format_ident!("FIELD_{}", field_name.to_string().to_uppercase());
-
-                let comments = utils::extract_doc_comments(&field.attrs);
-                let comment_objects: Vec<_> = comments
-                    .iter()
-                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-                    .collect();
-
-                let field_static = quote! {
-                    static #static_name: #crate_path::idl::Field<'static> =
-                        #crate_path::idl::Field::new(
-                            #field_name_str,
-                            <#field_type as #crate_path::introspect::Type>::TYPE,
-                            &[#(#comment_objects),*]
-                        );
-                };
-
-                let field_ref = quote! { &#static_name };
-
-                field_statics.push(field_static);
-                field_refs.push(field_ref);
-            }
-
-            Ok((field_statics, field_refs))
-        }
-        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => Err(Error::new_spanned(
-            unnamed,
-            "Only named fields are supported",
-        )),
-        Fields::Unit => {
-            // Unit structs have no fields.
-            Ok((Vec::new(), Vec::new()))
-        }
-    }
+    shared::generate_field_definitions(fields, crate_path, None)
 }
 
 fn generate_enum_variant_definitions(
     data_enum: &DataEnum,
     crate_path: &TokenStream2,
 ) -> Result<Vec<TokenStream2>, Error> {
-    let mut variant_refs = Vec::new();
-
-    for variant in &data_enum.variants {
-        // Only support unit variants (no associated data).
-        match &variant.fields {
-            Fields::Unit => {
-                let variant_name = variant.ident.to_string();
-                let comments = utils::extract_doc_comments(&variant.attrs);
-                let comment_objects: Vec<_> = comments
-                    .iter()
-                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-                    .collect();
-                let variant_ref = quote! { &#crate_path::idl::EnumVariant::new(#variant_name, &[#(#comment_objects),*]) };
-
-                variant_refs.push(variant_ref);
-            }
-            Fields::Named(_) => {
-                return Err(Error::new_spanned(
-                    variant,
-                    "Type derive macro only supports unit enum variants, not struct variants",
-                ));
-            }
-            Fields::Unnamed(_) => {
-                return Err(Error::new_spanned(
-                    variant,
-                    "Type derive macro only supports unit enum variants, not tuple variants",
-                ));
-            }
-        }
-    }
-
-    Ok(variant_refs)
+    shared::generate_enum_variant_definitions(data_enum, crate_path)
 }
