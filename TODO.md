@@ -3,20 +3,6 @@
 ## Release 0.1.0
 
 * zlink-macros
-  * Add `Introspect` prefix to all intropsection derives
-    * The re-exports from zlink-core use alias to keep their name.
-  * Add `ReplyError` derive
-    * Takes enums only
-    * Adds
-      * `serde::Serialize` derive attribute
-      * Manual `serde::Deserialize` impl
-        * For `no_std`, require `error` to be the first field to avoid allocation
-          * See `varlink_service::Error`'s `Deserialize` impl for example.
-        * Ensure lack or presence of empty `parameters` for unit variants isn't a problem
-          * See https://github.com/serde-rs/serde/issues/2045
-    * Re-export from `zlink_core` root
-    * Update documentation & all tests (use through `zlink_core` re-export only)
-      * Ensure the example code in macro's own docs also uses the `zlink_core` re-export.
   * `proxy` attribute macro
     * check macro code for other cleanups refactors possible
     * chaining/pipelining.
