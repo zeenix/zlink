@@ -4,10 +4,8 @@
 
 * zlink-macros
   * `proxy` attribute macro
-    * check macro code for other cleanups refactors possible
     * chaining/pipelining.
       * similar to how `varlink_service::Proxy` does it
-    * Avoid cloning in the macro code, where possible (use references).
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
 * zlink-core
@@ -20,6 +18,11 @@
 
 ## Release 0.2.0
 
+* zlink-core
+  * Make e2e tests work for nostd
+    * Manual Deserialize impl for Method enums and assume `method` field before `parameters` field
+    * chaining remains std-only (since it requires untagged enums)
+    * Test them on an embedded target (perhaps using `qemu`?)
 * zlink-macros
   * `service` attribute macro (see below)
     * gated behind `service` feature
@@ -39,12 +42,6 @@
 
 ## Release 0.3.0
 
-* zlink-macros
-  * embedded feature
-    * Manual Deserialize impl
-    * assume fields in a specific order
-  * alloc/std feature (default)
-    * Make alloc feature of serde optional
 * zlink-usb
   * USB (using nusb) transport
 * zlink-micro

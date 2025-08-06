@@ -4,6 +4,8 @@ use syn::{Data, DataEnum, DeriveInput, Error, Fields};
 
 use crate::utils;
 
+use super::shared;
+
 /// Main entry point for the ReplyError derive macro.
 pub(crate) fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
@@ -61,27 +63,21 @@ fn generate_error_definitions(
         match &variant.fields {
             Fields::Unit => {
                 let comments = utils::extract_doc_comments(&variant.attrs);
-                let comment_objects: Vec<_> = comments
-                    .iter()
-                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-                    .collect();
+                let comment_objects = shared::generate_comment_objects(&comments, crate_path);
                 let error_variant = quote! {
                     &#crate_path::idl::Error::new(#variant_name, &[], &[#(#comment_objects),*])
                 };
                 error_variants.push(error_variant);
             }
             Fields::Named(fields) => {
-                let (field_statics, field_refs) = generate_field_definitions_for_named_variant(
-                    &variant.ident,
-                    fields,
+                let (field_statics, field_refs) = shared::generate_field_definitions(
+                    &Fields::Named(fields.clone()),
                     crate_path,
+                    Some(&variant.ident),
                 )?;
 
                 let comments = utils::extract_doc_comments(&variant.attrs);
-                let comment_objects: Vec<_> = comments
-                    .iter()
-                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-                    .collect();
+                let comment_objects = shared::generate_comment_objects(&comments, crate_path);
 
                 let error_variant = quote! {
                     &{
@@ -107,10 +103,7 @@ fn generate_error_definitions(
                 let field_type =
                     utils::remove_lifetimes_from_type(&fields.unnamed.first().unwrap().ty);
                 let comments = utils::extract_doc_comments(&variant.attrs);
-                let comment_objects: Vec<_> = comments
-                    .iter()
-                    .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-                    .collect();
+                let comment_objects = shared::generate_comment_objects(&comments, crate_path);
                 let error_variant = quote! {
                     &{
                         match <#field_type as #crate_path::introspect::Type>::TYPE {
@@ -130,50 +123,4 @@ fn generate_error_definitions(
     }
 
     Ok(error_variants)
-}
-
-fn generate_field_definitions_for_named_variant(
-    variant_ident: &syn::Ident,
-    fields: &syn::FieldsNamed,
-    crate_path: &TokenStream2,
-) -> Result<(Vec<TokenStream2>, Vec<TokenStream2>), Error> {
-    let mut field_statics = Vec::new();
-    let mut field_refs = Vec::new();
-
-    for field in &fields.named {
-        let field_name = field
-            .ident
-            .as_ref()
-            .ok_or_else(|| Error::new_spanned(field, "Field must have a name"))?;
-
-        let field_type = utils::remove_lifetimes_from_type(&field.ty);
-        let field_name_str = field_name.to_string();
-        let static_name = quote::format_ident!(
-            "FIELD_{}_{}",
-            variant_ident.to_string().to_uppercase(),
-            field_name.to_string().to_uppercase()
-        );
-
-        let comments = utils::extract_doc_comments(&field.attrs);
-        let comment_objects: Vec<_> = comments
-            .iter()
-            .map(|c| quote! { &#crate_path::idl::Comment::new(#c) })
-            .collect();
-
-        let field_static = quote! {
-            static #static_name: #crate_path::idl::Field<'static> =
-                #crate_path::idl::Field::new(
-                    #field_name_str,
-                    <#field_type as #crate_path::introspect::Type>::TYPE,
-                    &[#(#comment_objects),*]
-                );
-        };
-
-        let field_ref = quote! { &#static_name };
-
-        field_statics.push(field_static);
-        field_refs.push(field_ref);
-    }
-
-    Ok((field_statics, field_refs))
 }
