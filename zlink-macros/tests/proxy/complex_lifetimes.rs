@@ -114,7 +114,7 @@ async fn complex_lifetimes_test() {
 
     let pairs = vec![("key1".to_string(), 100), ("key2".to_string(), 200)];
     let result = conn.with_tuples(pairs).await.unwrap().unwrap();
-    assert_eq!(result.success, true);
+    assert!(result.success);
     assert_eq!(result.message, Some("success".to_string()));
 
     // Test generic_result
@@ -130,5 +130,5 @@ async fn complex_lifetimes_test() {
 
     let result = conn.generic_result("test input").await.unwrap().unwrap();
     assert_eq!(result.message, "test response");
-    assert_eq!(result.success, true);
+    assert!(result.success);
 }
