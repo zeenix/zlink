@@ -202,9 +202,12 @@ where
     /// #[derive(Debug, Deserialize)]
     /// struct Project { title: String }
     ///
-    /// #[prefix_all("org.example.")]
-    /// #[derive(Debug, Deserialize)]
-    /// #[serde(tag = "error", content = "parameters")]
+    /// #[derive(Debug, zlink_core::ReplyError)]
+    /// #[zlink(
+    ///     interface = "org.example",
+    ///     // Not needed in the real code because you'll use `ReplyError` through `zlink` crate.
+    ///     crate = "zlink_core",
+    /// )]
     /// enum ApiError {
     ///     UserNotFound { code: i32 },
     ///     ProjectNotFound { code: i32 },
@@ -249,9 +252,12 @@ where
     /// # }
     /// # #[derive(Debug, Deserialize)]
     /// # struct User { name: String }
-    /// # #[prefix_all("org.example.")]
-    /// # #[derive(Debug, Deserialize)]
-    /// # #[serde(tag = "error", content = "parameters")]
+    /// # #[derive(Debug, zlink_core::ReplyError)]
+    /// #[zlink(
+    ///     interface = "org.example",
+    ///     // Not needed in the real code because you'll use `ReplyError` through `zlink` crate.
+    ///     crate = "zlink_core",
+    /// )]
     /// # enum ApiError {
     /// #     UserNotFound { code: i32 },
     /// #     ProjectNotFound { code: i32 },
