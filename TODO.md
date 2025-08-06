@@ -4,10 +4,8 @@
 
 * zlink-macros
   * `proxy` attribute macro
-    * check macro code for cleanups/refactors possible
     * chaining/pipelining.
       * similar to how `varlink_service::Proxy` does it
-    * Avoid cloning in the macro code, where possible (use references).
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
 * zlink-core
