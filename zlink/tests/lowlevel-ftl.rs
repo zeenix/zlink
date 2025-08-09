@@ -60,12 +60,7 @@ async fn lowlevel_ftl() -> Result<(), Box<dyn std::error::Error>> {
 async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::error::Error>> {
     // Now create a client connection that monitor changes in the drive condition.
     let mut conn = connect(SOCKET_PATH).await?;
-    let call = Call::new(FtlMethod::GetDriveCondition).set_more(true);
-    let mut drive_monitor_stream = pin!(
-        conn.chain_call::<FtlMethod, FtlReply, FtlError>(&call)?
-            .send()
-            .await?
-    );
+    let mut drive_monitor_stream = pin!(conn.get_drive_condition_more().await?);
 
     // And a client that only calls methods.
     {
@@ -106,16 +101,10 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         ));
 
         // Ask for the drive condition, then set them and then ask again.
-        let get_drive_cond = FtlMethod::GetDriveCondition.into();
-        let set_drive_cond = FtlMethod::SetDriveCondition {
-            condition: conditions[1],
-        }
-        .into();
-
         let replies = conn
-            .chain_call::<FtlMethod, FtlReply, FtlError>(&get_drive_cond)?
-            .append(&set_drive_cond)?
-            .append(&get_drive_cond)?
+            .chain_get_drive_condition::<FtlReply, FtlError>()?
+            .set_drive_condition(conditions[1])?
+            .get_drive_condition()?
             .send()
             .await?;
 
@@ -123,15 +112,30 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         {
             pin_mut!(replies);
 
-            for i in 0..3 {
-                let reply = replies.next().await.unwrap()?.unwrap();
-                match reply.into_parameters().unwrap() {
-                    FtlReply::DriveCondition(drive_condition) => {
-                        assert_eq!(drive_condition, conditions[i]);
-                    }
-                    _ => panic!("Unexpected reply"),
-                }
-            }
+            // First reply: initial drive condition
+            let reply = replies.next().await.unwrap()?.unwrap();
+            let Some(FtlReply::DriveCondition(drive_condition)) = reply.into_parameters() else {
+                panic!("Unexpected reply");
+            };
+            assert_eq!(drive_condition, conditions[0]);
+
+            // Second reply: confirmation of set_drive_condition
+            let reply = replies.next().await.unwrap()?.unwrap();
+            let Some(FtlReply::DriveCondition(drive_condition)) = reply.into_parameters() else {
+                panic!("Unexpected reply");
+            };
+            assert_eq!(drive_condition, conditions[1]);
+
+            // Third reply: get_drive_condition after the set
+            let reply = replies.next().await.unwrap()?.unwrap();
+            let Some(FtlReply::DriveCondition(drive_condition)) = reply.into_parameters() else {
+                panic!("Unexpected reply");
+            };
+            // Should match the current server state (after the set_drive_condition call)
+            assert_eq!(drive_condition, conditions[1]);
+
+            // Should be no more replies
+            assert!(replies.next().await.is_none());
         }
 
         let duration = 10;
@@ -139,27 +143,17 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
         let replies = conn
             // Let's try to jump to a new coordinate but first requiring more tylium
             // than we have.
-            .chain_call::<_, FtlReply, FtlError>(
-                &FtlMethod::Jump {
-                    config: DriveConfiguration {
-                        speed: impossible_speed,
-                        trajectory: 1,
-                        duration: 10,
-                    },
-                }
-                .into(),
-            )?
+            .chain_jump::<FtlReply, FtlError>(DriveConfiguration {
+                speed: impossible_speed,
+                trajectory: 1,
+                duration: 10,
+            })?
             // Now let's try to jump with a valid speed.
-            .append(
-                &FtlMethod::Jump {
-                    config: DriveConfiguration {
-                        speed: impossible_speed - 1,
-                        trajectory: 1,
-                        duration: 10,
-                    },
-                }
-                .into(),
-            )?
+            .jump(DriveConfiguration {
+                speed: impossible_speed - 1,
+                trajectory: 1,
+                duration: 10,
+            })?
             .send()
             .await?;
         pin_mut!(replies);
@@ -181,14 +175,31 @@ async fn run_client(conditions: &[DriveCondition]) -> Result<(), Box<dyn std::er
 
     // `drive_monitor_conn` should have received the drive condition changes.
     let drive_cond = drive_monitor_stream.try_next().await?.unwrap()?;
-    match drive_cond.parameters().unwrap() {
-        FtlReply::DriveCondition(condition) => {
-            assert_eq!(condition, &conditions[1]);
-        }
-        _ => panic!("Expected DriveCondition reply"),
-    }
+    let FtlReply::DriveCondition(condition) = drive_cond else {
+        panic!("Expected DriveCondition reply");
+    };
+    assert_eq!(condition, conditions[1]);
 
     Ok(())
+}
+
+#[zlink::proxy("org.example.ftl")]
+trait FtlProxy {
+    async fn get_drive_condition(&mut self) -> zlink::Result<Result<FtlReply, FtlError>>;
+
+    #[zlink(more, rename = "GetDriveCondition")]
+    async fn get_drive_condition_more(
+        &mut self,
+    ) -> zlink::Result<impl futures_util::Stream<Item = zlink::Result<Result<FtlReply, FtlError>>>>;
+
+    async fn set_drive_condition(
+        &mut self,
+        condition: DriveCondition,
+    ) -> zlink::Result<Result<FtlReply, FtlError>>;
+    async fn jump(
+        &mut self,
+        config: DriveConfiguration,
+    ) -> zlink::Result<Result<FtlReply, FtlError>>;
 }
 
 // The FTL service.

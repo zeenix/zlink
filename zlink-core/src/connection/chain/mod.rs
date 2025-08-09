@@ -136,14 +136,6 @@ mod tests {
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum HeterogeneousResponses {
-        Post(Post),
-        User(User),
-        DeleteResult(DeleteResult),
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
     struct PostError {
         message: mayheap::String<64>,
     }
@@ -151,14 +143,6 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     struct DeleteError {
         reason: mayheap::String<64>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum HeterogeneousErrors {
-        UserError(ApiError),
-        PostError(PostError),
-        DeleteError(DeleteError),
     }
 
     // Use consolidated mock socket from test_utils.
@@ -309,6 +293,20 @@ mod tests {
     #[cfg(feature = "std")]
     #[tokio::test]
     async fn heterogeneous_calls() -> crate::Result<()> {
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(untagged)]
+        enum HeterogeneousResponses {
+            Post(Post),
+            User(User),
+            DeleteResult(DeleteResult),
+        }
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(untagged)]
+        enum HeterogeneousErrors {
+            UserError(ApiError),
+            PostError(PostError),
+            DeleteError(DeleteError),
+        }
         let responses = [
             r#"{"parameters":{"id":1}}"#,
             r#"{"parameters":{"id":123,"title":"Test Post"}}"#,
