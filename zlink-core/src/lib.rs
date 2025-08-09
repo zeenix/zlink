@@ -12,7 +12,8 @@
 compile_error!("Either 'std' or 'embedded' feature must be enabled.");
 
 #[macro_use]
-mod log;
+#[doc(hidden)]
+pub mod log;
 
 pub mod connection;
 pub use connection::Connection;
