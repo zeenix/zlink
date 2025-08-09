@@ -347,6 +347,7 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// # Example
 ///
 /// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
 /// use zlink::proxy;
 /// use serde::{Deserialize, Serialize};
 /// use serde_prefix_all::prefix_all;
@@ -393,6 +394,19 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///     // Parameters must be named.
 ///     CodedError { code: u32, message: &'a str },
 /// }
+///
+/// // Example usage:
+/// # use zlink::test_utils::mock_socket::MockSocket;
+/// # let responses = vec![
+/// #     r#"{"parameters":{"active":true,"message":"System running"}}"#,
+/// # ];
+/// # let socket = MockSocket::new(&responses);
+/// # let mut conn = zlink::Connection::new(socket);
+/// let result = conn.get_status().await?.unwrap();
+/// assert_eq!(result.active, true);
+/// assert_eq!(result.message, "System running");
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # }).unwrap();
 /// ```
 ///
 /// # Chaining Method Calls
@@ -403,7 +417,8 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///
 /// ## Example: Chaining Method Calls
 ///
-/// ```no_run
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
 /// # use zlink::proxy;
 /// # use serde::{Deserialize, Serialize};
 /// # use futures_util::{pin_mut, TryStreamExt};
@@ -451,8 +466,15 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///         -> zlink::Result<Result<BlogReply<'_>, BlogError>>;
 /// }
 ///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// # let mut conn: zlink::Connection<zlink::connection::socket::impl_for_doc::Socket> = todo!();
+/// # use zlink::test_utils::mock_socket::MockSocket;
+/// # let responses = vec![
+/// #     r#"{"parameters":{"id":1,"name":"Alice"}}"#,
+/// #     r#"{"parameters":{"id":1,"user_id":1,"content":"My first post!"}}"#,
+/// #     r#"{"parameters":[{"id":1,"user_id":1,"content":"My first post!"}]}"#,
+/// #     r#"{"parameters":{"id":1,"name":"Alice"}}"#,
+/// # ];
+/// # let socket = MockSocket::new(&responses);
+/// # let mut conn = zlink::Connection::new(socket);
 /// // Chain calls across both interfaces in a single batch
 /// let chain = conn
 ///     .chain_create_user::<BlogReply<'_>, BlogError>("Alice")? // Start with Users interface
@@ -465,23 +487,20 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// pin_mut!(replies);
 ///
 /// // Process replies in order
+/// let mut reply_count = 0;
 /// while let Some(reply) = replies.try_next().await? {
 ///     let reply = reply?;
+///     reply_count += 1;
 ///     match reply.parameters() {
-///         Some(BlogReply::User(user)) => {
-///             println!("User: {} (ID: {})", user.name, user.id);
-///         }
-///         Some(BlogReply::Post(post)) => {
-///             println!("Post {}: {}", post.id, post.content);
-///         }
-///         Some(BlogReply::Posts(posts)) => {
-///             println!("Found {} posts", posts.len());
-///         }
-///         None => {}
+///         Some(BlogReply::User(user)) => assert_eq!(user.name, "Alice"),
+///         Some(BlogReply::Post(post)) => assert_eq!(post.content, "My first post!"),
+///         Some(BlogReply::Posts(posts)) => assert_eq!(posts.len(), 1),
+///         None => {} // set_value returns empty response
 ///     }
 /// }
-/// # Ok(())
-/// # }
+/// assert_eq!(reply_count, 4); // We made 4 calls
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # }).unwrap();
 /// ```
 ///
 /// ## Combining with Standard Varlink Service
@@ -489,7 +508,9 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// When the `idl-parse` feature is enabled, you can also chain calls between your custom
 /// interfaces and the standard Varlink service interface for introspection:
 ///
-/// ```ignore
+/// ```rust
+/// # #[cfg(feature = "idl-parse")] {
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
 /// # use zlink::{proxy, varlink_service};
 /// # use serde::{Deserialize, Serialize};
 /// #
@@ -520,14 +541,31 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///     MyService(MyError),
 /// }
 ///
-/// // Get service info and custom status in one batch
+/// // Example usage:
+/// # use zlink::test_utils::mock_socket::MockSocket;
+/// # let responses = vec![
+/// #     concat!(
+/// #         r#"{"parameters":{"vendor":"Test","product":"Example","version":"1.0","#,
+/// #         r#""url":"https://example.com","interfaces":["com.example.MyService","#,
+/// #         r#""org.varlink.service"]}}"#
+/// #     ),
+/// #     r#"{"parameters":{"active":true,"message":"Running"}}"#,
+/// #     r#"{"parameters":{"description":"interface com.example.MyService\n..."}}"#,
+/// # ];
+/// # let socket = MockSocket::new(&responses);
+/// # let mut conn = zlink::Connection::new(socket);
 /// use varlink_service::Proxy;
+///
+/// // Get service info and custom status in one batch
 /// let chain = conn
 ///     .chain_get_info::<CombinedReply<'_>, CombinedError>()? // Varlink service interface
 ///     .get_status()?                                         // MyService interface
 ///     .get_interface_description("com.example.MyService")?;  // Back to Varlink service
 ///
 /// let replies = chain.send().await?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # }).unwrap();
+/// # }
 /// ```
 ///
 /// ## Chain Extension Traits
@@ -570,7 +608,8 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// The proxy macro supports generic type parameters on individual methods. Note that generic
 /// parameters on the trait itself are not currently supported.
 ///
-/// ```no_run
+/// ```rust
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
 /// # use zlink::proxy;
 /// # use serde::{Deserialize, Serialize};
 /// # #[derive(Debug, Serialize, Deserialize)]
@@ -608,6 +647,19 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///     where
 ///         T: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug;
 /// }
+///
+/// // Example usage:
+/// # use zlink::test_utils::mock_socket::MockSocket;
+/// # let responses = vec![
+/// #     r#"{"parameters":null}"#, // store returns empty Ok
+/// # ];
+/// # let socket = MockSocket::new(&responses);
+/// # let mut conn = zlink::Connection::new(socket);
+/// // Store a value with generic type
+/// let result = conn.store("my-key", 42i32).await?;
+/// assert!(result.is_ok());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// # }).unwrap();
 /// ```
 #[cfg(feature = "proxy")]
 #[proc_macro_attribute]
