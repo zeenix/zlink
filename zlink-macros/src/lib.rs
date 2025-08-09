@@ -341,6 +341,9 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// automatically handling the serialization of method calls and deserialization of responses.
 /// Each proxy trait targets a single Varlink interface.
 ///
+/// The macro also generates a chain extension trait that allows you to chain multiple method
+/// calls together for efficient batching across multiple interfaces.
+///
 /// # Example
 ///
 /// ```rust
@@ -391,6 +394,147 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///     CodedError { code: u32, message: &'a str },
 /// }
 /// ```
+///
+/// # Chaining Method Calls
+///
+/// The proxy macro generates chain extension traits that allow you to batch multiple method calls
+/// together. This is useful for reducing round trips and efficiently calling methods across
+/// multiple interfaces. Each method gets a `chain_` prefixed variant that starts a chain.
+///
+/// ## Example: Chaining Method Calls
+///
+/// ```no_run
+/// # use zlink::proxy;
+/// # use serde::{Deserialize, Serialize};
+/// # use futures_util::{pin_mut, TryStreamExt};
+/// #
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # struct User<'a> { id: u64, name: &'a str }
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # struct Post<'a> { id: u64, user_id: u64, content: &'a str }
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # #[serde(untagged)]
+/// # enum BlogReply<'a> {
+/// #     #[serde(borrow)]
+/// #     User(User<'a>),
+/// #     #[serde(borrow)]
+/// #     Post(Post<'a>),
+/// #     #[serde(borrow)]
+/// #     Posts(Vec<Post<'a>>)
+/// # }
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # #[serde(tag = "error")]
+/// # enum BlogError { NotFound, InvalidInput }
+/// # impl std::fmt::Display for BlogError {
+/// #     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+/// #         match self {
+/// #             Self::NotFound => write!(f, "Not found"),
+/// #             Self::InvalidInput => write!(f, "Invalid input")
+/// #         }
+/// #     }
+/// # }
+/// # impl std::error::Error for BlogError {}
+/// #
+/// // Define proxies for two different services
+/// #[proxy("org.example.blog.Users")]
+/// trait UsersProxy {
+///     async fn get_user(&mut self, id: u64) -> zlink::Result<Result<BlogReply<'_>, BlogError>>;
+///     async fn create_user(&mut self, name: &str)
+///         -> zlink::Result<Result<BlogReply<'_>, BlogError>>;
+/// }
+///
+/// #[proxy("org.example.blog.Posts")]
+/// trait PostsProxy {
+///     async fn get_posts_by_user(&mut self, user_id: u64)
+///         -> zlink::Result<Result<BlogReply<'_>, BlogError>>;
+///     async fn create_post(&mut self, user_id: u64, content: &str)
+///         -> zlink::Result<Result<BlogReply<'_>, BlogError>>;
+/// }
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let mut conn: zlink::Connection<zlink::connection::socket::impl_for_doc::Socket> = todo!();
+/// // Chain calls across both interfaces in a single batch
+/// let chain = conn
+///     .chain_create_user::<BlogReply<'_>, BlogError>("Alice")? // Start with Users interface
+///     .create_post(1, "My first post!")?                       // Chain Posts interface
+///     .get_posts_by_user(1)?                                   // Get all posts
+///     .get_user(1)?;                                           // Get user details
+///
+/// // Send all calls in a single batch
+/// let replies = chain.send().await?;
+/// pin_mut!(replies);
+///
+/// // Process replies in order
+/// while let Some(reply) = replies.try_next().await? {
+///     let reply = reply?;
+///     match reply.parameters() {
+///         Some(BlogReply::User(user)) => {
+///             println!("User: {} (ID: {})", user.name, user.id);
+///         }
+///         Some(BlogReply::Post(post)) => {
+///             println!("Post {}: {}", post.id, post.content);
+///         }
+///         Some(BlogReply::Posts(posts)) => {
+///             println!("Found {} posts", posts.len());
+///         }
+///         None => {}
+///     }
+/// }
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## Combining with Standard Varlink Service
+///
+/// When the `idl-parse` feature is enabled, you can also chain calls between your custom
+/// interfaces and the standard Varlink service interface for introspection:
+///
+/// ```ignore
+/// # use zlink::{proxy, varlink_service};
+/// # use serde::{Deserialize, Serialize};
+/// #
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # struct Status { active: bool, message: String }
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # #[serde(tag = "error")]
+/// # enum MyError { NotFound, InvalidRequest }
+/// #
+/// #[proxy("com.example.MyService")]
+/// trait MyServiceProxy {
+///     async fn get_status(&mut self) -> zlink::Result<Result<Status, MyError>>;
+/// }
+///
+/// // Combined types for cross-interface chaining
+/// #[derive(Debug, Deserialize)]
+/// #[serde(untagged)]
+/// enum CombinedReply<'a> {
+///     #[serde(borrow)]
+///     VarlinkService(varlink_service::Reply<'a>),
+///     MyService(Status),
+/// }
+///
+/// #[derive(Debug, Deserialize)]
+/// #[serde(untagged)]
+/// enum CombinedError {
+///     VarlinkService(varlink_service::Error),
+///     MyService(MyError),
+/// }
+///
+/// // Get service info and custom status in one batch
+/// use varlink_service::Proxy;
+/// let chain = conn
+///     .chain_get_info::<CombinedReply<'_>, CombinedError>()? // Varlink service interface
+///     .get_status()?                                         // MyService interface
+///     .get_interface_description("com.example.MyService")?;  // Back to Varlink service
+///
+/// let replies = chain.send().await?;
+/// ```
+///
+/// ## Chain Extension Traits
+///
+/// For each proxy trait, the macro generates a corresponding chain extension trait. For example,
+/// `FtlProxy` gets `FtlProxyChain`. This trait is automatically implemented for `Chain` types,
+/// allowing seamless method chaining across interfaces.
 ///
 /// # Method Requirements
 ///
