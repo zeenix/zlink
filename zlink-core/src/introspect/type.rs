@@ -128,7 +128,6 @@ impl Type for serde_json::Value {
     const TYPE: &'static idl::Type<'static> = &idl::Type::ForeignObject;
 }
 
-
 // Core time types (available in no-std).
 impl Type for core::time::Duration {
     const TYPE: &'static idl::Type<'static> = &idl::Type::Float;
@@ -190,6 +189,99 @@ impl Type for core::net::SocketAddrV4 {
 
 impl Type for core::net::SocketAddrV6 {
     const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+}
+
+// External type implementations for common third-party crates.
+
+// UUID support.
+#[cfg(feature = "uuid")]
+impl Type for uuid::Uuid {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+}
+
+// Chrono support.
+#[cfg(feature = "chrono")]
+mod chrono_impls {
+    use super::*;
+
+    impl Type for chrono::NaiveDate {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for chrono::NaiveTime {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for chrono::NaiveDateTime {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl<Tz: chrono::TimeZone> Type for chrono::DateTime<Tz> {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for chrono::Duration {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::Int;
+    }
+}
+
+// Time crate support.
+#[cfg(feature = "time")]
+mod time_impls {
+    use super::*;
+
+    impl Type for time::Date {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for time::Time {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for time::PrimitiveDateTime {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for time::OffsetDateTime {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+    }
+
+    impl Type for time::Duration {
+        const TYPE: &'static idl::Type<'static> = &idl::Type::Float;
+    }
+}
+
+// URL support.
+#[cfg(feature = "url")]
+impl Type for url::Url {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+}
+
+// Bytes support.
+#[cfg(feature = "bytes")]
+impl Type for bytes::Bytes {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+}
+
+#[cfg(feature = "bytes")]
+impl Type for bytes::BytesMut {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::String;
+}
+
+// IndexMap support.
+#[cfg(feature = "indexmap")]
+impl<V: Type> Type for indexmap::IndexMap<String, V> {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::Map(TypeRef::new(V::TYPE));
+}
+
+#[cfg(feature = "indexmap")]
+impl<V: Type> Type for indexmap::IndexMap<&str, V> {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::Map(TypeRef::new(V::TYPE));
+}
+
+#[cfg(feature = "indexmap")]
+impl<T: Type> Type for indexmap::IndexSet<T> {
+    const TYPE: &'static idl::Type<'static> = &idl::Type::Array(TypeRef::new(T::TYPE));
 }
 
 #[cfg(test)]
@@ -351,5 +443,65 @@ mod tests {
         assert_eq!(*<core::net::SocketAddr>::TYPE, idl::Type::String);
         assert_eq!(*<core::net::SocketAddrV4>::TYPE, idl::Type::String);
         assert_eq!(*<core::net::SocketAddrV6>::TYPE, idl::Type::String);
+    }
+
+    #[cfg(feature = "uuid")]
+    #[test]
+    fn uuid_type() {
+        assert_eq!(*<uuid::Uuid>::TYPE, idl::Type::String);
+    }
+
+    #[cfg(feature = "url")]
+    #[test]
+    fn url_type() {
+        assert_eq!(*<url::Url>::TYPE, idl::Type::String);
+    }
+
+    #[cfg(feature = "bytes")]
+    #[test]
+    fn bytes_types() {
+        assert_eq!(*<bytes::Bytes>::TYPE, idl::Type::String);
+        assert_eq!(*<bytes::BytesMut>::TYPE, idl::Type::String);
+    }
+
+    #[cfg(feature = "indexmap")]
+    #[test]
+    fn indexmap_types() {
+        // Test IndexMap
+        match <indexmap::IndexMap<String, i32>>::TYPE {
+            idl::Type::Map(value_type) => assert_eq!(*value_type, idl::Type::Int),
+            _ => panic!("Expected map type"),
+        }
+
+        match <indexmap::IndexMap<&str, bool>>::TYPE {
+            idl::Type::Map(value_type) => assert_eq!(*value_type, idl::Type::Bool),
+            _ => panic!("Expected map type"),
+        }
+
+        // Test IndexSet
+        match <indexmap::IndexSet<String>>::TYPE {
+            idl::Type::Array(element_type) => assert_eq!(*element_type, idl::Type::String),
+            _ => panic!("Expected array type"),
+        }
+    }
+
+    #[cfg(feature = "chrono")]
+    #[test]
+    fn chrono_types() {
+        assert_eq!(*<chrono::NaiveDate>::TYPE, idl::Type::String);
+        assert_eq!(*<chrono::NaiveTime>::TYPE, idl::Type::String);
+        assert_eq!(*<chrono::NaiveDateTime>::TYPE, idl::Type::String);
+        assert_eq!(*<chrono::DateTime<chrono::Utc>>::TYPE, idl::Type::String);
+        assert_eq!(*<chrono::Duration>::TYPE, idl::Type::Int);
+    }
+
+    #[cfg(feature = "time")]
+    #[test]
+    fn time_crate_types() {
+        assert_eq!(*<time::Date>::TYPE, idl::Type::String);
+        assert_eq!(*<time::Time>::TYPE, idl::Type::String);
+        assert_eq!(*<time::PrimitiveDateTime>::TYPE, idl::Type::String);
+        assert_eq!(*<time::OffsetDateTime>::TYPE, idl::Type::String);
+        assert_eq!(*<time::Duration>::TYPE, idl::Type::Float);
     }
 }
