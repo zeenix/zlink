@@ -13,6 +13,7 @@ proc-macro = true
 [features]
 default = ["proxy", "std"]
 proxy = ["syn/full", "syn/clone-impls"]
+idl-parse = ["zlink/idl-parse"]
 introspection = ["zlink/introspection"]
 std = []
 

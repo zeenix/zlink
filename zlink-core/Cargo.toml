@@ -26,7 +26,7 @@ io-buffer-16kb = []
 io-buffer-1mb = []
 # IDL and introspection support
 idl = []
-idl-parse = ["idl", "dep:winnow", "std"]
+idl-parse = ["idl", "dep:winnow", "std", "zlink-macros/idl-parse"]
 introspection = ["idl", "zlink-macros/introspection"]
 
 [dependencies]
@@ -54,7 +54,10 @@ winnow = { version = "0.7", default-features = false, features = [
 [dev-dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["alloc"] }
 serde-prefix-all = "0.1.0"
-test-log = { version = "0.2.17", default-features = false, features = ["trace", "color"] }
+test-log = { version = "0.2.17", default-features = false, features = [
+    "trace",
+    "color",
+] }
 tokio = { version = "1.44.0", features = [
     "macros",
     "rt",
