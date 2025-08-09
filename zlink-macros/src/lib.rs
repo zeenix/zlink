@@ -420,6 +420,51 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// Streaming methods must return `Result<impl Stream<Item = Result<Result<ReplyType,
 /// ErrorType>>>>`. The proxy will automatically set the 'more' flag on the call and return a
 /// stream of replies.
+///
+/// # Generic Parameters
+///
+/// The proxy macro supports generic type parameters on individual methods. Note that generic
+/// parameters on the trait itself are not currently supported.
+///
+/// ```no_run
+/// # use zlink::proxy;
+/// # use serde::{Deserialize, Serialize};
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # struct StoredValue<T> { data: T }
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # struct ProcessReply<'a> { result: &'a str }
+/// # #[derive(Debug, Serialize, Deserialize)]
+/// # #[serde(tag = "error")]
+/// # enum StorageError { NotFound }
+/// # impl std::fmt::Display for StorageError {
+/// #     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+/// #         write!(f, "Storage error")
+/// #     }
+/// # }
+/// # impl std::error::Error for StorageError {}
+/// #
+/// #[proxy("org.example.Storage")]
+/// trait StorageProxy {
+///     // Method-level generics with trait bounds
+///     async fn store<'a, T: Serialize + std::fmt::Debug>(
+///         &mut self,
+///         key: &'a str,
+///         value: T,
+///     ) -> zlink::Result<Result<(), StorageError>>;
+///
+///     // Generic methods with where clauses
+///     async fn process<T>(&mut self, data: T)
+///         -> zlink::Result<Result<ProcessReply<'_>, StorageError>>
+///     where
+///         T: Serialize + std::fmt::Debug;
+///
+///     // Methods can use generic type parameters in both input and output
+///     async fn store_and_return<'a, T>(&mut self, key: &'a str, value: T)
+///         -> zlink::Result<Result<StoredValue<T>, StorageError>>
+///     where
+///         T: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug;
+/// }
+/// ```
 #[cfg(feature = "proxy")]
 #[proc_macro_attribute]
 pub fn proxy(
