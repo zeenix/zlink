@@ -2,14 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-core
-  * `zlink_core::log` module
-    * Add rest of the macros for other log levels
-    * Make the macros available to other crates but keep it hidden in docs
-* Replace `println!` with `log` macros in tests
-  * May need to add a subscriber for tests
-* zlink-core
-  * impl `introspect::Type` for common types
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
   * tests
