@@ -6,6 +6,7 @@
   * `proxy` attribute macro
     * chaining/pipelining.
       * similar to how `varlink_service::Proxy` does it
+    * Make generics on trait work
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
 * zlink-core
