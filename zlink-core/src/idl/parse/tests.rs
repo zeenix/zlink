@@ -424,22 +424,22 @@ fn ws_with_comments() {
     assert!(input_bytes3.is_empty());
 }
 
-#[test]
+#[test_log::test]
 fn parse_simple_enum() {
     let input = "(one, two, three)";
     let mut input_bytes = input.as_bytes();
     match enum_type(&mut input_bytes) {
         Ok(enum_type) => {
-            println!("✓ Successfully parsed simple enum: {:?}", enum_type);
+            debug!("✓ Successfully parsed simple enum: {:?}", enum_type);
         }
         Err(e) => {
-            println!("✗ Failed to parse simple enum: {:?}", e);
+            debug!("✗ Failed to parse simple enum: {:?}", e);
             panic!("Should be able to parse simple enum: {:?}", e);
         }
     }
 }
 
-#[test]
+#[test_log::test]
 fn parse_acquiremetadata_enum_directly() {
     let input = r#"(
 	# Do not include metadata in the output
@@ -453,15 +453,15 @@ fn parse_acquiremetadata_enum_directly() {
     let mut input_bytes = input.as_bytes();
     match enum_type(&mut input_bytes) {
         Ok(enum_type) => {
-            println!(
+            debug!(
                 "✓ Successfully parsed AcquireMetadata enum: {:?}",
                 enum_type
             );
         }
         Err(e) => {
-            println!("✗ Failed to parse AcquireMetadata enum: {:?}", e);
+            debug!("✗ Failed to parse AcquireMetadata enum: {:?}", e);
             // Print the remaining input to see where it failed
-            println!(
+            debug!(
                 "Remaining input: {:?}",
                 core::str::from_utf8(input_bytes).unwrap_or("<invalid UTF-8>")
             );
@@ -470,7 +470,7 @@ fn parse_acquiremetadata_enum_directly() {
     }
 }
 
-#[test]
+#[test_log::test]
 fn parse_enum_with_comments() {
     let input = r#"type AcquireMetadata(
 	# Do not include metadata in the output
@@ -511,13 +511,13 @@ fn parse_enum_with_comments() {
                 "Include metadata in the output, but gracefully eat up errors"
             );
 
-            println!(
+            debug!(
                 "✓ Successfully parsed enum with per-variant comments: {}",
                 custom_type
             );
         }
         Err(e) => {
-            println!("✗ Failed to parse enum with comments: {}", e);
+            debug!("✗ Failed to parse enum with comments: {}", e);
             panic!("Should be able to parse enum with comments: {}", e);
         }
     }
