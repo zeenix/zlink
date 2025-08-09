@@ -1028,6 +1028,7 @@ dependencies = [
  "serde-json-core",
  "serde-prefix-all",
  "serde_json",
+ "test-log",
  "tokio",
  "tracing",
  "winnow",
