@@ -2,11 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-macros
-  * `proxy` attribute macro
-    * chaining/pipelining.
-      * similar to how `varlink_service::Proxy` does it
-    * Make generics on trait work
 * Replace `println!` with `tracing` logging in tests
   * May need to add a subscriber for tests
 * zlink-core
@@ -25,6 +20,8 @@
     * chaining remains std-only (since it requires untagged enums)
     * Test them on an embedded target (perhaps using `qemu`?)
 * zlink-macros
+  * `proxy` attribute macro
+    * Make generics on trait work
   * `service` attribute macro (see below)
     * gated behind `service` feature
     * See if we can instead use a macro_rules macro (see <https://docs.rs/pin-project-lite/latest/src/pin_project_lite/lib.rs.html#3-1766> for inspiration)
