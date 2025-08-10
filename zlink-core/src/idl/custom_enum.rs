@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[cfg(feature = "std")]
-    #[test]
+    #[test_log::test]
     fn comprehensive_enum_with_per_variant_comments() {
         // Test enum-level comments plus per-variant comments
         let enum_comment = Comment::new("Status enumeration with detailed docs");
@@ -178,7 +178,7 @@ mod tests {
         assert!(displayed.contains("# System is stopped\n\tinactive"));
         assert!(displayed.contains("# System is starting up\n\tpending"));
 
-        println!("✓ Comprehensive enum display: {}", displayed);
+        debug!("✓ Comprehensive enum display: {}", displayed);
     }
 
     #[test]

@@ -2,10 +2,6 @@
 
 ## Release 0.1.0
 
-* Replace `println!` with `tracing` logging in tests
-  * May need to add a subscriber for tests
-* zlink-core
-  * impl `introspect::Type` for common types
 * zlink-codegen (generates code from IDL)
   * Make use of `zlink_core::idl` module
   * tests

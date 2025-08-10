@@ -555,6 +555,7 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// # let socket = MockSocket::new(&responses);
 /// # let mut conn = zlink::Connection::new(socket);
 /// use varlink_service::Proxy;
+/// use zlink::varlink_service::Chain;
 ///
 /// // Get service info and custom status in one batch
 /// let chain = conn
