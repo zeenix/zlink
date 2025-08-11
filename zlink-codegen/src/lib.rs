@@ -9,15 +9,23 @@ pub use codegen::CodeGenerator;
 /// Generate Rust code from a Varlink interface.
 pub fn generate_interface(interface: &Interface<'_>) -> Result<String> {
     let mut generator = CodeGenerator::new();
-    generator.generate_interface(interface)?;
+    generator.generate_interface(interface, false)?;
     Ok(generator.output())
 }
 
 /// Generate Rust code from multiple Varlink interfaces.
 pub fn generate_interfaces(interfaces: &[Interface<'_>]) -> Result<String> {
     let mut generator = CodeGenerator::new();
-    for interface in interfaces {
-        generator.generate_interface(interface)?;
+
+    // Add module-level header for multiple interfaces.
+    if interfaces.len() > 1 {
+        generator.write_module_header()?;
+    }
+
+    for interface in interfaces.iter() {
+        // Skip module header for all interfaces when generating multiple.
+        let skip_header = interfaces.len() > 1;
+        generator.generate_interface(interface, skip_header)?;
     }
     Ok(generator.output())
 }

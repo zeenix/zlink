@@ -25,14 +25,34 @@ impl CodeGenerator {
         self.output
     }
 
-    /// Generate code for an interface.
-    pub fn generate_interface(&mut self, interface: &Interface<'_>) -> Result<()> {
-        self.write_header(interface)?;
-        self.writeln("use serde::{Deserialize, Serialize};")?;
+    /// Write module-level header for multiple interfaces.
+    pub fn write_module_header(&mut self) -> Result<()> {
+        writeln!(
+            &mut self.output,
+            "// Generated code from Varlink IDL files."
+        )?;
+        writeln!(&mut self.output)?;
+        writeln!(&mut self.output, "use serde::{{Deserialize, Serialize}};")?;
+        writeln!(&mut self.output, "use zlink::{{proxy, ReplyError}};")?;
+        writeln!(&mut self.output)?;
+        Ok(())
+    }
 
-        // Always import ReplyError since we generate a stub error type when there are no errors
-        self.writeln("use zlink::{proxy, ReplyError};")?;
-        self.writeln("")?;
+    /// Generate code for an interface.
+    pub fn generate_interface(
+        &mut self,
+        interface: &Interface<'_>,
+        skip_module_header: bool,
+    ) -> Result<()> {
+        if skip_module_header {
+            self.write_interface_comment(interface)?;
+        } else {
+            self.write_header(interface)?;
+            self.writeln("use serde::{Deserialize, Serialize};")?;
+            // Always import ReplyError since we generate a stub error type when there are no errors
+            self.writeln("use zlink::{proxy, ReplyError};")?;
+            self.writeln("")?;
+        }
 
         // Generate proxy trait using the proxy macro.
         self.generate_proxy_trait(interface)?;
@@ -53,6 +73,16 @@ impl CodeGenerator {
             self.writeln("")?;
         }
 
+        Ok(())
+    }
+
+    fn write_interface_comment(&mut self, interface: &Interface<'_>) -> Result<()> {
+        writeln!(
+            &mut self.output,
+            "// Generated code for Varlink interface `{}`.",
+            interface.name()
+        )?;
+        writeln!(&mut self.output)?;
         Ok(())
     }
 

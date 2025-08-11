@@ -2,12 +2,11 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use heck::ToSnakeCase;
 use std::{
-    fmt::Write as FmtWrite,
     fs,
     io::{self, Write},
 };
 use zlink::idl::Interface;
-use zlink_codegen::{format_code, generate_interface};
+use zlink_codegen::{format_code, generate_interface, generate_interfaces};
 
 mod cli;
 use cli::Args;
@@ -52,22 +51,17 @@ fn main() -> Result<()> {
     // Generate code based on output options.
     if let Some(output_path) = output {
         // Single output file.
-        let mut output = String::new();
-
-        // Write header.
-        writeln!(&mut output, "//! Generated code from Varlink IDL files.")?;
-        writeln!(&mut output)?;
-
-        for interface in &interfaces {
-            let code = generate_interface(interface).with_context(|| {
+        let output = if interfaces.len() == 1 {
+            generate_interface(&interfaces[0]).with_context(|| {
                 format!(
                     "Failed to generate code for interface: {}",
-                    interface.name()
+                    interfaces[0].name()
                 )
-            })?;
-
-            writeln!(&mut output, "{}", code)?;
-        }
+            })?
+        } else {
+            generate_interfaces(&interfaces)
+                .with_context(|| "Failed to generate code for interfaces".to_string())?
+        };
 
         // Format the code.
         let formatted = format_code(&output)?;
@@ -106,23 +100,17 @@ fn main() -> Result<()> {
         }
     } else {
         // Output to stdout.
-        let mut output = String::new();
-
-        if interfaces.len() > 1 {
-            writeln!(&mut output, "//! Generated code from Varlink IDL files.")?;
-            writeln!(&mut output)?;
-        }
-
-        for interface in &interfaces {
-            let code = generate_interface(interface).with_context(|| {
+        let output = if interfaces.len() == 1 {
+            generate_interface(&interfaces[0]).with_context(|| {
                 format!(
                     "Failed to generate code for interface: {}",
-                    interface.name()
+                    interfaces[0].name()
                 )
-            })?;
-
-            writeln!(&mut output, "{}", code)?;
-        }
+            })?
+        } else {
+            generate_interfaces(&interfaces)
+                .with_context(|| "Failed to generate code for interfaces".to_string())?
+        };
 
         // Format the code.
         let formatted = format_code(&output)?;
