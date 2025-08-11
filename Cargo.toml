@@ -8,6 +8,9 @@ members = [
     "zlink-micro",
     "zlink-usb",
 ]
+exclude = [
+    "zlink-codegen/test-crates/*",
+]
 resolver = "2"
 
 [workspace.package]

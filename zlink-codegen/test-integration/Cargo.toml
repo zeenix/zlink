@@ -1,0 +1,13 @@
+[package]
+name = "test-integration"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zlink = { path = "../../zlink" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["rt", "macros"] }
+anyhow = "1.0"
+
+[workspace]

@@ -1,0 +1,12 @@
+interface org.example.storage
+
+type Document (
+    id: string,
+    title: string,
+    content: string,
+    tags: []string
+)
+
+method Store(doc: Document) -> (id: string)
+method Retrieve(id: string) -> (doc: Document)
+method Search(query: string, tags: []string) -> (docs: []Document)
