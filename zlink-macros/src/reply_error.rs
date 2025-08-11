@@ -113,20 +113,27 @@ fn generate_serialize_impl(
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let has_lifetimes = !generics.lifetimes().collect::<Vec<_>>().is_empty();
 
-    // Generate match arms for each variant
+    // Generate match arms for each variant (empty for empty enums)
     let variant_arms = data_enum
         .variants
         .iter()
         .map(|variant| generate_serialize_variant_arm(variant, interface, has_lifetimes))
         .collect::<Result<Vec<_>, _>>()?;
 
+    // For empty enums, we need to dereference self to match the uninhabited type
+    let match_expr = if data_enum.variants.is_empty() {
+        quote! { *self }
+    } else {
+        quote! { self }
+    };
+
     Ok(quote! {
         impl #impl_generics serde::Serialize for #name #ty_generics #where_clause {
-            fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+            fn serialize<S>(&self, #[allow(unused)] serializer: S) -> core::result::Result<S::Ok, S::Error>
             where
                 S: serde::Serializer,
             {
-                match self {
+                match #match_expr {
                     #(#variant_arms)*
                 }
             }
@@ -242,6 +249,21 @@ fn generate_deserialize_impl(
 
     let (impl_generics_tokens, _, where_clause) = impl_generics.split_for_impl();
     let (_, ty_generics, _) = generics.split_for_impl();
+
+    // Handle empty enums specially
+    if data_enum.variants.is_empty() {
+        return Ok(quote! {
+            impl #impl_generics_tokens serde::Deserialize<'de> for #name #ty_generics #where_clause {
+                fn deserialize<D>(_deserializer: D) -> core::result::Result<Self, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    use serde::de;
+                    Err(de::Error::custom("cannot deserialize empty enum"))
+                }
+            }
+        });
+    }
 
     // For visitor Value type, convert enum lifetimes to 'de
     let visitor_ty_generics = generate_visitor_ty_generics(generics, has_lifetimes);
