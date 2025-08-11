@@ -11,6 +11,7 @@
 ## Release 0.2.0
 
 * zlink-core
+  * blocking wrappers
   * Make e2e tests work for nostd
     * Manual Deserialize impl for Method enums and assume `method` field before `parameters` field
     * chaining remains std-only (since it requires untagged enums)
