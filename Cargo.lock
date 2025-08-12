@@ -968,6 +968,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "zlink",
+ "zlink-codegen",
 ]
 
 [[package]]
