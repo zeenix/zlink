@@ -307,7 +307,7 @@ impl CodeGenerator {
     }
 
     fn generate_proxy_trait(&mut self, interface: &Interface<'_>) -> Result<()> {
-        let trait_name = format!("{}Proxy", interface_name_to_rust(interface.name()));
+        let trait_name = interface_name_to_rust(interface.name());
 
         // Generate a stub error type if there are no errors in the interface
         let error_type = if interface.errors().count() > 0 {

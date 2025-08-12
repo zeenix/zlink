@@ -15,7 +15,7 @@ method Ping(message: string) -> (reply: string)
 
     // Check that the generated code contains expected elements.
     assert!(code.contains("#[proxy(\"org.example.ping\")]"));
-    assert!(code.contains("pub trait PingProxy"));
+    assert!(code.contains("pub trait Ping"));
     assert!(code.contains("async fn ping"));
     // Check that string parameters use references
     assert!(code.contains("message: &str"));
@@ -188,7 +188,7 @@ error InvalidParameter (parameter: string)
 
     // Check the generated code contains the expected elements.
     assert!(code.contains("#[proxy(\"org.varlink.service\")]"));
-    assert!(code.contains("pub trait ServiceProxy"));
+    assert!(code.contains("pub trait Service"));
     assert!(code.contains("async fn get_info"));
     assert!(code.contains("async fn get_interface_description"));
     assert!(code.contains("#[derive(Debug, Clone, PartialEq, ReplyError)]"));
