@@ -3,15 +3,9 @@
 //! This module provides the [`Proxy`] trait which offers convenient methods to call
 //! the standard Varlink service interface methods on any connection.
 
-use core::{fmt::Debug, future::Future, str::FromStr};
+use crate::proxy;
 
-use crate::{
-    connection::{chain, socket::Socket, Connection},
-    Call, Result,
-};
-use serde::Deserialize;
-
-use super::{Error, Info, InterfaceDescription, Method};
+use super::{Error, Info, InterfaceDescription};
 
 /// Client-side proxy for the `org.varlink.service` interface.
 ///
@@ -20,9 +14,9 @@ use super::{Error, Info, InterfaceDescription, Method};
 ///
 /// # Chaining Calls
 ///
-/// The trait is implemented for both [`Connection`] and [`Chain`], allowing you to
-/// chain calls together for efficient batching. Use [`Connection::chain_get_info`] or
-/// [`Connection::chain_get_interface_description`] to start a chain.
+/// The trait is implemented for both [`crate::Connection`] and [`Chain`], allowing you to
+/// chain calls together for efficient batching. Use [`crate::Connection::chain_get_info`] or
+/// [`crate::Connection::chain_get_interface_description`] to start a chain.
 ///
 /// ## Example
 ///
@@ -112,6 +106,11 @@ use super::{Error, Info, InterfaceDescription, Method};
 /// # Ok(())
 /// # }
 /// ```
+#[proxy(
+    interface = "org.varlink.service",
+    crate = "crate",
+    chain_name = "Chain"
+)]
 pub trait Proxy {
     /// Get information about a Varlink service.
     ///
@@ -119,9 +118,7 @@ pub trait Proxy {
     ///
     /// Two-layer result: outer for connection errors, inner for method errors. On success, contains
     /// service information as [`Info`].
-    fn get_info(
-        &mut self,
-    ) -> impl Future<Output = crate::Result<core::result::Result<Info<'_>, Error>>>;
+    async fn get_info(&mut self) -> crate::Result<core::result::Result<Info<'_>, Error>>;
 
     /// Get the IDL description of an interface.
     ///
@@ -134,187 +131,17 @@ pub trait Proxy {
     /// Two-layer result: outer for connection errors, inner for method errors. On success, contains
     /// the unparsed interface definition as a [`InterfaceDescription`]. Use
     /// [`InterfaceDescription::parse`] to parse it.
-    fn get_interface_description(
-        &mut self,
-        interface: &str,
-    ) -> impl Future<Output = crate::Result<core::result::Result<InterfaceDescription<'static>, Error>>>;
-
-    /// Start a chain with a GetInfo call.
-    ///
-    /// This creates a [`Chain`] that can be used to batch multiple calls together.
-    /// The chain supports calling methods from multiple interfaces by using combined
-    /// reply and error types.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `ReplyParams` - Combined reply type (usually an untagged enum) that can deserialize
-    ///   replies from all interfaces in the chain
-    /// * `ReplyError` - Combined error type (usually an untagged enum) that can deserialize errors
-    ///   from all interfaces in the chain
-    fn chain_get_info<'c, ReplyParams, ReplyError>(
-        &'c mut self,
-    ) -> Result<chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
-    where
-        ReplyParams: Deserialize<'c> + Debug,
-        ReplyError: Deserialize<'c> + Debug;
-
-    /// Start a chain with a GetInterfaceDescription call.
-    ///
-    /// This creates a [`chain::Chain`] that can be used to batch multiple calls together.
-    /// The chain supports calling methods from multiple interfaces by using combined
-    /// reply and error types.
-    ///
-    /// # Arguments
-    ///
-    /// * `interface` - The name of the interface to get the description for.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `ReplyParams` - Combined reply type (usually an untagged enum) that can deserialize
-    ///   replies from all interfaces in the chain
-    /// * `ReplyError` - Combined error type (usually an untagged enum) that can deserialize errors
-    ///   from all interfaces in the chain
-    fn chain_get_interface_description<'c, ReplyParams, ReplyError>(
-        &'c mut self,
-        interface: &str,
-    ) -> Result<chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
-    where
-        ReplyParams: Deserialize<'c> + Debug,
-        ReplyError: Deserialize<'c> + Debug;
-
-    /// The socket type used by this proxy implementation.
-    type Socket: Socket;
-}
-
-impl<S> Proxy for Connection<S>
-where
-    S: Socket,
-{
-    type Socket = S;
-
-    async fn get_info(&mut self) -> Result<core::result::Result<Info<'_>, Error>> {
-        let call = Call::new(Method::GetInfo);
-        match self.call_method::<_, Info<'_>, Error>(&call).await? {
-            Ok(reply) => match reply.into_parameters() {
-                Some(info) => Ok(Ok(info)),
-                None => Ok(Err(Error::InvalidParameter {
-                    parameter: mayheap::string::String::from_str("missing parameters in reply")
-                        .unwrap(),
-                })),
-            },
-            Err(error) => Ok(Err(error)),
-        }
-    }
-
     async fn get_interface_description(
         &mut self,
         interface: &str,
-    ) -> Result<core::result::Result<InterfaceDescription<'static>, Error>> {
-        let call = Call::new(Method::GetInterfaceDescription { interface });
-        let result = self
-            .call_method::<_, InterfaceDescription<'static>, Error>(&call)
-            .await?;
-
-        match result {
-            Ok(reply) => match reply.into_parameters() {
-                Some(response) => Ok(Ok(response)),
-                None => Err(crate::Error::MissingParameters),
-            },
-            Err(error) => Ok(Err(error)),
-        }
-    }
-
-    fn chain_get_info<'c, ReplyParams, ReplyError>(
-        &'c mut self,
-    ) -> Result<chain::Chain<'c, S, ReplyParams, ReplyError>>
-    where
-        ReplyParams: Deserialize<'c> + Debug,
-        ReplyError: Deserialize<'c> + Debug,
-    {
-        let call = Call::new(Method::GetInfo);
-        self.chain_call(&call)
-    }
-
-    fn chain_get_interface_description<'c, ReplyParams, ReplyError>(
-        &'c mut self,
-        interface: &str,
-    ) -> Result<chain::Chain<'c, S, ReplyParams, ReplyError>>
-    where
-        ReplyParams: Deserialize<'c> + Debug,
-        ReplyError: Deserialize<'c> + Debug,
-    {
-        let call = Call::new(Method::GetInterfaceDescription { interface });
-        self.chain_call(&call)
-    }
-}
-
-/// Extension trait for adding varlink service proxy calls to any chain.
-///
-/// This trait provides methods to add varlink service calls to a chain of method calls. It is
-/// implemented for [`chain::Chain`] to enable chaining of varlink service calls with calls from
-/// other interfaces.
-pub trait Chain<'c, S, ReplyParams, ReplyError>
-where
-    S: Socket,
-    ReplyParams: Deserialize<'c> + Debug,
-    ReplyError: Deserialize<'c> + Debug,
-{
-    /// Add a GetInfo call to this chain.
-    ///
-    /// This method allows chaining varlink service calls with calls from other interfaces.
-    /// The chain must be created with combined reply and error types that can handle
-    /// responses from all interfaces.
-    ///
-    /// # Returns
-    ///
-    /// Returns `self` for method chaining, or an error if the call could not be enqueued.
-    fn get_info(self) -> Result<chain::Chain<'c, S, ReplyParams, ReplyError>>;
-
-    /// Add a GetInterfaceDescription call to this chain.
-    ///
-    /// This method allows chaining varlink service calls with calls from other interfaces.
-    /// The chain must be created with combined reply and error types that can handle
-    /// responses from all interfaces.
-    ///
-    /// # Arguments
-    ///
-    /// * `interface` - The name of the interface to get the description for.
-    ///
-    /// # Returns
-    ///
-    /// Returns `self` for method chaining, or an error if the call could not be enqueued.
-    fn get_interface_description(
-        self,
-        interface: &str,
-    ) -> Result<chain::Chain<'c, S, ReplyParams, ReplyError>>;
-}
-
-impl<'c, S, ReplyParams, ReplyError> Chain<'c, S, ReplyParams, ReplyError>
-    for chain::Chain<'c, S, ReplyParams, ReplyError>
-where
-    S: Socket,
-    ReplyParams: Deserialize<'c> + Debug,
-    ReplyError: Deserialize<'c> + Debug,
-{
-    fn get_info(self) -> Result<chain::Chain<'c, S, ReplyParams, ReplyError>> {
-        let call = Call::new(Method::GetInfo);
-        self.append(&call)
-    }
-
-    fn get_interface_description(
-        self,
-        interface: &str,
-    ) -> Result<chain::Chain<'c, S, ReplyParams, ReplyError>> {
-        let call = Call::new(Method::GetInterfaceDescription { interface });
-        self.append(&call)
-    }
+    ) -> crate::Result<core::result::Result<InterfaceDescription<'static>, Error>>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     // Use consolidated mock socket from test_utils.
-    use crate::test_utils::mock_socket::MockSocket;
+    use crate::{test_utils::mock_socket::MockSocket, Connection};
 
     #[tokio::test]
     async fn test_chain_api_creation() -> crate::Result<()> {
