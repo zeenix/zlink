@@ -560,19 +560,31 @@ fn type_to_rust_output(ty: &Type) -> Result<String> {
             "&'a str".to_string()
         }
         Type::Array(elem_type) => {
-            // Use Vec for array outputs, with borrowed strings when possible
-            let elem_rust = type_to_rust_output(elem_type.inner())?;
+            // Use Vec for array outputs with owned inner types (except strings stay as &'a str)
+            let elem_rust = match elem_type.inner() {
+                Type::String => "&'a str".to_string(),
+                Type::Enum(_) => "&'a str".to_string(),
+                _ => type_to_rust(elem_type.inner())?,
+            };
             format!("Vec<{}>", elem_rust)
         }
         Type::Map(value_type) => {
-            // Use HashMap for map outputs, with borrowed values when possible
-            let value_rust = type_to_rust_output(value_type.inner())?;
+            // Use HashMap for map outputs with owned inner types (except strings stay as &'a str)
+            let value_rust = match value_type.inner() {
+                Type::String => "&'a str".to_string(),
+                Type::Enum(_) => "&'a str".to_string(),
+                _ => type_to_rust(value_type.inner())?,
+            };
             format!("std::collections::HashMap<String, {}>", value_rust)
         }
         Type::ForeignObject => "serde_json::Value".to_string(),
         Type::Optional(inner_type) => {
-            let inner_rust = type_to_rust_output(inner_type.inner())?;
-            // For optional outputs, wrap in Option
+            // For optional outputs, only String and Enum use references
+            let inner_rust = match inner_type.inner() {
+                Type::String => "&'a str".to_string(),
+                Type::Enum(_) => "&'a str".to_string(),
+                _ => type_to_rust(inner_type.inner())?,
+            };
             format!("Option<{}>", inner_rust)
         }
         Type::Custom(name) => name.to_pascal_case(),
