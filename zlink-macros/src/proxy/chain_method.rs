@@ -12,6 +12,7 @@ pub(super) fn generate_chain_method(
     interface_name: &str,
     _trait_generics: &syn::Generics,
     method_attrs: &MethodAttrs,
+    crate_path: &TokenStream,
 ) -> Result<(TokenStream, TokenStream), Error> {
     let method_name_str = method.sig.ident.to_string();
     let method_ident = method.sig.ident.clone();
@@ -73,7 +74,7 @@ pub(super) fn generate_chain_method(
         fn #chain_method_name<#all_generics>(
             &'c mut self,
             #(#args_with_types),*
-        ) -> ::zlink::Result<::zlink::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
         #chain_where;
     };
 
@@ -87,6 +88,7 @@ pub(super) fn generate_chain_method(
         &method_where_clause,
         has_any_lifetime,
         has_explicit_lifetimes,
+        crate_path,
     );
 
     // Generate the implementation method
@@ -94,7 +96,7 @@ pub(super) fn generate_chain_method(
         fn #chain_method_name<#all_generics>(
             &'c mut self,
             #(#args_with_types),*
-        ) -> ::zlink::Result<::zlink::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
         #chain_where
         {
             #method_call_creation
@@ -178,6 +180,7 @@ fn generate_method_call_creation(
     method_where_clause: &Option<syn::WhereClause>,
     has_any_lifetime: bool,
     has_explicit_lifetimes: bool,
+    crate_path: &TokenStream,
 ) -> TokenStream {
     if !arg_names.is_empty() {
         let param_fields: Vec<_> = arg_infos
@@ -242,7 +245,7 @@ fn generate_method_call_creation(
             let method_call = #wrapper_enum_name::Method(#params_struct_name {
                 #(#arg_names,)*
             });
-            let call = ::zlink::Call::new(method_call);
+            let call = #crate_path::Call::new(method_call);
         }
     } else {
         // Create unique enum name for this method to avoid conflicts
@@ -263,7 +266,7 @@ fn generate_method_call_creation(
             }
 
             let method_call = #wrapper_enum_name::Method;
-            let call = ::zlink::Call::new(method_call);
+            let call = #crate_path::Call::new(method_call);
         }
     }
 }

@@ -16,6 +16,7 @@ pub(super) fn generate_method_impl(
     interface_name: &str,
     trait_generics: &syn::Generics,
     method_attrs: &MethodAttrs,
+    crate_path: &TokenStream,
 ) -> Result<TokenStream, Error> {
     let method_name = &method.sig.ident;
     let method_name_str = method_name.to_string();
@@ -52,7 +53,7 @@ pub(super) fn generate_method_impl(
     let (reply_type, error_type) = if method_attrs.is_oneway {
         // For oneway methods, we don't parse the return type - just use dummy values
         // since we don't use them in the generated code
-        (syn::parse_quote!(()), syn::parse_quote!(::zlink::Error))
+        (syn::parse_quote!(()), syn::parse_quote!(#crate_path::Error))
     } else {
         parse_return_type(&method_output, method_attrs.is_streaming)?
     };
@@ -93,20 +94,21 @@ pub(super) fn generate_method_impl(
         _ => {
             quote!(match reply.into_parameters() {
                 Some(params) => Ok(Ok(params)),
-                None => Err(::zlink::Error::MissingParameters),
+                None => Err(#crate_path::Error::MissingParameters),
             })
         }
     };
 
     // Generate return type and implementation based on method attributes
     let (return_type, implementation) = if method_attrs.is_oneway {
-        generate_oneway_method(method_call_setup)
+        generate_oneway_method(method_call_setup, crate_path)
     } else if method_attrs.is_streaming {
         generate_streaming_method(
             method_call_setup,
             &reply_type,
             &error_type,
             out_params_extract,
+            crate_path,
         )
     } else {
         generate_regular_method(
@@ -114,6 +116,7 @@ pub(super) fn generate_method_impl(
             &reply_type,
             &error_type,
             out_params_extract,
+            crate_path,
         )
     };
 
@@ -331,14 +334,17 @@ fn build_params_where_clause(
     }
 }
 
-fn generate_oneway_method(method_call_setup: TokenStream) -> (TokenStream, TokenStream) {
+fn generate_oneway_method(
+    method_call_setup: TokenStream,
+    crate_path: &TokenStream,
+) -> (TokenStream, TokenStream) {
     let return_type = quote! {
-        ::zlink::Result<()>
+        #crate_path::Result<()>
     };
     let implementation = quote! {
         #method_call_setup
 
-        let call = ::zlink::Call::new(method_call).set_oneway(true);
+        let call = #crate_path::Call::new(method_call).set_oneway(true);
         self.send_call(&call).await
     };
     (return_type, implementation)
@@ -349,21 +355,22 @@ fn generate_streaming_method(
     reply_type: &Type,
     error_type: &Type,
     out_params_extract: TokenStream,
+    crate_path: &TokenStream,
 ) -> (TokenStream, TokenStream) {
     let return_type = quote! {
-        ::zlink::Result<
+        #crate_path::Result<
             impl ::futures_util::stream::Stream<
-                Item = ::zlink::Result<::core::result::Result<#reply_type, #error_type>>
+                Item = #crate_path::Result<::core::result::Result<#reply_type, #error_type>>
             >
         >
     };
     let implementation = quote! {
         #method_call_setup
 
-        let call = ::zlink::Call::new(method_call).set_more(true);
+        let call = #crate_path::Call::new(method_call).set_more(true);
         self.send_call(&call).await?;
 
-        let stream = ::zlink::connection::chain::ReplyStream::new(
+        let stream = #crate_path::connection::chain::ReplyStream::new(
             self.read_mut(),
             |conn| conn.receive_reply::<#reply_type, #error_type>(),
             1,
@@ -386,14 +393,15 @@ fn generate_regular_method(
     reply_type: &Type,
     error_type: &Type,
     out_params_extract: TokenStream,
+    crate_path: &TokenStream,
 ) -> (TokenStream, TokenStream) {
     let return_type = quote! {
-        ::zlink::Result<::core::result::Result<#reply_type, #error_type>>
+        #crate_path::Result<::core::result::Result<#reply_type, #error_type>>
     };
     let implementation = quote! {
         #method_call_setup
 
-        let call = ::zlink::Call::new(method_call);
+        let call = #crate_path::Call::new(method_call);
         match self.call_method::<_, #reply_type, #error_type>(&call).await? {
             Ok(reply) => #out_params_extract,
             Err(error) => Ok(Err(error)),
