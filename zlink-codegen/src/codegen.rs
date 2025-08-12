@@ -247,7 +247,10 @@ impl CodeGenerator {
     /// Generate output structs for all methods in the `interface`.
     fn generate_output_structs(&mut self, interface: &Interface<'_>) -> Result<()> {
         for method in interface.methods() {
-            if method.outputs().count() > 1 {
+            // Generate output struct for any method with at least one output parameter.
+            // Varlink output parameters are always named, so we need a struct even for single
+            // outputs.
+            if method.outputs().count() > 0 {
                 let struct_name = format!("{}Output", method.name().to_pascal_case());
 
                 // Add method comments if available
@@ -380,12 +383,10 @@ impl CodeGenerator {
         let output_count = method.outputs().count();
         if output_count == 0 {
             signature.push_str("()");
-        } else if output_count == 1 {
-            let output = method.outputs().next().unwrap();
-            let rust_type = self.type_to_rust(output.ty())?;
-            signature.push_str(&rust_type);
         } else {
-            // Multiple outputs, use the generated output struct
+            // Always use the generated output struct for any outputs.
+            // Varlink output parameters are always named, so we need a struct even for single
+            // outputs.
             let struct_name = format!("{}Output", method.name().to_pascal_case());
             // Add lifetime parameter if the struct needs one
             let needs_lifetime = method.outputs().any(|o| type_needs_lifetime(o.ty()));

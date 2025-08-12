@@ -14,18 +14,22 @@ mod tests {
             // Test successful get_person call.
             json!({
                 "parameters": {
-                    "name": "Alice Smith",
-                    "age": 32,
-                    "email": "alice@example.com"
+                    "person": {
+                        "name": "Alice Smith",
+                        "age": 32,
+                        "email": "alice@example.com"
+                    }
                 }
             })
             .to_string(),
             // Test person with no email (optional field).
             json!({
                 "parameters": {
-                    "name": "Bob Jones",
-                    "age": 25,
-                    "email": null
+                    "person": {
+                        "name": "Bob Jones",
+                        "age": 25,
+                        "email": null
+                    }
                 }
             })
             .to_string(),
@@ -59,15 +63,15 @@ mod tests {
 
         // Test successful get_person call.
         let result = conn.get_person("alice").await.unwrap().unwrap();
-        assert_eq!(result.name, "Alice Smith");
-        assert_eq!(result.age, 32);
-        assert_eq!(result.email, Some("alice@example.com".to_string()));
+        assert_eq!(result.person.name, "Alice Smith");
+        assert_eq!(result.person.age, 32);
+        assert_eq!(result.person.email, Some("alice@example.com".to_string()));
 
         // Test person with no email (optional field).
         let result = conn.get_person("bob").await.unwrap().unwrap();
-        assert_eq!(result.name, "Bob Jones");
-        assert_eq!(result.age, 25);
-        assert_eq!(result.email, None);
+        assert_eq!(result.person.name, "Bob Jones");
+        assert_eq!(result.person.age, 25);
+        assert_eq!(result.person.email, None);
 
         // Test NotFound error.
         let result = conn.get_person("unknown").await.unwrap();
@@ -93,19 +97,19 @@ mod tests {
         // Prepare all responses for CalcProxy tests.
         let responses = [
             // Test add method.
-            json!({ "parameters": 15 }).to_string(),
+            json!({ "parameters": { "result": 15 } }).to_string(),
             // Test subtract method.
-            json!({ "parameters": 5 }).to_string(),
+            json!({ "parameters": { "result": 5 } }).to_string(),
             // Test subtract with negative result.
-            json!({ "parameters": -7 }).to_string(),
+            json!({ "parameters": { "result": -7 } }).to_string(),
             // Test multiply method.
-            json!({ "parameters": 50 }).to_string(),
+            json!({ "parameters": { "result": 50 } }).to_string(),
             // Test multiply by zero.
-            json!({ "parameters": 0 }).to_string(),
+            json!({ "parameters": { "result": 0 } }).to_string(),
             // Test divide method with valid division.
-            json!({ "parameters": 2 }).to_string(),
-            // TODO: Fix divide with None return - proxy macro issue with Option<T>
-            // json!({ "parameters": null }).to_string(),
+            json!({ "parameters": { "result": 2 } }).to_string(),
+            // Test divide by zero - returns None.
+            json!({ "parameters": { "result": null } }).to_string(),
         ];
 
         let socket = MockSocket::new(&responses.iter().map(|s| s.as_str()).collect::<Vec<_>>());
@@ -113,34 +117,31 @@ mod tests {
 
         // Test add method.
         let result = conn.add(10, 5).await.unwrap().unwrap();
-        assert_eq!(result, 15);
+        assert_eq!(result.result, 15);
 
         // Test subtract method.
         let result = conn.subtract(10, 5).await.unwrap().unwrap();
-        assert_eq!(result, 5);
+        assert_eq!(result.result, 5);
 
         // Test subtract with negative result.
         let result = conn.subtract(3, 10).await.unwrap().unwrap();
-        assert_eq!(result, -7);
+        assert_eq!(result.result, -7);
 
         // Test multiply method.
         let result = conn.multiply(10, 5).await.unwrap().unwrap();
-        assert_eq!(result, 50);
+        assert_eq!(result.result, 50);
 
         // Test multiply by zero.
         let result = conn.multiply(100, 0).await.unwrap().unwrap();
-        assert_eq!(result, 0);
+        assert_eq!(result.result, 0);
 
         // Test divide method with valid division.
         let result = conn.divide(10, 5).await.unwrap().unwrap();
-        assert_eq!(result, Some(2));
+        assert_eq!(result.result, Some(2));
 
-        // TODO: The proxy macro doesn't properly handle Option<T> return types where None is valid.
-        // When parameters is null in JSON, into_parameters() returns None which triggers
-        // MissingParameters. This needs to be fixed in the proxy macro to distinguish between
-        // missing parameters and null value.
-        // let result = conn.divide(10, 0).await.unwrap().unwrap();
-        // assert_eq!(result, None);
+        // Test divide by zero - returns None.
+        let result = conn.divide(10, 0).await.unwrap().unwrap();
+        assert_eq!(result.result, None);
     }
 
     #[tokio::test]
@@ -148,45 +149,49 @@ mod tests {
         // Prepare all responses for StorageProxy tests.
         let responses = [
             // Test store method with a document that has tags.
-            json!({ "parameters": "doc-123" }).to_string(),
+            json!({ "parameters": { "id": "doc-123" } }).to_string(),
             // Test store with document without tags (empty vec).
-            json!({ "parameters": "doc-456" }).to_string(),
+            json!({ "parameters": { "id": "doc-456" } }).to_string(),
             // Test retrieve method.
             json!({
                 "parameters": {
-                    "id": "doc-789",
-                    "title": "Retrieved Document",
-                    "content": "Retrieved content",
-                    "tags": ["archived", "2024"]
+                    "doc": {
+                        "id": "doc-789",
+                        "title": "Retrieved Document",
+                        "content": "Retrieved content",
+                        "tags": ["archived", "2024"]
+                    }
                 }
             })
             .to_string(),
             // Test search method with string array parameter.
             json!({
-                "parameters": [
-                    {
-                        "id": "doc-1",
-                        "title": "Document 1",
-                        "content": "Content 1",
-                        "tags": ["tag1"]
-                    },
-                    {
-                        "id": "doc-2",
-                        "title": "Document 2",
-                        "content": "Content 2",
-                        "tags": ["tag2"]
-                    },
-                    {
-                        "id": "doc-3",
-                        "title": "Document 3",
-                        "content": "Content 3",
-                        "tags": ["tag3"]
-                    }
-                ]
+                "parameters": {
+                    "docs": [
+                        {
+                            "id": "doc-1",
+                            "title": "Document 1",
+                            "content": "Content 1",
+                            "tags": ["tag1"]
+                        },
+                        {
+                            "id": "doc-2",
+                            "title": "Document 2",
+                            "content": "Content 2",
+                            "tags": ["tag2"]
+                        },
+                        {
+                            "id": "doc-3",
+                            "title": "Document 3",
+                            "content": "Content 3",
+                            "tags": ["tag3"]
+                        }
+                    ]
+                }
             })
             .to_string(),
             // Test search with empty tags array.
-            json!({ "parameters": [] }).to_string(),
+            json!({ "parameters": { "docs": [] } }).to_string(),
         ];
 
         let socket = MockSocket::new(&responses.iter().map(|s| s.as_str()).collect::<Vec<_>>());
@@ -200,7 +205,7 @@ mod tests {
             tags: vec!["important".to_string(), "draft".to_string()],
         };
         let result = conn.store(&doc).await.unwrap().unwrap();
-        assert_eq!(result, "doc-123");
+        assert_eq!(result.id, "doc-123");
 
         // Test store with document without tags (empty vec).
         let doc_no_tags = Document {
@@ -210,15 +215,15 @@ mod tests {
             tags: vec![],
         };
         let result = conn.store(&doc_no_tags).await.unwrap().unwrap();
-        assert_eq!(result, "doc-456");
+        assert_eq!(result.id, "doc-456");
 
         // Test retrieve method.
         let result = conn.retrieve("doc-789").await.unwrap().unwrap();
-        assert_eq!(result.id, "doc-789");
-        assert_eq!(result.title, "Retrieved Document");
-        assert_eq!(result.content, "Retrieved content");
+        assert_eq!(result.doc.id, "doc-789");
+        assert_eq!(result.doc.title, "Retrieved Document");
+        assert_eq!(result.doc.content, "Retrieved content");
         assert_eq!(
-            result.tags,
+            result.doc.tags,
             vec!["archived".to_string(), "2024".to_string()]
         );
 
@@ -234,10 +239,10 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].id, "doc-1");
-        assert_eq!(result[1].id, "doc-2");
-        assert_eq!(result[2].id, "doc-3");
+        assert_eq!(result.docs.len(), 3);
+        assert_eq!(result.docs[0].id, "doc-1");
+        assert_eq!(result.docs[1].id, "doc-2");
+        assert_eq!(result.docs[2].id, "doc-3");
 
         // Test search with empty tags array.
         let empty_tags: Vec<&str> = vec![];
@@ -246,7 +251,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(result.len(), 0);
+        assert_eq!(result.docs.len(), 0);
     }
 
     #[tokio::test]
@@ -286,35 +291,43 @@ mod tests {
             // Test with Unicode strings.
             json!({
                 "parameters": {
-                    "name": "李明",
-                    "age": 30,
-                    "email": "李明@example.com"
+                    "person": {
+                        "name": "李明",
+                        "age": 30,
+                        "email": "李明@example.com"
+                    }
                 }
             })
             .to_string(),
             // Test with very long strings.
             json!({
                 "parameters": {
-                    "id": "long-doc",
-                    "title": "x".repeat(1000),
-                    "content": "content",
-                    "tags": []
+                    "doc": {
+                        "id": "long-doc",
+                        "title": "x".repeat(1000),
+                        "content": "content",
+                        "tags": []
+                    }
                 }
             })
             .to_string(),
             // Test with many tags in array.
             json!({
-                "parameters": (0..100).map(|i| json!({
-                    "id": format!("doc-{}", i),
-                    "title": format!("Title {}", i),
-                    "content": format!("Content {}", i),
-                    "tags": [format!("tag{}", i)]
-                })).collect::<Vec<_>>()
+                "parameters": {
+                    "docs": (0..100).map(|i| json!({
+                        "id": format!("doc-{}", i),
+                        "title": format!("Title {}", i),
+                        "content": format!("Content {}", i),
+                        "tags": [format!("tag{}", i)]
+                    })).collect::<Vec<_>>()
+                }
             })
             .to_string(),
             // Test large numbers in calc operations.
             json!({
-                "parameters": i64::MAX
+                "parameters": {
+                    "result": i64::MAX
+                }
             })
             .to_string(),
         ];
@@ -324,20 +337,20 @@ mod tests {
 
         // Test with Unicode strings.
         let result = conn.get_person("李明").await.unwrap().unwrap();
-        assert_eq!(result.name, "李明");
-        assert_eq!(result.email, Some("李明@example.com".to_string()));
+        assert_eq!(result.person.name, "李明");
+        assert_eq!(result.person.email, Some("李明@example.com".to_string()));
 
         // Test with very long strings.
         let result = conn.retrieve("id").await.unwrap().unwrap();
-        assert_eq!(result.title.len(), 1000);
+        assert_eq!(result.doc.title.len(), 1000);
 
         // Test with many tags in array.
         let tags: Vec<&str> = vec!["test"];
         let result = conn.search("query", &tags).await.unwrap().unwrap();
-        assert_eq!(result.len(), 100);
+        assert_eq!(result.docs.len(), 100);
 
         // Test large numbers in calc operations.
         let result = conn.add(i64::MAX - 1, 1).await.unwrap().unwrap();
-        assert_eq!(result, i64::MAX);
+        assert_eq!(result.result, i64::MAX);
     }
 }
