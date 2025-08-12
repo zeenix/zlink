@@ -143,7 +143,10 @@ fn build_trait_output(
         trait_def.items.push(syn::parse2(chain_trait.clone())?);
     }
 
-    Ok(quote! { #trait_def })
+    Ok(quote! {
+        #[allow(async_fn_in_trait)]
+        #trait_def
+    })
 }
 
 fn build_impl_output(
