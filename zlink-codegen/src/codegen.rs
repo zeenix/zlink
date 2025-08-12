@@ -606,12 +606,9 @@ fn type_to_rust_output(ty: &Type) -> Result<String> {
         }
         Type::ForeignObject => "serde_json::Value".to_string(),
         Type::Optional(inner_type) => {
-            // For optional outputs, only String and Enum use references
-            let inner_rust = match inner_type.inner() {
-                Type::String => "&'a str".to_string(),
-                Type::Enum(_) => "&'a str".to_string(),
-                _ => type_to_rust(inner_type.inner())?,
-            };
+            // For optional outputs, recursively apply type_to_rust_output to maintain
+            // correct reference types for strings within collections
+            let inner_rust = type_to_rust_output(inner_type.inner())?;
             format!("Option<{}>", inner_rust)
         }
         Type::Custom(name) => name.to_pascal_case(),
