@@ -2,9 +2,6 @@
 
 ## Release 0.1.0
 
-* zlink-codegen (generates code from IDL)
-  * Make use of `zlink_core::idl` module
-  * tests
 * Populate README.md with examples, usage instructions and features documentation
 * More metadata in Cargo.toml files
 
