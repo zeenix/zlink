@@ -597,13 +597,13 @@ fn type_to_rust_output(ty: &Type) -> Result<String> {
             format!("Vec<{}>", elem_rust)
         }
         Type::Map(value_type) => {
-            // Use HashMap for map outputs with owned inner types (except strings stay as &'a str)
+            // Use HashMap for map outputs with borrowed types for efficiency
             let value_rust = match value_type.inner() {
                 Type::String => "&'a str".to_string(),
                 Type::Enum(_) => "&'a str".to_string(),
                 _ => type_to_rust(value_type.inner())?,
             };
-            format!("std::collections::HashMap<String, {}>", value_rust)
+            format!("std::collections::HashMap<&'a str, {}>", value_rust)
         }
         Type::ForeignObject => "serde_json::Value".to_string(),
         Type::Optional(inner_type) => {
@@ -626,7 +626,10 @@ fn type_needs_lifetime(ty: &Type) -> bool {
         Type::String => true,
         Type::Enum(_) => true, // Anonymous enums use &'a str
         Type::Array(inner) => type_needs_lifetime(inner.inner()),
-        Type::Map(inner) => type_needs_lifetime(inner.inner()),
+        Type::Map(_) => {
+            // Maps always need lifetime because keys are &'a str
+            true
+        }
         Type::Optional(inner) => type_needs_lifetime(inner.inner()),
         _ => false,
     }
@@ -637,7 +640,10 @@ fn type_needs_borrow(ty: &Type) -> bool {
         Type::String => true,
         Type::Enum(_) => true, // Anonymous enums use &'a str
         Type::Array(inner) => type_needs_borrow(inner.inner()),
-        Type::Map(inner) => type_needs_borrow(inner.inner()),
+        Type::Map(_) => {
+            // Maps always need borrow because keys are &'a str
+            true
+        }
         Type::Optional(inner) => type_needs_borrow(inner.inner()),
         _ => false,
     }

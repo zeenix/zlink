@@ -88,10 +88,11 @@ method ProcessData(numbers: []int) -> (results: [string]int)
     let interface = Interface::try_from(idl).unwrap();
     let code = generate_interface(&interface).unwrap();
 
-    // Check that arrays and dicts are handled.
+    // Check that arrays and dicts are handled in output structs.
+    // Output structs use references for strings for efficiency.
     assert!(code.contains("Vec<&'a str>"));
-    assert!(code.contains("std::collections::HashMap<String, String>"));
-    assert!(code.contains("std::collections::HashMap<String, i64>"));
+    assert!(code.contains("std::collections::HashMap<&'a str, &'a str>"));
+    assert!(code.contains("std::collections::HashMap<&'a str, i64>"));
 
     // Check that parameters use references
     assert!(code.contains("numbers: &[i64]"));
