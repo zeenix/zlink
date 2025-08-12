@@ -161,13 +161,17 @@ fn generate_no_params_method(
         /// Add a #method_name call to this chain.
         fn #method_name(
             self,
-        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>>;
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        >;
     };
 
     let impl_method = quote! {
         fn #method_name(
             self,
-        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>> {
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        > {
             let call = #crate_path::Call::new({
                 #[derive(::serde::Serialize, ::core::fmt::Debug)]
                 #[serde(tag = "method")]
@@ -203,7 +207,9 @@ fn generate_with_params_method(
         fn #method_name #generics(
             self,
             #(#param_fields,)*
-        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        >
         #combined_where_clause;
     };
 
@@ -237,7 +243,9 @@ fn generate_with_params_method(
         fn #method_name #generics(
             self,
             #(#param_fields,)*
-        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        >
         #combined_where_clause
         {
             let call = #crate_path::Call::new({

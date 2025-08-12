@@ -74,7 +74,9 @@ pub(super) fn generate_chain_method(
         fn #chain_method_name<#all_generics>(
             &'c mut self,
             #(#args_with_types),*
-        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>
+        >
         #chain_where;
     };
 
@@ -96,7 +98,9 @@ pub(super) fn generate_chain_method(
         fn #chain_method_name<#all_generics>(
             &'c mut self,
             #(#args_with_types),*
-        ) -> #crate_path::Result<#crate_path::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, Self::Socket, ReplyParams, ReplyError>
+        >
         #chain_where
         {
             #method_call_creation

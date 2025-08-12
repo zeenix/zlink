@@ -117,18 +117,14 @@ fn parse_proxy_attributes(
     if attr.is_empty() {
         return Err(Error::new_spanned(
             trait_def,
-            "proxy macro requires interface name, e.g. #[proxy(\"org.example.Interface\")] or #[proxy(interface = \"org.example.Interface\")]",
+            "proxy macro requires interface name, e.g. #[proxy(\"org.example.Interface\")] \
+             or #[proxy(interface = \"org.example.Interface\")]",
         ));
     }
 
     // Try parsing as a simple string literal first (backward compatibility)
-    if let Ok(interface_lit) = parse2::<Lit>(attr.clone()) {
-        match interface_lit {
-            Lit::Str(lit_str) => {
-                return Ok((lit_str.value(), quote! { ::zlink }, None));
-            }
-            _ => {}
-        }
+    if let Ok(Lit::Str(lit_str)) = parse2::<Lit>(attr.clone()) {
+        return Ok((lit_str.value(), quote! { ::zlink }, None));
     }
 
     // Parse as name-value pairs
@@ -158,7 +154,8 @@ fn parse_proxy_attributes(
     let interface_name = interface_name.ok_or_else(|| {
         Error::new_spanned(
             trait_def,
-            "proxy macro requires 'interface' parameter, e.g. #[proxy(interface = \"org.example.Interface\")]",
+            "proxy macro requires 'interface' parameter, \
+             e.g. #[proxy(interface = \"org.example.Interface\")]",
         )
     })?;
 
