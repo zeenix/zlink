@@ -89,7 +89,7 @@ method ProcessData(numbers: []int) -> (results: [string]int)
     let code = generate_interface(&interface).unwrap();
 
     // Check that arrays and dicts are handled.
-    assert!(code.contains("Vec<String>"));
+    assert!(code.contains("Vec<&'a str>"));
     assert!(code.contains("std::collections::HashMap<String, String>"));
     assert!(code.contains("std::collections::HashMap<String, i64>"));
 

@@ -526,14 +526,14 @@ fn type_to_rust_param(ty: &Type) -> Result<String> {
             "&str".to_string()
         }
         Type::Array(elem_type) => {
-            // Use slice for array parameters
-            let elem_rust = type_to_rust(elem_type.inner())?;
+            // Use slice for array parameters with proper string handling
+            let elem_rust = type_to_rust_param_elem(elem_type.inner())?;
             format!("&[{}]", elem_rust)
         }
         Type::Map(value_type) => {
-            // Use reference for map parameters
-            let value_rust = type_to_rust(value_type.inner())?;
-            format!("&std::collections::HashMap<String, {}>", value_rust)
+            // Use reference for map parameters with proper string handling
+            let value_rust = type_to_rust_param_elem(value_type.inner())?;
+            format!("&std::collections::HashMap<&str, {}>", value_rust)
         }
         Type::ForeignObject => "&serde_json::Value".to_string(),
         Type::Optional(inner_type) => {
@@ -542,6 +542,33 @@ fn type_to_rust_param(ty: &Type) -> Result<String> {
             format!("Option<{}>", inner_rust)
         }
         Type::Custom(name) => format!("&{}", name.to_pascal_case()),
+    })
+}
+
+// Helper function to get the proper type for collection elements in parameters.
+// Ensures strings always use &str instead of String.
+fn type_to_rust_param_elem(ty: &Type) -> Result<String> {
+    Ok(match ty {
+        Type::Bool => "bool".to_string(),
+        Type::Int => "i64".to_string(),
+        Type::Float => "f64".to_string(),
+        Type::String => "&str".to_string(),
+        Type::Object(_fields) => "serde_json::Value".to_string(),
+        Type::Enum(_variants) => "&str".to_string(),
+        Type::Array(elem_type) => {
+            let elem_rust = type_to_rust_param_elem(elem_type.inner())?;
+            format!("Vec<{}>", elem_rust)
+        }
+        Type::Map(value_type) => {
+            let value_rust = type_to_rust_param_elem(value_type.inner())?;
+            format!("std::collections::HashMap<&str, {}>", value_rust)
+        }
+        Type::ForeignObject => "serde_json::Value".to_string(),
+        Type::Optional(inner_type) => {
+            let inner_rust = type_to_rust_param_elem(inner_type.inner())?;
+            format!("Option<{}>", inner_rust)
+        }
+        Type::Custom(name) => name.to_pascal_case(),
     })
 }
 
