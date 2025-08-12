@@ -135,6 +135,7 @@ fn build_trait_output(
 ) -> Result<TokenStream, Error> {
     // Add the Socket associated type to the trait
     trait_def.items.push(syn::parse2(quote! {
+        /// The socket type used for the connection.
         type Socket: ::zlink::connection::socket::Socket;
     })?);
 
