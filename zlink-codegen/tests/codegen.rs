@@ -232,8 +232,8 @@ method SendOptional(text: ?string, data: ?CustomData) -> ()
 
     // Check that all parameters use appropriate reference types
     assert!(code.contains("text: &str"));
-    assert!(code.contains("items: &[String]"));
-    assert!(code.contains("data: &std::collections::HashMap<String, i64>"));
+    assert!(code.contains("items: &[&str]"));
+    assert!(code.contains("data: &std::collections::HashMap<&str, i64>"));
     assert!(code.contains("data: &CustomData"));
     assert!(code.contains("text: Option<&str>"));
     assert!(code.contains("data: Option<&CustomData>"));
