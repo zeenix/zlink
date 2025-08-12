@@ -1,0 +1,13 @@
+interface test.Example
+
+type Person (
+    name: string,
+    age: int,
+    email: ?string
+)
+
+error NotFound(message: string)
+error InvalidInput(code: int, details: string)
+error Unknown()
+
+method GetPerson(name: string) -> (person: Person)

@@ -1,0 +1,24 @@
+[package]
+name = "test-integration"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "test_integration"
+path = "src/lib.rs"
+
+[dependencies]
+zlink = { path = "../../zlink", features = ["proxy"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["rt", "macros"] }
+anyhow = "1.0"
+
+[build-dependencies]
+zlink = { path = "../../zlink", features = ["idl-parse"] }
+zlink-codegen = { path = ".." }
+

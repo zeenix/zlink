@@ -1,0 +1,6 @@
+interface org.example.Calc
+
+method Add(a: int, b: int) -> (result: int)
+method Subtract(a: int, b: int) -> (result: int)
+method Multiply(a: int, b: int) -> (result: int)
+method Divide(a: int, b: int) -> (result: ?int)
