@@ -24,8 +24,8 @@ pub(crate) fn proxy(attr: TokenStream, input: TokenStream) -> TokenStream {
 fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
     let mut trait_def = parse2::<ItemTrait>(input)?;
 
-    // Parse the interface name and crate path from the attribute
-    let (interface_name, crate_path) = parse_proxy_attributes(&attr, &trait_def)?;
+    // Parse the interface name, crate path, and chain name from the attribute
+    let (interface_name, crate_path, chain_name) = parse_proxy_attributes(&attr, &trait_def)?;
 
     // Validate trait definition
     validate_trait(&trait_def)?;
@@ -100,6 +100,7 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
         &chain_extension_methods,
         &chain_extension_impls,
         &crate_path,
+        chain_name,
     );
 
     Ok(quote! {
@@ -112,7 +113,7 @@ fn proxy_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, Erro
 fn parse_proxy_attributes(
     attr: &TokenStream,
     trait_def: &ItemTrait,
-) -> Result<(String, TokenStream), Error> {
+) -> Result<(String, TokenStream, Option<syn::Ident>), Error> {
     if attr.is_empty() {
         return Err(Error::new_spanned(
             trait_def,
@@ -124,7 +125,7 @@ fn parse_proxy_attributes(
     if let Ok(interface_lit) = parse2::<Lit>(attr.clone()) {
         match interface_lit {
             Lit::Str(lit_str) => {
-                return Ok((lit_str.value(), quote! { ::zlink }));
+                return Ok((lit_str.value(), quote! { ::zlink }, None));
             }
             _ => {}
         }
@@ -133,6 +134,7 @@ fn parse_proxy_attributes(
     // Parse as name-value pairs
     let mut interface_name = None;
     let mut crate_path = None;
+    let mut chain_name = None;
 
     let parser = syn::meta::parser(|meta| {
         if meta.path.is_ident("interface") {
@@ -142,6 +144,9 @@ fn parse_proxy_attributes(
             let value: syn::LitStr = meta.value()?.parse()?;
             let path_str = value.value();
             crate_path = Some(syn::parse_str(&path_str)?);
+        } else if meta.path.is_ident("chain_name") {
+            let value: syn::LitStr = meta.value()?.parse()?;
+            chain_name = Some(syn::Ident::new(&value.value(), value.span()));
         } else {
             return Err(meta.error("unsupported attribute"));
         }
@@ -159,7 +164,7 @@ fn parse_proxy_attributes(
 
     let crate_path = crate_path.unwrap_or_else(|| quote! { ::zlink });
 
-    Ok((interface_name, crate_path))
+    Ok((interface_name, crate_path, chain_name))
 }
 
 fn validate_trait(trait_def: &ItemTrait) -> Result<(), Error> {
@@ -243,12 +248,14 @@ fn build_chain_extension_trait(
     chain_extension_methods: &[TokenStream],
     chain_extension_impls: &[TokenStream],
     crate_path: &TokenStream,
+    custom_chain_name: Option<syn::Ident>,
 ) -> TokenStream {
     if chain_extension_methods.is_empty() {
         return quote! {};
     }
 
-    let chain_trait_name = syn::Ident::new(&format!("{trait_name}Chain"), trait_name.span());
+    let chain_trait_name = custom_chain_name
+        .unwrap_or_else(|| syn::Ident::new(&format!("{trait_name}Chain"), trait_name.span()));
 
     quote! {
         /// Extension trait for adding proxy calls to any chain.
