@@ -12,20 +12,22 @@ fn main() {
         .unwrap()
         .to_path_buf();
 
-    // Build zlink-codegen if needed.
-    let status = Command::new("cargo")
-        .args(&["build", "-p", "zlink-codegen"])
-        .current_dir(&workspace_root)
-        .status()
-        .expect("Failed to build zlink-codegen");
-
-    if !status.success() {
-        panic!("Failed to build zlink-codegen");
-    }
-
     // Get the target directory.
     let target_dir = workspace_root.join("target").join("debug");
     let codegen_bin = target_dir.join("zlink-codegen");
+
+    // Build zlink-codegen only if it doesn't exist.
+    if !codegen_bin.exists() {
+        let status = Command::new("cargo")
+            .args(&["build", "-p", "zlink-codegen", "--bin", "zlink-codegen"])
+            .current_dir(&workspace_root)
+            .status()
+            .expect("Failed to build zlink-codegen");
+
+        if !status.success() {
+            panic!("Failed to build zlink-codegen");
+        }
+    }
 
     // Process all IDL files.
     let idl_files = ["test.idl", "calc.idl", "storage.idl"];

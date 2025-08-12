@@ -3,13 +3,11 @@ members = [
     "zlink",
     "zlink-core",
     "zlink-codegen",
+    "zlink-codegen/test-integration",
     "zlink-tokio",
     "zlink-macros",
     "zlink-micro",
     "zlink-usb",
-]
-exclude = [
-    "zlink-codegen/test-crates/*",
 ]
 resolver = "2"
 

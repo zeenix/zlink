@@ -1,7 +1,10 @@
 [package]
 name = "test-integration"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 zlink = { path = "../../zlink" }
@@ -10,4 +13,3 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["rt", "macros"] }
 anyhow = "1.0"
 
-[workspace]
