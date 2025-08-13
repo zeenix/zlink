@@ -344,6 +344,15 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// The macro also generates a chain extension trait that allows you to chain multiple method
 /// calls together for efficient batching across multiple interfaces.
 ///
+/// # Supported Attributes
+///
+/// The following attributes can be used to customize the behavior of this macro:
+///
+/// * `interface` (required) - The Varlink interface name (e.g., `"org.varlink.service"`).
+/// * `crate` - Specifies the crate path to use for zlink types. Defaults to `::zlink`.
+/// * `chain_name` - Custom name for the generated chain extension trait. Defaults to
+///   `{TraitName}Chain`.
+///
 /// # Example
 ///
 /// ```rust

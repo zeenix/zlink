@@ -12,6 +12,7 @@ pub(super) fn generate_chain_extension_method(
     interface_name: &str,
     _trait_generics: &syn::Generics,
     method_attrs: &MethodAttrs,
+    crate_path: &TokenStream,
 ) -> Result<(TokenStream, TokenStream), Error> {
     let method_name_str = method.sig.ident.to_string();
     let method_ident = method.sig.ident.clone();
@@ -58,7 +59,7 @@ pub(super) fn generate_chain_extension_method(
         .collect();
 
     if arg_infos.is_empty() {
-        generate_no_params_method(&method_ident, &method_path)
+        generate_no_params_method(&method_ident, &method_path, crate_path)
     } else {
         generate_with_params_method(
             &method_ident,
@@ -71,6 +72,7 @@ pub(super) fn generate_chain_extension_method(
             &method_where_clause,
             has_any_lifetime,
             has_explicit_lifetimes,
+            crate_path,
         )
     }
 }
@@ -153,19 +155,24 @@ fn build_combined_where_clause(method_where_clause: &Option<syn::WhereClause>) -
 fn generate_no_params_method(
     method_name: &syn::Ident,
     method_path: &str,
+    crate_path: &TokenStream,
 ) -> Result<(TokenStream, TokenStream), Error> {
     let trait_method = quote! {
         /// Add a #method_name call to this chain.
         fn #method_name(
             self,
-        ) -> ::zlink::Result<::zlink::connection::chain::Chain<'c, S, ReplyParams, ReplyError>>;
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        >;
     };
 
     let impl_method = quote! {
         fn #method_name(
             self,
-        ) -> ::zlink::Result<::zlink::connection::chain::Chain<'c, S, ReplyParams, ReplyError>> {
-            let call = ::zlink::Call::new({
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        > {
+            let call = #crate_path::Call::new({
                 #[derive(::serde::Serialize, ::core::fmt::Debug)]
                 #[serde(tag = "method")]
                 enum MethodWrapper {
@@ -193,13 +200,16 @@ fn generate_with_params_method(
     method_where_clause: &Option<syn::WhereClause>,
     has_any_lifetime: bool,
     has_explicit_lifetimes: bool,
+    crate_path: &TokenStream,
 ) -> Result<(TokenStream, TokenStream), Error> {
     let trait_method = quote! {
         /// Add a #method_name call to this chain.
         fn #method_name #generics(
             self,
             #(#param_fields,)*
-        ) -> ::zlink::Result<::zlink::connection::chain::Chain<'c, S, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        >
         #combined_where_clause;
     };
 
@@ -233,10 +243,12 @@ fn generate_with_params_method(
         fn #method_name #generics(
             self,
             #(#param_fields,)*
-        ) -> ::zlink::Result<::zlink::connection::chain::Chain<'c, S, ReplyParams, ReplyError>>
+        ) -> #crate_path::Result<
+            #crate_path::connection::chain::Chain<'c, S, ReplyParams, ReplyError>
+        >
         #combined_where_clause
         {
-            let call = ::zlink::Call::new({
+            let call = #crate_path::Call::new({
                 #[derive(::serde::Serialize, ::core::fmt::Debug)]
                 struct #params_struct_name #generics
                 #struct_where

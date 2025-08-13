@@ -36,4 +36,9 @@ serde-json-core = { version = "0.6.0", default-features = false, features = [
 ] }
 serde-prefix-all = "0.1.0"
 futures-util = { version = "0.3.31", default-features = false }
-tokio = { version = "1.42.0", features = ["macros", "rt", "test-util"] }
+tokio = { version = "1.42.0", features = [
+    "macros",
+    "rt",
+    "test-util",
+    "rt-multi-thread",
+] }
