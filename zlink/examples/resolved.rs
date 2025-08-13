@@ -1,9 +1,10 @@
 // Resolve a given hostname to an IP address using `systemd-resolved`'s Varlink service.
-// We use the low-level API to send a method call and receive a reply.
+// We use the proxy macro to generate a type-safe client API.
 use std::{env::args, fmt::Display, net::IpAddr};
 
-use serde_prefix_all::prefix_all;
+use futures_util::{pin_mut, StreamExt};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use zlink::{proxy, ReplyError};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -11,23 +12,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args: Vec<_> = args().skip(1).collect();
 
-    // First send out all the method calls (let's make use of pipelinning feature of Varlink!).
-    for name in args.clone() {
-        let resolve = Method::ResolveHostname { name: &name };
-        connection.enqueue_call(&resolve.into())?;
+    // Use pipelining to send all hostname resolution requests at once.
+    if args.is_empty() {
+        eprintln!("Usage: resolved <hostname> [<hostname> ...]");
+        return Ok(());
     }
-    connection.flush().await?;
 
-    // Then fetch the results and print them.
-    for name in args.clone() {
-        match connection
-            .receive_reply::<ReplyParams, ReplyError>()
-            .await
-            .map(|r| r.map(|r| r.into_parameters().unwrap().addresses))?
-        {
-            Ok(addresses) => {
+    // Build the chain of pipelined requests.
+    let mut chain = connection.chain_resolve_hostname::<ReplyParams, ReplyError>(&args[0])?;
+    for name in &args[1..] {
+        chain = chain.resolve_hostname(name)?;
+    }
+
+    let replies = chain.send().await?;
+    pin_mut!(replies);
+
+    // Collect results and print them.
+    let mut i = 0;
+    while let Some(reply) = replies.next().await {
+        let name = &args[i];
+        i += 1;
+
+        match reply? {
+            Ok(result) => {
                 println!("Results for '{name}':");
-                for address in addresses {
+                for address in result.into_parameters().unwrap().addresses {
                     println!("\t{address}");
                 }
             }
@@ -38,11 +47,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[prefix_all("io.systemd.Resolve.")]
-#[derive(Debug, serde::Serialize)]
-#[serde(tag = "method", content = "parameters")]
-enum Method<'m> {
-    ResolveHostname { name: &'m str },
+#[proxy("io.systemd.Resolve")]
+trait ResolvedProxy {
+    #[allow(unused)]
+    async fn resolve_hostname(
+        &mut self,
+        name: &str,
+    ) -> zlink::Result<Result<ReplyParams<'_>, ReplyError<'_>>>;
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -89,9 +100,8 @@ enum ProtocolFamily {
     Inet6 = 10, // IP version 6.
 }
 
-#[prefix_all("io.systemd.Resolve.")]
-#[derive(Debug, serde::Deserialize)]
-#[serde(tag = "error", content = "parameters")]
+#[derive(Debug, ReplyError)]
+#[zlink(interface = "io.systemd.Resolve")]
 enum ReplyError<'e> {
     NoNameServers,
     NoSuchResourceRecord,
@@ -100,11 +110,11 @@ enum ReplyError<'e> {
     InvalidReply,
     QueryAborted,
     DNSSECValidationFailed {
-        #[serde(rename = "result")]
+        #[zlink(rename = "result")]
         _result: &'e str,
-        #[serde(rename = "extendedDNSErrorCode")]
+        #[zlink(rename = "extendedDNSErrorCode")]
         _extended_dns_error_code: Option<i32>,
-        #[serde(rename = "extendedDNSErrorMessage")]
+        #[zlink(rename = "extendedDNSErrorMessage")]
         _extended_dns_error_message: Option<&'e str>,
     },
     NoTrustAnchor,
@@ -113,11 +123,11 @@ enum ReplyError<'e> {
     NoSource,
     StubLoop,
     DNSError {
-        #[serde(rename = "rcode")]
+        #[zlink(rename = "rcode")]
         _rcode: i32,
-        #[serde(rename = "extendedDNSErrorCode")]
+        #[zlink(rename = "extendedDNSErrorCode")]
         _extended_dns_error_code: Option<i32>,
-        #[serde(rename = "extendedDNSErrorMessage")]
+        #[zlink(rename = "extendedDNSErrorMessage")]
         _extended_dns_error_message: Option<&'e str>,
     },
     CNAMELoop,
