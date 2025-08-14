@@ -5,11 +5,9 @@ use syn::{punctuated::Punctuated, Error, FnArg, Pat, Type};
 
 use super::{
     types::{ArgInfo, MethodAttrs},
-    utils::{
-        collect_used_type_params, convert_to_single_lifetime, extract_param_rename_attr,
-        is_option_type_syn, parse_return_type, snake_case_to_pascal_case, type_contains_lifetime,
-    },
+    utils::*,
 };
+use crate::utils::*;
 
 pub(super) fn generate_method_impl(
     method: &mut syn::TraitItemFn,
@@ -159,7 +157,7 @@ fn parse_method_arguments<'a>(
                 .flatten();
 
             // Check if the type is optional
-            let is_optional = is_option_type_syn(ty);
+            let is_optional = is_option_type(ty);
 
             // Only convert to single lifetime if there are no explicit lifetimes
             let ty_for_params = if has_explicit_lifetimes {

@@ -1,7 +1,8 @@
+use crate::utils::*;
 use std::collections::HashSet;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Attribute, Error, Expr, GenericArgument, Lifetime,
-    Lit, Meta, PathArguments, ReturnType, Type, TypeReference,
+    punctuated::Punctuated, Attribute, Error, Expr, GenericArgument, Lit, Meta, PathArguments,
+    ReturnType, Type,
 };
 
 /// Convert snake_case to PascalCase.
@@ -20,79 +21,7 @@ pub(super) fn snake_case_to_pascal_case(input: &str) -> String {
 
 /// Convert any lifetime references to use our single '__proxy_params lifetime.
 pub(super) fn convert_to_single_lifetime(ty: &Type) -> Type {
-    match ty {
-        Type::Reference(type_ref) => {
-            let lifetime = if type_ref.lifetime.is_some() {
-                // Replace any existing lifetime with our single lifetime
-                Some(Lifetime::new("'__proxy_params", type_ref.and_token.span))
-            } else {
-                // Add our single lifetime for elided lifetimes
-                Some(Lifetime::new("'__proxy_params", type_ref.and_token.span))
-            };
-
-            let elem = convert_to_single_lifetime(&type_ref.elem);
-
-            Type::Reference(TypeReference {
-                and_token: type_ref.and_token,
-                lifetime,
-                mutability: type_ref.mutability,
-                elem: Box::new(elem),
-            })
-        }
-        Type::Path(type_path) => {
-            let mut new_path = type_path.clone();
-            for segment in &mut new_path.path.segments {
-                let PathArguments::AngleBracketed(args) = &mut segment.arguments else {
-                    continue;
-                };
-                let mut new_args = args.clone();
-                new_args.args = args
-                    .args
-                    .iter()
-                    .map(|arg| match arg {
-                        GenericArgument::Type(ty) => {
-                            GenericArgument::Type(convert_to_single_lifetime(ty))
-                        }
-                        GenericArgument::Lifetime(_) => {
-                            // Replace any lifetime with our single lifetime
-                            GenericArgument::Lifetime(Lifetime::new("'__proxy_params", arg.span()))
-                        }
-                        _ => arg.clone(),
-                    })
-                    .collect();
-                segment.arguments = PathArguments::AngleBracketed(new_args);
-            }
-            Type::Path(new_path)
-        }
-        Type::Slice(type_slice) => {
-            let elem = convert_to_single_lifetime(&type_slice.elem);
-            Type::Slice(syn::TypeSlice {
-                bracket_token: type_slice.bracket_token,
-                elem: Box::new(elem),
-            })
-        }
-        Type::Array(type_array) => {
-            let elem = convert_to_single_lifetime(&type_array.elem);
-            Type::Array(syn::TypeArray {
-                bracket_token: type_array.bracket_token,
-                elem: Box::new(elem),
-                semi_token: type_array.semi_token,
-                len: type_array.len.clone(),
-            })
-        }
-        Type::Tuple(type_tuple) => {
-            let elems = type_tuple
-                .elems
-                .iter()
-                .map(convert_to_single_lifetime)
-                .collect();
-            Type::Tuple(syn::TypeTuple {
-                paren_token: type_tuple.paren_token,
-                elems,
-            })
-        }
-        _ => ty.clone(),
-    }
+    convert_type_lifetimes(ty, "'__proxy_params")
 }
 
 /// Check if a type contains any lifetime references.
@@ -153,35 +82,6 @@ pub(super) fn collect_used_type_params(ty: &Type, used: &mut HashSet<String>) {
         Type::Paren(type_paren) => collect_used_type_params(&type_paren.elem, used),
         Type::Group(type_group) => collect_used_type_params(&type_group.elem, used),
         _ => {} // Other types don't contain type parameters we care about
-    }
-}
-
-/// Check if a syn::Type represents an Option type.
-/// Handles Option, std::option::Option, and core::option::Option.
-pub(super) fn is_option_type_syn(ty: &Type) -> bool {
-    match ty {
-        Type::Path(type_path) => {
-            let path = &type_path.path;
-
-            // Check if this is a single segment (just "Option")
-            if path.segments.len() == 1 {
-                return path.segments.first().unwrap().ident == "Option";
-            }
-
-            // Check for multi-segment paths like std::option::Option or core::option::Option
-            if path.segments.len() >= 2 {
-                let segments: Vec<_> = path.segments.iter().map(|s| s.ident.to_string()).collect();
-                let path_str = segments.join("::");
-
-                return path_str == "std::option::Option"
-                    || path_str == "core::option::Option"
-                    || path_str.ends_with("::std::option::Option")
-                    || path_str.ends_with("::core::option::Option");
-            }
-
-            false
-        }
-        _ => false,
     }
 }
 
