@@ -7,7 +7,6 @@
 #![warn(unreachable_pub)]
 #![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
 
-#[cfg(feature = "introspection")]
 mod utils;
 
 #[cfg(feature = "introspection")]

@@ -1,6 +1,11 @@
+#[cfg(feature = "introspection")]
 use proc_macro2::TokenStream as TokenStream2;
+#[cfg(feature = "introspection")]
 use quote::quote;
-use syn::{Attribute, Error, GenericArgument, PathArguments, Type};
+#[cfg(feature = "introspection")]
+use syn::{Attribute, Error, GenericArgument, PathArguments};
+
+use syn::Type;
 
 /// Parse the crate path from attributes, defaulting to `::zlink`.
 ///
@@ -14,6 +19,7 @@ use syn::{Attribute, Error, GenericArgument, PathArguments, Type};
 /// #[zlink(crate = "crate")]
 /// struct MyStruct;
 /// ```
+#[cfg(feature = "introspection")]
 pub(crate) fn parse_crate_path(attrs: &[Attribute]) -> Result<TokenStream2, Error> {
     for attr in attrs {
         if attr.path().is_ident("zlink") {
@@ -44,6 +50,7 @@ pub(crate) fn parse_crate_path(attrs: &[Attribute]) -> Result<TokenStream2, Erro
 /// Extract doc comments from attributes.
 ///
 /// Each `#[doc = "..."]` attribute becomes a single comment string.
+#[cfg(feature = "introspection")]
 pub(crate) fn extract_doc_comments(attrs: &[Attribute]) -> Vec<String> {
     let mut comments = Vec::new();
 
@@ -68,6 +75,7 @@ pub(crate) fn extract_doc_comments(attrs: &[Attribute]) -> Vec<String> {
 }
 
 /// Recursively removes all lifetimes from a type.
+#[cfg(feature = "introspection")]
 pub(crate) fn remove_lifetimes_from_type(ty: &Type) -> Type {
     match ty {
         Type::Reference(type_ref) => Type::Reference(syn::TypeReference {
