@@ -173,3 +173,13 @@ pub(crate) fn remove_lifetimes_from_type(ty: &Type) -> Type {
         _ => ty.clone(),
     }
 }
+
+/// Check if a type is Option<T>.
+pub(crate) fn is_option_type(ty: &Type) -> bool {
+    if let Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            return segment.ident == "Option";
+        }
+    }
+    false
+}

@@ -1,3 +1,4 @@
+use crate::utils::*;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed};
@@ -443,19 +444,35 @@ fn generate_parameters_visitor(field_info: &FieldInfo<'_>, has_lifetimes: bool) 
         field_types.iter().map(|&ty| ty.clone()).collect()
     };
 
-    // Zip field names with their visitor types for proper repetition
+    // Generate field declarations based on whether they're optional
     let field_declarations = field_names
         .iter()
         .zip(&visitor_field_types)
-        .map(|(name, ty)| {
-            quote! { let mut #name: Option<#ty> = None; }
+        .zip(field_types.iter())
+        .map(|((name, ty), orig_ty)| {
+            if is_option_type(orig_ty) {
+                // Optional fields already have Option<T> type, initialize to None
+                quote! { let mut #name: #ty = None; }
+            } else {
+                // Required fields need Option wrapper to track if they've been seen
+                quote! { let mut #name: Option<#ty> = None; }
+            }
         });
 
-    let field_assignments =
-        field_name_strs
-            .iter()
-            .zip(field_names.iter())
-            .map(|(name_str, name)| {
+    let field_assignments = field_name_strs
+        .iter()
+        .zip(field_names.iter())
+        .zip(field_types.iter())
+        .map(|((name_str, name), ty)| {
+            if is_option_type(ty) {
+                // Optional fields: deserialize directly as Option<T> to handle null values
+                quote! {
+                    #name_str => {
+                        #name = map.next_value()?;
+                    }
+                }
+            } else {
+                // Required fields need duplicate detection
                 quote! {
                     #name_str => {
                         if #name.is_some() {
@@ -464,15 +481,22 @@ fn generate_parameters_visitor(field_info: &FieldInfo<'_>, has_lifetimes: bool) 
                         #name = Some(map.next_value()?);
                     }
                 }
-            });
+            }
+        });
 
-    let field_extractions =
-        field_names
-            .iter()
-            .zip(field_name_strs.iter())
-            .map(|(name, name_str)| {
+    let field_extractions = field_names
+        .iter()
+        .zip(field_name_strs.iter())
+        .zip(field_types.iter())
+        .map(|((name, name_str), ty)| {
+            if is_option_type(ty) {
+                // Optional fields use their value directly (None if not present)
+                quote! { #name }
+            } else {
+                // Required fields must be present, error if missing
                 quote! { #name.ok_or_else(|| de::Error::missing_field(#name_str))? }
-            });
+            }
+        });
 
     quote! {
         struct ParametersVisitor;
@@ -608,17 +632,54 @@ impl<'a> FieldInfo<'a> {
         let field_data: Vec<_> = fields
             .named
             .iter()
-            .filter_map(|f| f.ident.as_ref().map(|name| (name, &f.ty)))
+            .filter_map(|f| {
+                f.ident.as_ref().map(|name| {
+                    let serialized_name = Self::get_serialized_name(f, name);
+                    (name, &f.ty, serialized_name)
+                })
+            })
             .collect();
 
-        let names: Vec<_> = field_data.iter().map(|(name, _)| *name).collect();
-        let types: Vec<_> = field_data.iter().map(|(_, ty)| *ty).collect();
-        let name_strings: Vec<String> = names.iter().map(|f| f.to_string()).collect();
+        let names: Vec<_> = field_data.iter().map(|(name, _, _)| *name).collect();
+        let types: Vec<_> = field_data.iter().map(|(_, ty, _)| *ty).collect();
+        let name_strings: Vec<String> = field_data
+            .iter()
+            .map(|(_, _, sname)| sname.clone())
+            .collect();
 
         Self {
             names,
             types,
             name_strings,
         }
+    }
+
+    /// Extract the serialized name from field attributes or use the field name.
+    fn get_serialized_name(field: &syn::Field, default_name: &syn::Ident) -> String {
+        // Look for #[zlink(rename = "...")] attribute
+        for attr in &field.attrs {
+            if attr.path().is_ident("zlink") {
+                let mut renamed = None;
+                let _ = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("rename") {
+                        let value = meta.value()?;
+                        let lit_str: syn::LitStr = value.parse()?;
+                        renamed = Some(lit_str.value());
+                    } else {
+                        // Skip unknown attributes by consuming their values
+                        let _ = meta.value()?;
+                        let _: syn::Expr = meta.input.parse()?;
+                    }
+                    Ok(())
+                });
+
+                if let Some(name) = renamed {
+                    return name;
+                }
+            }
+        }
+
+        // No rename attribute found, use the field name
+        default_name.to_string()
     }
 }
