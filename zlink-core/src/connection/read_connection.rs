@@ -98,7 +98,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
             None => {
                 // It's a success response.
                 let ret = from_slice::<Reply<ReplyParams>>(buffer).map(Ok);
-                trace!("connection {}: received reply: {:?}", id, ret);
+                debug!("connection {}: received reply: {:?}", id, ret);
 
                 ret
             }
@@ -120,7 +120,7 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         let buffer = self.read_message_bytes().await?;
 
         let call = from_slice::<Call<Method>>(buffer)?;
-        trace!("connection {}: received a call: {:?}", id, call);
+        debug!("connection {}: received a call: {:?}", id, call);
 
         Ok(call)
     }
