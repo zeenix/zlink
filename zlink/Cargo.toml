@@ -49,4 +49,8 @@ mayheap = { git = "https://github.com/zeenix/mayheap", version = "0.2.0" }
 
 [[example]]
 name = "varlink-inspect"
-required-features = ["introspection", "idl-parse"]
+required-features = ["introspection", "idl-parse", "tokio"]
+
+[[example]]
+name = "resolved"
+required-features = ["proxy", "tokio"]
