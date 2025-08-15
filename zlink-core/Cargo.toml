@@ -1,6 +1,6 @@
 [package]
 name = "zlink-core"
-version = "0.0.1-alpha.1"
+version = "0.1.0"
 description = "The core crate of the zlink project"
 edition.workspace = true
 rust-version.workspace = true
@@ -31,7 +31,7 @@ introspection = ["idl", "zlink-macros/introspection"]
 
 [dependencies]
 serde = { version = "1.0.218", default-features = false, features = ["derive"] }
-zlink-macros = { path = "../zlink-macros", version = "0.0.1-alpha.1" }
+zlink-macros = { path = "../zlink-macros", version = "0.1.0" }
 serde_json = { version = "1.0.139", optional = true }
 serde-json-core = { version = "0.6.0", default-features = false, features = [
     "heapless",
