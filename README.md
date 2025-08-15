@@ -463,4 +463,4 @@ This project is licensed under the [MIT License][license].
 [`zlink-tokio`]: https://docs.rs/zlink-tokio
 [`zlink-codegen`]: https://docs.rs/zlink-codegen
 [`zlink-macros`]: https://docs.rs/zlink-macros
-[`Server::run` docs]: https://docs.rs/zlink/struct.Server.html#method.run
+[`Server::run` docs]: https://docs.rs/zlink/latest/zlink/struct.Server.html#method.run
