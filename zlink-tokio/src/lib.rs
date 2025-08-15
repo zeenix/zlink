@@ -5,7 +5,7 @@
     missing_docs
 )]
 #![warn(unreachable_pub)]
-#![doc = include_str!("../README.md")]
+#![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
 
 pub use zlink_core::*;
 pub mod notified;

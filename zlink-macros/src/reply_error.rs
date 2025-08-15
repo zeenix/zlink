@@ -2,6 +2,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DataEnum, DeriveInput, Error, Fields, FieldsNamed};
 
+use crate::utils::*;
+
 /// Main entry point for the ReplyError derive macro that generates serde implementations.
 ///
 /// This macro:
@@ -28,58 +30,49 @@ fn derive_reply_error_impl(input: &DeriveInput) -> Result<TokenStream2, Error> {
     // Parse the interface from zlink attributes (mandatory)
     let interface = parse_interface_from_attrs(&input.attrs)?;
 
-    match &input.data {
-        Data::Enum(data_enum) => {
-            // Validate that enum variants are supported
-            validate_enum_variants(data_enum)?;
+    let data_enum = extract_enum_data(&input.data)?;
 
-            // Generate manual Serialize and Deserialize implementations
-            let serialize_impl = generate_serialize_impl(name, data_enum, generics, &interface)?;
-            let deserialize_impl =
-                generate_deserialize_impl(name, data_enum, generics, &interface)?;
+    // Validate that enum variants are supported
+    validate_enum_variants(data_enum)?;
 
-            Ok(quote! {
-                #serialize_impl
-                #deserialize_impl
-            })
-        }
-        Data::Struct(_) => Err(Error::new_spanned(
-            input,
-            "ReplyError derive macro only supports enums, not structs",
-        )),
-        Data::Union(_) => Err(Error::new_spanned(
-            input,
-            "ReplyError derive macro only supports enums, not unions",
-        )),
-    }
+    // Generate manual Serialize and Deserialize implementations
+    let serialize_impl = generate_serialize_impl(name, data_enum, generics, &interface)?;
+    let deserialize_impl = generate_deserialize_impl(name, data_enum, generics, &interface)?;
+
+    Ok(quote! {
+        #serialize_impl
+        #deserialize_impl
+    })
 }
 
 /// Parse interface attribute from #[zlink(interface = "...")].
 fn parse_interface_from_attrs(attrs: &[syn::Attribute]) -> Result<String, Error> {
     for attr in attrs {
-        if attr.path().is_ident("zlink") {
-            let mut interface_result = None;
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("interface") {
-                    let value = meta.value()?;
-                    let lit_str: syn::LitStr = value.parse()?;
-                    interface_result = Some(lit_str.value());
-                } else {
-                    // Skip unknown attributes by consuming their values
-                    let _ = meta.value()?;
-                    let _: syn::Expr = meta.input.parse()?;
-                }
-                Ok(())
-            })?;
+        if !attr.path().is_ident("zlink") {
+            continue;
+        }
 
-            if let Some(interface) = interface_result {
-                return Ok(interface);
+        let mut interface_result = None;
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("interface") {
+                let value = meta.value()?;
+                let lit_str: syn::LitStr = value.parse()?;
+                interface_result = Some(lit_str.value());
+            } else {
+                // Skip unknown attributes by consuming their values
+                let _ = meta.value()?;
+                let _: syn::Expr = meta.input.parse()?;
             }
+            Ok(())
+        })?;
+
+        if let Some(interface) = interface_result {
+            return Ok(interface);
         }
     }
     Err(Error::new(
         proc_macro2::Span::call_site(),
-        "ReplyError macro requires #[zlink(interface = \"...\")]  attribute",
+        "ReplyError macro requires #[zlink(interface = \"...\")] attribute",
     ))
 }
 
@@ -87,11 +80,8 @@ fn parse_interface_from_attrs(attrs: &[syn::Attribute]) -> Result<String, Error>
 fn validate_enum_variants(data_enum: &DataEnum) -> Result<(), Error> {
     for variant in &data_enum.variants {
         match &variant.fields {
-            Fields::Unit => {
-                // Unit variants are fine
-            }
-            Fields::Named(_) => {
-                // Named field variants are fine
+            Fields::Unit | Fields::Named(_) => {
+                // Unit variants and named field variants are fine
             }
             Fields::Unnamed(_) => {
                 return Err(Error::new_spanned(
@@ -102,6 +92,21 @@ fn validate_enum_variants(data_enum: &DataEnum) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+/// Check if a given Data is an enum and extract it.
+fn extract_enum_data(data: &Data) -> Result<&DataEnum, Error> {
+    match data {
+        Data::Enum(data_enum) => Ok(data_enum),
+        Data::Struct(_) => Err(Error::new(
+            proc_macro2::Span::call_site(),
+            "ReplyError derive macro only supports enums, not structs",
+        )),
+        Data::Union(_) => Err(Error::new(
+            proc_macro2::Span::call_site(),
+            "ReplyError derive macro only supports enums, not unions",
+        )),
+    }
 }
 
 fn generate_serialize_impl(
@@ -150,17 +155,15 @@ fn generate_serialize_variant_arm(
     let qualified_name = format!("{interface}.{variant_name}");
 
     match &variant.fields {
-        Fields::Unit => {
-            // Unit variant - serialize as tagged enum with just error field
-            Ok(quote! {
-                Self::#variant_name => {
-                    use serde::ser::SerializeMap;
-                    let mut map = serializer.serialize_map(Some(1))?;
-                    map.serialize_entry("error", #qualified_name)?;
-                    map.end()
-                }
-            })
-        }
+        // Unit variant - serialize as tagged enum with just error field
+        Fields::Unit => Ok(quote! {
+            Self::#variant_name => {
+                use serde::ser::SerializeMap;
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry("error", #qualified_name)?;
+                map.end()
+            }
+        }),
         Fields::Named(fields) => {
             // Named fields - serialize as tagged enum with parameters
             let field_info = FieldInfo::extract(fields);
@@ -174,7 +177,7 @@ fn generate_serialize_variant_arm(
             let serializer_field_types: Vec<syn::Type> = if has_lifetimes {
                 field_types
                     .iter()
-                    .map(|ty| convert_to_synthetic_lifetime(ty, "'__param"))
+                    .map(|ty| convert_type_lifetimes(ty, "'__param"))
                     .collect()
             } else {
                 field_types.iter().map(|&ty| ty.clone()).collect()
@@ -327,32 +330,32 @@ fn generate_deserialize_impl(
 }
 
 fn generate_visitor_ty_generics(generics: &syn::Generics, has_lifetimes: bool) -> TokenStream2 {
-    if has_lifetimes {
-        // Generate token stream with lifetimes converted to 'de
-        let converted_params: Vec<_> = generics
-            .params
-            .iter()
-            .map(|param| match param {
-                syn::GenericParam::Lifetime(_) => quote! { 'de },
-                syn::GenericParam::Type(type_param) => {
-                    let ident = &type_param.ident;
-                    quote! { #ident }
-                }
-                syn::GenericParam::Const(const_param) => {
-                    let ident = &const_param.ident;
-                    quote! { #ident }
-                }
-            })
-            .collect();
-
-        if converted_params.is_empty() {
-            quote! {}
-        } else {
-            quote! { <#(#converted_params),*> }
-        }
-    } else {
+    if !has_lifetimes {
         let (_, orig_ty_generics, _) = generics.split_for_impl();
-        quote! { #orig_ty_generics }
+        return quote! { #orig_ty_generics };
+    }
+
+    // Generate token stream with lifetimes converted to 'de
+    let converted_params: Vec<_> = generics
+        .params
+        .iter()
+        .map(|param| match param {
+            syn::GenericParam::Lifetime(_) => quote! { 'de },
+            syn::GenericParam::Type(type_param) => {
+                let ident = &type_param.ident;
+                quote! { #ident }
+            }
+            syn::GenericParam::Const(const_param) => {
+                let ident = &const_param.ident;
+                quote! { #ident }
+            }
+        })
+        .collect();
+
+    if converted_params.is_empty() {
+        quote! {}
+    } else {
+        quote! { <#(#converted_params),*> }
     }
 }
 
@@ -369,10 +372,10 @@ fn generate_variant_match_arms(
         let variant_name = &variant.ident;
         let qualified_name = format!("{interface}.{variant_name}");
 
-        match &variant.fields {
+        let arm = match &variant.fields {
             Fields::Unit => {
                 // Unit variant - skip remaining fields, including optional "parameters" field
-                let unit_arm = quote! {
+                quote! {
                     #qualified_name => {
                         // Skip remaining fields, including optional "parameters" field
                         while map.next_key::<&str>()?.is_some() {
@@ -380,8 +383,7 @@ fn generate_variant_match_arms(
                         }
                         Ok(#enum_name::#variant_name)
                     }
-                };
-                arms.push(unit_arm);
+                }
             }
             Fields::Named(fields) => {
                 // Named fields - deserialize from parameters object
@@ -389,7 +391,7 @@ fn generate_variant_match_arms(
                 let visitor_code = generate_parameters_visitor(&field_info, has_lifetimes);
                 let field_names = &field_info.names;
 
-                let named_arm = quote! {
+                quote! {
                     #qualified_name => {
                         // We need the parameters field next
                         let key = map.next_key::<&str>()?;
@@ -412,8 +414,7 @@ fn generate_variant_match_arms(
 
                         Ok(#enum_name::#variant_name { #(#field_names,)* })
                     }
-                };
-                arms.push(named_arm);
+                }
             }
             Fields::Unnamed(_) => {
                 return Err(Error::new_spanned(
@@ -421,7 +422,8 @@ fn generate_variant_match_arms(
                     "ReplyError derive macro does not support tuple variants",
                 ));
             }
-        }
+        };
+        arms.push(arm);
     }
 
     Ok(quote! { #(#arms)* })
@@ -437,25 +439,41 @@ fn generate_parameters_visitor(field_info: &FieldInfo<'_>, has_lifetimes: bool) 
     let visitor_field_types: Vec<syn::Type> = if has_lifetimes {
         field_types
             .iter()
-            .map(|ty| convert_to_de_lifetime(ty))
+            .map(|ty| convert_type_lifetimes(ty, "'de"))
             .collect()
     } else {
         field_types.iter().map(|&ty| ty.clone()).collect()
     };
 
-    // Zip field names with their visitor types for proper repetition
+    // Generate field declarations based on whether they're optional
     let field_declarations = field_names
         .iter()
         .zip(&visitor_field_types)
-        .map(|(name, ty)| {
-            quote! { let mut #name: Option<#ty> = None; }
+        .zip(field_types.iter())
+        .map(|((name, ty), orig_ty)| {
+            if is_option_type(orig_ty) {
+                // Optional fields already have Option<T> type, initialize to None
+                quote! { let mut #name: #ty = None; }
+            } else {
+                // Required fields need Option wrapper to track if they've been seen
+                quote! { let mut #name: Option<#ty> = None; }
+            }
         });
 
-    let field_assignments =
-        field_name_strs
-            .iter()
-            .zip(field_names.iter())
-            .map(|(name_str, name)| {
+    let field_assignments = field_name_strs
+        .iter()
+        .zip(field_names.iter())
+        .zip(field_types.iter())
+        .map(|((name_str, name), ty)| {
+            if is_option_type(ty) {
+                // Optional fields: deserialize directly as Option<T> to handle null values
+                quote! {
+                    #name_str => {
+                        #name = map.next_value()?;
+                    }
+                }
+            } else {
+                // Required fields need duplicate detection
                 quote! {
                     #name_str => {
                         if #name.is_some() {
@@ -464,15 +482,22 @@ fn generate_parameters_visitor(field_info: &FieldInfo<'_>, has_lifetimes: bool) 
                         #name = Some(map.next_value()?);
                     }
                 }
-            });
+            }
+        });
 
-    let field_extractions =
-        field_names
-            .iter()
-            .zip(field_name_strs.iter())
-            .map(|(name, name_str)| {
+    let field_extractions = field_names
+        .iter()
+        .zip(field_name_strs.iter())
+        .zip(field_types.iter())
+        .map(|((name, name_str), ty)| {
+            if is_option_type(ty) {
+                // Optional fields use their value directly (None if not present)
+                quote! { #name }
+            } else {
+                // Required fields must be present, error if missing
                 quote! { #name.ok_or_else(|| de::Error::missing_field(#name_str))? }
-            });
+            }
+        });
 
     quote! {
         struct ParametersVisitor;
@@ -520,80 +545,6 @@ fn generate_parameters_visitor(field_info: &FieldInfo<'_>, has_lifetimes: bool) 
     }
 }
 
-/// Convert enum lifetimes to a specific synthetic lifetime.
-fn convert_to_synthetic_lifetime(ty: &syn::Type, target_lifetime: &str) -> syn::Type {
-    let target_lt: syn::Lifetime = syn::parse_str(target_lifetime).unwrap();
-
-    match ty {
-        syn::Type::Reference(type_ref) => {
-            let elem = convert_to_synthetic_lifetime(&type_ref.elem, target_lifetime);
-            syn::Type::Reference(syn::TypeReference {
-                and_token: type_ref.and_token,
-                lifetime: Some(target_lt),
-                mutability: type_ref.mutability,
-                elem: Box::new(elem),
-            })
-        }
-        syn::Type::Path(type_path) => {
-            let mut new_path = type_path.clone();
-            for segment in &mut new_path.path.segments {
-                let syn::PathArguments::AngleBracketed(args) = &mut segment.arguments else {
-                    continue;
-                };
-                let mut new_args = args.clone();
-                new_args.args = args
-                    .args
-                    .iter()
-                    .map(|arg| match arg {
-                        syn::GenericArgument::Type(inner_ty) => syn::GenericArgument::Type(
-                            convert_to_synthetic_lifetime(inner_ty, target_lifetime),
-                        ),
-                        syn::GenericArgument::Lifetime(_) => {
-                            syn::GenericArgument::Lifetime(target_lt.clone())
-                        }
-                        _ => arg.clone(),
-                    })
-                    .collect();
-                segment.arguments = syn::PathArguments::AngleBracketed(new_args);
-            }
-            syn::Type::Path(new_path)
-        }
-        syn::Type::Slice(type_slice) => {
-            let elem = convert_to_synthetic_lifetime(&type_slice.elem, target_lifetime);
-            syn::Type::Slice(syn::TypeSlice {
-                bracket_token: type_slice.bracket_token,
-                elem: Box::new(elem),
-            })
-        }
-        syn::Type::Array(type_array) => {
-            let elem = convert_to_synthetic_lifetime(&type_array.elem, target_lifetime);
-            syn::Type::Array(syn::TypeArray {
-                bracket_token: type_array.bracket_token,
-                elem: Box::new(elem),
-                semi_token: type_array.semi_token,
-                len: type_array.len.clone(),
-            })
-        }
-        syn::Type::Tuple(type_tuple) => {
-            let elems = type_tuple
-                .elems
-                .iter()
-                .map(|elem| convert_to_synthetic_lifetime(elem, target_lifetime))
-                .collect();
-            syn::Type::Tuple(syn::TypeTuple {
-                paren_token: type_tuple.paren_token,
-                elems,
-            })
-        }
-        _ => ty.clone(),
-    }
-}
-
-/// Convert enum lifetimes to 'de lifetime for visitor types.
-fn convert_to_de_lifetime(ty: &syn::Type) -> syn::Type {
-    convert_to_synthetic_lifetime(ty, "'de")
-}
-
 /// Field information extracted from named fields for reuse across
 /// serialization/deserialization.
 struct FieldInfo<'a> {
@@ -608,17 +559,30 @@ impl<'a> FieldInfo<'a> {
         let field_data: Vec<_> = fields
             .named
             .iter()
-            .filter_map(|f| f.ident.as_ref().map(|name| (name, &f.ty)))
+            .filter_map(|f| {
+                f.ident.as_ref().map(|name| {
+                    let serialized_name = Self::get_serialized_name(f, name);
+                    (name, &f.ty, serialized_name)
+                })
+            })
             .collect();
 
-        let names: Vec<_> = field_data.iter().map(|(name, _)| *name).collect();
-        let types: Vec<_> = field_data.iter().map(|(_, ty)| *ty).collect();
-        let name_strings: Vec<String> = names.iter().map(|f| f.to_string()).collect();
+        let names: Vec<_> = field_data.iter().map(|(name, _, _)| *name).collect();
+        let types: Vec<_> = field_data.iter().map(|(_, ty, _)| *ty).collect();
+        let name_strings: Vec<String> = field_data
+            .iter()
+            .map(|(_, _, sname)| sname.clone())
+            .collect();
 
         Self {
             names,
             types,
             name_strings,
         }
+    }
+
+    /// Extract the serialized name from field attributes or use the field name.
+    fn get_serialized_name(field: &syn::Field, default_name: &syn::Ident) -> String {
+        parse_zlink_string_attr(&field.attrs, "rename").unwrap_or_else(|| default_name.to_string())
     }
 }

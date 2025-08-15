@@ -24,6 +24,9 @@ struct Cli {
 
 #[tokio::main]
 async fn main() {
+    // Setup tracing subscriber
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
     if let Err(e) = run(&cli).await {

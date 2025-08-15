@@ -1,6 +1,6 @@
 [package]
 name = "zlink-tokio"
-version = "0.0.1-alpha.1"
+version = "0.1.0"
 description = "zlink library for the Tokio runtime"
 edition.workspace = true
 rust-version.workspace = true
@@ -18,7 +18,7 @@ io-buffer-16kb = ["zlink-core/io-buffer-16kb"]
 io-buffer-1mb = ["zlink-core/io-buffer-1mb"]
 
 [dependencies]
-zlink-core = { path = "../zlink-core", version = "0.0.1-alpha.1" }
+zlink-core = { path = "../zlink-core", version = "0.1.0" }
 tokio = { version = "1.44.0", features = ["net", "io-util", "tracing"] }
 futures-util = { version = "0.3.31", default-features = false, features = [
     "async-await",

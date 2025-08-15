@@ -1,6 +1,10 @@
+#[cfg(feature = "introspection")]
 use proc_macro2::TokenStream as TokenStream2;
+#[cfg(feature = "introspection")]
 use quote::quote;
-use syn::{Attribute, Error, GenericArgument, PathArguments, Type};
+use syn::{Attribute, Type};
+#[cfg(feature = "introspection")]
+use syn::{Error, GenericArgument, PathArguments};
 
 /// Parse the crate path from attributes, defaulting to `::zlink`.
 ///
@@ -14,6 +18,7 @@ use syn::{Attribute, Error, GenericArgument, PathArguments, Type};
 /// #[zlink(crate = "crate")]
 /// struct MyStruct;
 /// ```
+#[cfg(feature = "introspection")]
 pub(crate) fn parse_crate_path(attrs: &[Attribute]) -> Result<TokenStream2, Error> {
     for attr in attrs {
         if attr.path().is_ident("zlink") {
@@ -44,6 +49,7 @@ pub(crate) fn parse_crate_path(attrs: &[Attribute]) -> Result<TokenStream2, Erro
 /// Extract doc comments from attributes.
 ///
 /// Each `#[doc = "..."]` attribute becomes a single comment string.
+#[cfg(feature = "introspection")]
 pub(crate) fn extract_doc_comments(attrs: &[Attribute]) -> Vec<String> {
     let mut comments = Vec::new();
 
@@ -68,6 +74,7 @@ pub(crate) fn extract_doc_comments(attrs: &[Attribute]) -> Vec<String> {
 }
 
 /// Recursively removes all lifetimes from a type.
+#[cfg(feature = "introspection")]
 pub(crate) fn remove_lifetimes_from_type(ty: &Type) -> Type {
     match ty {
         Type::Reference(type_ref) => Type::Reference(syn::TypeReference {
@@ -164,4 +171,135 @@ pub(crate) fn remove_lifetimes_from_type(ty: &Type) -> Type {
         // Handle any new types added to syn that we haven't covered
         _ => ty.clone(),
     }
+}
+
+/// Check if a type is Option<T>.
+/// Handles Option, std::option::Option, and core::option::Option.
+pub(crate) fn is_option_type(ty: &Type) -> bool {
+    let Type::Path(type_path) = ty else {
+        return false;
+    };
+
+    let path = &type_path.path;
+
+    // Check if this is a single segment (just "Option")
+    if path.segments.len() == 1 {
+        return path.segments.first().unwrap().ident == "Option";
+    }
+
+    // Check for multi-segment paths like std::option::Option or core::option::Option
+    if path.segments.len() >= 2 {
+        let segments: Vec<_> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+        let path_str = segments.join("::");
+
+        return path_str == "std::option::Option"
+            || path_str == "core::option::Option"
+            || path_str.ends_with("::std::option::Option")
+            || path_str.ends_with("::core::option::Option");
+    }
+
+    false
+}
+
+/// Convert all lifetimes in a type to a specific target lifetime.
+/// This is useful for generating synthetic lifetimes in macro expansions.
+pub(crate) fn convert_type_lifetimes(ty: &Type, target_lifetime: &str) -> Type {
+    let target_lt: syn::Lifetime = syn::parse_str(target_lifetime).unwrap();
+
+    match ty {
+        Type::Reference(type_ref) => {
+            let elem = convert_type_lifetimes(&type_ref.elem, target_lifetime);
+            Type::Reference(syn::TypeReference {
+                and_token: type_ref.and_token,
+                lifetime: Some(target_lt),
+                mutability: type_ref.mutability,
+                elem: Box::new(elem),
+            })
+        }
+        Type::Path(type_path) => {
+            let mut new_path = type_path.clone();
+            for segment in &mut new_path.path.segments {
+                let syn::PathArguments::AngleBracketed(args) = &mut segment.arguments else {
+                    continue;
+                };
+                let mut new_args = args.clone();
+                new_args.args = args
+                    .args
+                    .iter()
+                    .map(|arg| match arg {
+                        syn::GenericArgument::Type(inner_ty) => syn::GenericArgument::Type(
+                            convert_type_lifetimes(inner_ty, target_lifetime),
+                        ),
+                        syn::GenericArgument::Lifetime(_) => {
+                            syn::GenericArgument::Lifetime(target_lt.clone())
+                        }
+                        _ => arg.clone(),
+                    })
+                    .collect();
+                segment.arguments = syn::PathArguments::AngleBracketed(new_args);
+            }
+            Type::Path(new_path)
+        }
+        Type::Slice(type_slice) => {
+            let elem = convert_type_lifetimes(&type_slice.elem, target_lifetime);
+            Type::Slice(syn::TypeSlice {
+                bracket_token: type_slice.bracket_token,
+                elem: Box::new(elem),
+            })
+        }
+        Type::Array(type_array) => {
+            let elem = convert_type_lifetimes(&type_array.elem, target_lifetime);
+            Type::Array(syn::TypeArray {
+                bracket_token: type_array.bracket_token,
+                elem: Box::new(elem),
+                semi_token: type_array.semi_token,
+                len: type_array.len.clone(),
+            })
+        }
+        Type::Tuple(type_tuple) => {
+            let elems = type_tuple
+                .elems
+                .iter()
+                .map(|elem| convert_type_lifetimes(elem, target_lifetime))
+                .collect();
+            Type::Tuple(syn::TypeTuple {
+                paren_token: type_tuple.paren_token,
+                elems,
+            })
+        }
+        _ => ty.clone(),
+    }
+}
+
+/// Parse a string value from a zlink attribute with a specific key.
+///
+/// For example, parse `#[zlink(rename = "new_name")]` by calling with key "rename".
+/// Returns None if the attribute or key is not found.
+///
+/// This is used by both reply_error and proxy modules for parsing rename attributes.
+pub(crate) fn parse_zlink_string_attr(attrs: &[Attribute], key: &str) -> Option<String> {
+    for attr in attrs {
+        if !attr.path().is_ident("zlink") {
+            continue;
+        }
+
+        let mut result = None;
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(key) {
+                let value = meta.value()?;
+                let lit_str: syn::LitStr = value.parse()?;
+                result = Some(lit_str.value());
+            } else {
+                // Skip unknown attributes by consuming their values
+                let _ = meta.value()?;
+                let _: syn::Expr = meta.input.parse()?;
+            }
+            Ok(())
+        });
+
+        if result.is_some() {
+            return result;
+        }
+    }
+    None
 }

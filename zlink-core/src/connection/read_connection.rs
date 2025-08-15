@@ -1,6 +1,6 @@
 //! Contains connection related API.
 
-use core::fmt::Debug;
+use core::{fmt::Debug, str::from_utf8_unchecked};
 
 use crate::{varlink_service, Result};
 
@@ -87,7 +87,13 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         // FIXME: This will mean the document will be parsed twice. We should instead try to
         // quickly check if `error` field is present and then parse to the appropriate type based on
         // that information. Perhaps a simple parser using `winnow`?
-        match extract_error_name(buffer) {
+        let error_name = extract_error_name(buffer);
+        if error_name.is_some() {
+            // SAFETY: If an error name was successfully extracted, it is safe to assume that the
+            // buffer contains valid UTF-8 data.
+            unsafe { log_message(buffer, id) };
+        }
+        match error_name {
             Some(error_name) if error_name.starts_with(varlink_service::INTERFACE_NAME) => {
                 // Varlink service interface error need to be returned as the top-level error.
                 Err(crate::Error::VarlinkService(from_slice::<
@@ -98,7 +104,10 @@ impl<Read: ReadHalf> ReadConnection<Read> {
             None => {
                 // It's a success response.
                 let ret = from_slice::<Reply<ReplyParams>>(buffer).map(Ok);
-                trace!("connection {}: received reply: {:?}", id, ret);
+                // SAFETY: Since the parsing from JSON already succeeded, we can be sure that the
+                // buffer contains a valid UTF-8 string.
+                unsafe { log_message(buffer, id) };
+                debug!("connection {}: received reply: {:?}", id, ret);
 
                 ret
             }
@@ -120,7 +129,10 @@ impl<Read: ReadHalf> ReadConnection<Read> {
         let buffer = self.read_message_bytes().await?;
 
         let call = from_slice::<Call<Method>>(buffer)?;
-        trace!("connection {}: received a call: {:?}", id, call);
+        // SAFETY: Since the parsing from JSON already succeeded, we can be sure that the
+        // buffer contains a valid UTF-8 string.
+        unsafe { log_message(buffer, id) };
+        debug!("connection {}: received a call: {:?}", id, call);
 
         Ok(call)
     }
@@ -219,4 +231,18 @@ fn extract_error_name(buffer: &[u8]) -> Option<&str> {
     from_slice::<Error<'_>>(buffer)
         .ok()
         .map(|error| error.error)
+}
+
+/// Logs a message received by the connection.
+///
+/// # Safety
+///
+/// The buffer must be a valid UTF-8 string.
+#[inline(always)]
+unsafe fn log_message(buffer: &[u8], connection_id: usize) {
+    trace!(
+        "connection {}: received a message: {}",
+        connection_id,
+        unsafe { from_utf8_unchecked(buffer) },
+    );
 }
