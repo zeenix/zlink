@@ -1,12 +1,8 @@
 # TODO
 
-## Release 0.1.0
-
-* Populate README.md with examples, usage instructions and features documentation
-* More metadata in Cargo.toml files
-
 ## Release 0.2.0
 
+* More metadata in Cargo.toml files
 * zlink-core
   * blocking wrappers
   * Make e2e tests work for nostd
