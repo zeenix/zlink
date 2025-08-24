@@ -125,33 +125,13 @@ mod tests {
             interface: String::from_str("com.example.missing").unwrap(),
         };
 
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&err).unwrap();
-        #[cfg(not(feature = "std"))]
-        let json = {
-            use mayheap::string::String;
-            let mut buffer = [0u8; 256];
-            let len = serde_json_core::to_slice(&err, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 256>::from_slice(&buffer[..len]).unwrap();
-            String::<256>::from_utf8(vec).unwrap()
-        };
-
+        let json = serialize_error(&err);
         assert!(json.contains("org.varlink.service.InterfaceNotFound"));
         assert!(json.contains("com.example.missing"));
 
         let err = Error::PermissionDenied;
 
-        #[cfg(feature = "std")]
-        let json = serde_json::to_string(&err).unwrap();
-        #[cfg(not(feature = "std"))]
-        let json = {
-            use mayheap::string::String;
-            let mut buffer = [0u8; 256];
-            let len = serde_json_core::to_slice(&err, &mut buffer).unwrap();
-            let vec = mayheap::Vec::<_, 256>::from_slice(&buffer[..len]).unwrap();
-            String::<256>::from_utf8(vec).unwrap()
-        };
-
+        let json = serialize_error(&err);
         assert!(json.contains("org.varlink.service.PermissionDenied"));
     }
 
@@ -221,6 +201,22 @@ mod tests {
         let original = Error::PermissionDenied;
 
         test_round_trip_serialize(&original);
+    }
+
+    // Helper function to serialize Error to JSON string, abstracting std vs nostd differences
+    fn serialize_error(err: &Error) -> mayheap::string::String<256> {
+        #[cfg(feature = "std")]
+        {
+            mayheap::string::String::from_str(&serde_json::to_string(err).unwrap()).unwrap()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            use mayheap::string::String;
+            let mut buffer = [0u8; 256];
+            let len = serde_json_core::to_slice(err, &mut buffer).unwrap();
+            let vec = mayheap::Vec::<_, 256>::from_slice(&buffer[..len]).unwrap();
+            String::<256>::from_utf8(vec).unwrap()
+        }
     }
 
     // Helper function to deserialize JSON string to Error, abstracting std vs nostd differences
