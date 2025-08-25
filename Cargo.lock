@@ -1504,6 +1504,7 @@ dependencies = [
  "futures-util",
  "serde",
  "serde_repr",
+ "tempfile",
  "test-log",
  "tokio",
  "tokio-stream",
