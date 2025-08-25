@@ -1,3 +1,5 @@
+use std::os::fd::OwnedFd;
+
 use crate::{Connection, Result};
 
 /// Create a new unix domain socket listener and bind it to `path`.
@@ -24,6 +26,19 @@ impl crate::Listener for Listener {
             .accept()
             .await
             .map(|(stream, _)| super::Stream::from(stream).into())
+            .map_err(Into::into)
+    }
+}
+
+impl TryFrom<OwnedFd> for Listener {
+    type Error = crate::Error;
+
+    fn try_from(fd: OwnedFd) -> Result<Self> {
+        let std_listener = std::os::unix::net::UnixListener::from(fd);
+        std_listener.set_nonblocking(true)?;
+
+        tokio::net::UnixListener::from_std(std_listener)
+            .map(|listener| Listener { listener })
             .map_err(Into::into)
     }
 }
