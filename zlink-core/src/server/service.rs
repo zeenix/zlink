@@ -29,7 +29,7 @@ pub trait Service {
     /// The type of the multi-reply stream.
     ///
     /// If the client asks for multiple replies, this stream will be used to send them.
-    type ReplyStream: Stream<Item = Reply<Self::ReplyStreamParams>> + Unpin + Debug;
+    type ReplyStream: Stream<Item = Reply<Self::ReplyStreamParams>> + Unpin;
     /// The type of the error reply.
     ///
     /// This should be a type that can serialize itself to the whole reply object, containing
