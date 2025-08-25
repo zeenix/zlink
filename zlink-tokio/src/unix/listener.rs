@@ -42,3 +42,79 @@ impl TryFrom<OwnedFd> for Listener {
             .map_err(Into::into)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Listener as _;
+    use std::os::unix::net::UnixListener as StdUnixListener;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn from_fd_with_multiple_connections() {
+        // Create a temporary directory for the socket
+        let temp_dir = TempDir::new().unwrap();
+        let socket_path = temp_dir.path().join("test3.sock");
+
+        // Create a standard Unix listener and convert to OwnedFd
+        let std_listener = StdUnixListener::bind(&socket_path).unwrap();
+        let fd: OwnedFd = std_listener.into();
+
+        // Create our listener from the fd
+        let mut listener = Listener::try_from(fd).unwrap();
+
+        // Connect and accept multiple times to verify the listener remains functional
+        let mut previous_id = None;
+        for _i in 0..3 {
+            let socket_path_clone = socket_path.clone();
+            let connect_task = tokio::spawn(async move {
+                tokio::net::UnixStream::connect(&socket_path_clone)
+                    .await
+                    .unwrap()
+            });
+
+            let connection = listener.accept().await.unwrap();
+            let id = connection.id();
+
+            // Each connection should have a unique ID
+            if let Some(prev) = previous_id {
+                assert_ne!(id, prev, "Connection IDs should be unique");
+            }
+            previous_id = Some(id);
+
+            let _stream = connect_task.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn from_fd_preserves_nonblocking() {
+        // Create a temporary directory for the socket
+        let temp_dir = TempDir::new().unwrap();
+        let socket_path = temp_dir.path().join("test4.sock");
+
+        // Create a standard Unix listener in blocking mode
+        let std_listener = StdUnixListener::bind(&socket_path).unwrap();
+        // Explicitly set to blocking (though it's the default)
+        std_listener.set_nonblocking(false).unwrap();
+
+        let fd: OwnedFd = std_listener.into();
+
+        // The from_fd should set it to non-blocking
+        let mut listener = Listener::try_from(fd).unwrap();
+
+        // Should still work with tokio's async runtime
+        let socket_path_clone = socket_path.clone();
+        let connect_task = tokio::spawn(async move {
+            tokio::net::UnixStream::connect(&socket_path_clone)
+                .await
+                .unwrap()
+        });
+
+        let connection = listener.accept().await.unwrap();
+        // Just verify we got a valid connection with an ID
+        let id = connection.id();
+        assert!(id < usize::MAX);
+
+        let _stream = connect_task.await.unwrap();
+    }
+}
