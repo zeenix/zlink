@@ -42,3 +42,4 @@ test-log = { version = "0.2.17", default-features = false, features = [
     "trace",
     "color",
 ] }
+tempfile = "3.14"
