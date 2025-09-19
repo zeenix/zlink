@@ -115,36 +115,6 @@ mod tests {
         code: i32,
     }
 
-    // Types for heterogeneous calls test
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(tag = "method")]
-    enum HeterogeneousMethods {
-        GetUser { id: u32 },
-        GetPost { post_id: u32 },
-        DeleteUser { user_id: u32 },
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct Post {
-        id: u32,
-        title: mayheap::String<32>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct DeleteResult {
-        success: bool,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct PostError {
-        message: mayheap::String<64>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct DeleteError {
-        reason: mayheap::String<64>,
-    }
-
     // Use consolidated mock socket from test_utils.
     use crate::test_utils::mock_socket::MockSocket;
 
@@ -293,6 +263,15 @@ mod tests {
     #[cfg(feature = "std")]
     #[tokio::test]
     async fn heterogeneous_calls() -> crate::Result<()> {
+        // Types for heterogeneous calls test
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(tag = "method")]
+        enum HeterogeneousMethods {
+            GetUser { id: u32 },
+            GetPost { post_id: u32 },
+            DeleteUser { user_id: u32 },
+        }
+
         #[derive(Debug, Serialize, Deserialize)]
         #[serde(untagged)]
         enum HeterogeneousResponses {
@@ -300,6 +279,18 @@ mod tests {
             User(User),
             DeleteResult(DeleteResult),
         }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct DeleteResult {
+            success: bool,
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Post {
+            id: u32,
+            title: mayheap::String<32>,
+        }
+
         #[derive(Debug, Serialize, Deserialize)]
         #[serde(untagged)]
         enum HeterogeneousErrors {
@@ -307,6 +298,17 @@ mod tests {
             PostError(PostError),
             DeleteError(DeleteError),
         }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct DeleteError {
+            reason: mayheap::String<64>,
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct PostError {
+            message: mayheap::String<64>,
+        }
+
         let responses = [
             r#"{"parameters":{"id":1}}"#,
             r#"{"parameters":{"id":123,"title":"Test Post"}}"#,
