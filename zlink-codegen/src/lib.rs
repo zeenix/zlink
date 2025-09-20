@@ -1,6 +1,10 @@
 //! Code generation for Varlink interfaces.
 
 use anyhow::{Context, Result};
+use std::{
+    fs,
+    path::Path,
+};
 use zlink::idl::Interface;
 
 mod codegen;
@@ -65,4 +69,70 @@ pub fn format_code(code: &str) -> Result<String> {
     }
 
     String::from_utf8(output.stdout).context("Failed to parse rustfmt output")
+}
+
+/// For future options like type definitions
+#[derive(Default)]
+pub struct CodegenOptions {}
+
+/// Create source file, can be used in build.rs
+pub fn create_source_file<T: AsRef<Path> + ?Sized>(
+    input_file: &T,
+    rustfmt: bool,
+    #[allow(unused_variables)] config: &CodegenOptions,
+) {
+    let input_path = input_file.as_ref();
+    let input_path_no_ext = input_path.with_extension("");
+    let new_filename = input_path_no_ext
+        .file_name()
+        .unwrap_or_else(|| {
+            eprintln!("Error: Invalid input path");
+            std::process::exit(1)
+        })
+        .to_str()
+        .unwrap_or_else(|| {
+            eprintln!("Error: Invalid input path");
+            std::process::exit(1)
+        })
+        .replace('.', "_");
+    let output_path = input_path
+        .parent()
+        .unwrap_or_else(|| {
+            eprintln!("Failed to create output_path");
+            std::process::exit(1)
+        })
+        .join(Path::new(&new_filename).with_extension("rs"));
+
+    // Read from input file
+    let content = fs::read_to_string(input_path).unwrap_or_else(|_| {
+        eprintln!("Failed to read file: {}", input_path.display());
+        std::process::exit(1)
+    });
+
+    // Parse and generate the interface
+    let interface = Interface::try_from(content.as_str()).unwrap_or_else(|_| {
+        eprintln!("Failed to parse interface from: {}", input_path.display());
+        std::process::exit(1)
+    });
+    let mut output = generate_interface(&interface).unwrap_or_else(|e| {
+        eprintln!(
+            "Failed to generate code for interface {}: {e}",
+            interface.name()
+        );
+        std::process::exit(1)
+    });
+
+    // Format the code
+    if rustfmt {
+        output = format_code(&output).unwrap_or_else(|e| {
+            eprintln!("Failed to format code: {e}");
+            std::process::exit(1)
+        });
+    }
+
+    // Write output to file.
+    fs::write(&output_path, output).unwrap_or_else(|_| {
+        eprintln!("Failed to write output file: {}", output_path.display());
+        std::process::exit(1)
+    });
 }
