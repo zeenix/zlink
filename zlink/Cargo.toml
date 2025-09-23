@@ -1,6 +1,6 @@
 [package]
 name = "zlink"
-version = "0.1.0"
+version = "0.1.1"
 description = "Async Varlink API"
 edition.workspace = true
 rust-version.workspace = true
