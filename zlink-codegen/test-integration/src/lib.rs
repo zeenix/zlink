@@ -1,5 +1,7 @@
 // Include the generated code from the build script.
-include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+include!(concat!(env!("CARGO_MANIFEST_DIR"), "/test.rs"));
+include!(concat!(env!("CARGO_MANIFEST_DIR"), "/calc.rs"));
+include!(concat!(env!("CARGO_MANIFEST_DIR"), "/calc.rs"));
 
 #[cfg(test)]
 mod tests {
