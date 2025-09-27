@@ -4,7 +4,7 @@ We welcome contributions from everyone in the form of suggestions, bug reports, 
 feedback. This document gives some guidance if you are thinking of helping us.
 
 Please reach out here in a Github issue, or in the
-[#varlink:matrix.org](https://matrix.to/#/#varlink:matrix.org) Matrix room if we can do anything to help
+[#zlink:matrix.org](https://matrix.to/#/#zlink:matrix.org) Matrix room if we can do anything to help
 you contribute.
 
 ## Submitting bug reports and feature requests
