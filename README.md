@@ -458,7 +458,12 @@ Control the I/O buffer size (only one can be enabled at a time):
 Behind the scenes, `zlink` will make use of the upcoming `zlink-micro` and `zlink-usb` crates.
 Together these will enable RPC between a (Linux) host and microcontroller(s).
 
-## Contributing
+## Getting Help and/or Contributing
+
+If you need help in using these crates, are looking for ways to contribute, or just want to hang out
+with the cool kids, please come chat with us in the
+[`#zlink:matrix.org`](https://matrix.to/#/#zlink:matrix.org) Matrix room. If something doesn't seem
+right, please [file an issue](https://github.com/zeenix/zlink/issues/new).
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
