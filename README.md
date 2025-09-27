@@ -1,9 +1,20 @@
-# zlink
+<p align="center">
+  <a href="https://crates.io/crates/zlink">
+    <img alt="crates.io" src="https://img.shields.io/crates/v/zlink">
+  </a>
+  <a href="https://docs.rs/zlink/">
+    <img alt="API Documentation" src="https://docs.rs/zlink/badge.svg">
+  </a>
+  <a href="https://github.com/zeenix/zlink/actions/workflows/rust.yml">
+    <img alt="Build Status" src="https://github.com/zeenix/zlink/actions/workflows/rust.yml/badge.svg">
+  </a>
+</p>
 
-[![CI Pipeline Status](https://github.com/zeenix/zlink/actions/workflows/rust.yml/badge.svg)][cips]
-[![crates.io](https://img.shields.io/crates/v/zlink.svg)][crates.io]
-[![Documentation](https://docs.rs/zlink/badge.svg)][`zlink`]
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)][license]
+<p align="center">
+  <img alt="Project logo" src="https://raw.githubusercontent.com/zeenix/zlink/3660d731d7de8f60c8d82e122b3ece15617185e4/data/logo.svg">
+</p>
+
+<h1 align="center">zlink</h1>
 
 A Rust implementation of the [Varlink](https://varlink.org/) IPC protocol. zlink provides a safe,
 async API for building Varlink services and clients with support for both standard and embedded
