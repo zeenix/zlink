@@ -195,10 +195,10 @@ impl Service for Calculator {
     type ReplyStream = futures_util::stream::Empty<zlink::Reply<()>>;
     type ReplyError<'ser> = CalculatorError<'ser>;
 
-    async fn handle<'ser>(
-        &'ser mut self,
+    async fn handle(
+        &mut self,
         call: Call<Self::MethodCall<'_>>,
-    ) -> MethodReply<Self::ReplyParams<'ser>, Self::ReplyStream, Self::ReplyError<'ser>> {
+    ) -> MethodReply<Self::ReplyParams<'_>, Self::ReplyStream, Self::ReplyError<'_>> {
         match call.method() {
             CalculatorMethod::Add { a, b } => {
                 self.operations.push(format!("add({}, {})", a, b));
