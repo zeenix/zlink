@@ -1,0 +1,16 @@
+interface test.CamelCase
+
+type UserData (
+    userName: string,
+    emailAddress: ?string
+)
+
+error UserNotFound(userId: int)
+
+method GetUser(
+    userId: int,
+    includeEmail: ?bool
+) -> (
+    userData: UserData,
+    lastLogin: string
+)

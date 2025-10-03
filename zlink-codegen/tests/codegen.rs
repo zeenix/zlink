@@ -239,3 +239,36 @@ method SendOptional(text: ?string, data: ?CustomData) -> ()
     assert!(code.contains("text: Option<&str>"));
     assert!(code.contains("data: Option<&CustomData>"));
 }
+
+#[test]
+fn test_camelcase_rename_attributes() {
+    // Read the IDL file from the integration test to avoid duplication.
+    let idl_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("test-integration")
+        .join("camelcase.idl");
+    let idl = std::fs::read_to_string(idl_path).expect("Failed to read camelcase.idl");
+
+    let interface = Interface::try_from(idl.as_str()).unwrap();
+    let code = generate_interface(&interface).unwrap();
+
+    // Verify method parameters have #[zlink(rename)] attributes.
+    assert!(code.contains(r#"#[zlink(rename = "userId")] user_id: i64"#));
+    assert!(code.contains(r#"#[zlink(rename = "includeEmail")] include_email: Option<bool>"#));
+
+    // Verify struct fields have #[serde(rename)] attributes.
+    assert!(code.contains(r#"#[serde(rename = "userName")]"#));
+    assert!(code.contains("pub user_name: String"));
+    assert!(code.contains(r#"#[serde(rename = "emailAddress")]"#));
+    assert!(code.contains("pub email_address: Option<String>"));
+
+    // Verify output struct fields have #[serde(rename)] attributes.
+    assert!(code.contains(r#"#[serde(rename = "userData")]"#));
+    assert!(code.contains("pub user_data: UserData"));
+    assert!(code.contains(r#"#[serde(rename = "lastLogin")]"#));
+    assert!(code.contains("pub last_login: &'a str"));
+
+    // Verify error fields have #[zlink(rename)] attributes (not #[serde(rename)]).
+    assert!(code.contains("UserNotFound {"));
+    assert!(code.contains(r#"#[zlink(rename = "userId")]"#));
+    assert!(code.contains("user_id: i64"));
+}
