@@ -276,20 +276,20 @@ cargo install zlink-codegen
 # Let's create a file containing Varlink IDL
 cat <<EOF > calculator.varlink
 # Calculator service interface
-interface org.example.Calculator {
-    type CalculationResult (
-        result: float
-    )
+interface org.example.Calculator
 
-    type DivisionByZeroError (
-        message: string
-    )
+type CalculationResult (
+    result: float
+)
 
-    method Add(a: float, b: float) -> (result: float)
-    method Multiply(x: float, y: float) -> (result: float)
-    method Divide(dividend: float, divisor: float) -> (result: float)
-    error DivisionByZero(message: string)
-}
+type DivisionByZeroError (
+    message: string
+)
+
+method Add(a: float, b: float) -> (result: float)
+method Multiply(x: float, y: float) -> (result: float)
+method Divide(dividend: float, divisor: float) -> (result: float)
+error DivisionByZero(message: string)
 EOF
 
 # Generate Rust code from the IDL
