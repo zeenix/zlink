@@ -374,7 +374,14 @@ impl CodeGenerator {
             };
             // Use references for parameters that can be borrowed
             let rust_type = self.type_to_rust_param(param.ty())?;
-            write!(&mut signature, ", {}: {}", safe_param_name, rust_type)?;
+
+            write!(&mut signature, ",")?;
+            // Add parameter with potential rename attribute.
+            if safe_param_name != param.name() {
+                write!(&mut signature, " #[zlink(rename = \"{}\")]", param.name(),)?;
+            }
+
+            write!(&mut signature, " {}: {}", safe_param_name, rust_type)?;
         }
 
         signature.push_str(") -> zlink::Result<Result<");
@@ -416,7 +423,7 @@ impl CodeGenerator {
 
         // Handle field name if it's a Rust keyword.
         let field_name_attr = if is_rust_keyword(&field_name) || field_name != field.name() {
-            format!("#[serde(rename = \"{}\")]", field.name())
+            format!("#[zlink(rename = \"{}\")]", field.name())
         } else {
             String::new()
         };
