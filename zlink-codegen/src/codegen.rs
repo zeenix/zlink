@@ -416,7 +416,7 @@ impl CodeGenerator {
 
         // Handle field name if it's a Rust keyword.
         let field_name_attr = if is_rust_keyword(&field_name) || field_name != field.name() {
-            format!("#[serde(rename = \"{}\")]", field.name())
+            format!("#[zlink(rename = \"{}\")]", field.name())
         } else {
             String::new()
         };
