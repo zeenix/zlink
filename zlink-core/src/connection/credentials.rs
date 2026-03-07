@@ -56,3 +56,17 @@ impl Credentials {
         self.process_fd.as_fd()
     }
 }
+
+impl core::hash::Hash for Credentials {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.unix_user_id.hash(state);
+        self.process_id.hash(state);
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::fd::AsRawFd;
+
+            let fd = self.process_fd.as_raw_fd();
+            fd.hash(state);
+        }
+    }
+}
