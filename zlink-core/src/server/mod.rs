@@ -1,3 +1,4 @@
+pub(crate) mod aggregator_service;
 pub(crate) mod listener;
 mod select_all;
 pub mod service;

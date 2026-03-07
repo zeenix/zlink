@@ -28,6 +28,7 @@ mod error;
 pub use error::{Error, Result};
 #[cfg(feature = "server")]
 mod server;
+pub use server::aggregator_service::{AggregatorService, ServiceInstantiator};
 #[cfg(feature = "server")]
 pub use server::{
     listener::{Listener, ReadyListener},
