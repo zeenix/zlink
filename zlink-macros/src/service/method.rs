@@ -28,8 +28,11 @@ pub(super) struct MethodInfo {
     pub body: TokenStream,
     /// Whether this method returns a stream of replies (has `#[zlink(more)]`).
     pub is_streaming: bool,
-    /// The item type of the stream (the `T` in `Stream<Item = Reply<T>>`).
+    /// The item type of the stream (the `T` in `Stream<Item = Reply<T>>` or
+    /// `Stream<Item = Result<Reply<T>, E>>`).
     pub stream_item_type: Option<Type>,
+    /// The error type for streams that yield `Result<Reply<T>, E>` (the `E`).
+    pub stream_error_type: Option<Type>,
     /// The full return type for streaming methods (for generating enum variants).
     pub stream_return_type: Option<Type>,
     /// Whether the streaming method returns `impl Trait` (requires boxing).
@@ -127,46 +130,50 @@ impl MethodInfo {
             returns_result,
             error_type,
             stream_item_type,
+            stream_error_type,
             stream_return_type,
             stream_uses_impl_trait,
         ) = if is_streaming && return_fds {
-            // For streaming methods with FD passing, the stream yields (Reply<T>, Vec<OwnedFd>).
+            // For streaming methods with FD passing, the stream yields:
+            //   `(Reply<T>, Vec<OwnedFd>)`              — no error path
+            //   `(Result<Reply<T>, E>, Vec<OwnedFd>)`   — with error path
             match &method.sig.output {
                 ReturnType::Default => {
                     return Err(Error::new_spanned(
                         &method.sig,
-                        "streaming methods with return_fds must return \
-                         a Stream<Item = (Reply<T>, Vec<OwnedFd>)>",
+                        "streaming methods with return_fds must return a Stream<Item = \
+                         (Reply<T>, Vec<OwnedFd>)> or Stream<Item = (Result<Reply<T>, E>, \
+                         Vec<OwnedFd>)>",
                     ));
                 }
                 ReturnType::Type(_, ty) => {
                     let stream_item = extract_stream_item_type(ty).ok_or_else(|| {
                         Error::new_spanned(
                             ty,
-                            "streaming methods with return_fds must return \
-                             a Stream<Item = (Reply<T>, Vec<OwnedFd>)> \
-                             (could not extract Stream's Item type)",
+                            "streaming methods with return_fds must return a Stream<Item = \
+                             (Reply<T>, Vec<OwnedFd>)> or Stream<Item = (Result<Reply<T>, E>, \
+                             Vec<OwnedFd>)> (could not extract Stream's Item type)",
                         )
                     })?;
-                    // Extract Reply<T> from (Reply<T>, Vec<OwnedFd>).
-                    let reply_type =
-                        extract_first_tuple_element(&stream_item).ok_or_else(|| {
-                            Error::new_spanned(
-                                ty,
-                                "streaming methods with return_fds must return \
-                             a Stream<Item = (Reply<T>, Vec<OwnedFd>)> \
-                             (stream item must be a tuple)",
-                            )
-                        })?;
-                    // Extract T from Reply<T>.
-                    let inner_type = extract_reply_inner_type(&reply_type).ok_or_else(|| {
+                    // Extract first element from (X, Vec<OwnedFd>).
+                    let first = extract_first_tuple_element(&stream_item).ok_or_else(|| {
                         Error::new_spanned(
                             ty,
-                            "streaming methods with return_fds must return \
-                             a Stream<Item = (Reply<T>, Vec<OwnedFd>)> \
-                             (first tuple element must be Reply<T>)",
+                            "streaming methods with return_fds must return a Stream<Item = \
+                             (Reply<T>, Vec<OwnedFd>)> or Stream<Item = (Result<Reply<T>, E>, \
+                             Vec<OwnedFd>)> (stream item must be a tuple)",
                         )
                     })?;
+                    let (inner_type, err_type) =
+                        extract_reply_or_result_reply(&first).ok_or_else(|| {
+                            Error::new_spanned(
+                                ty,
+                                "streaming methods with return_fds must return a Stream<Item = \
+                                 (Reply<T>, Vec<OwnedFd>)> or Stream<Item = (Result<Reply<T>, \
+                                 E>, Vec<OwnedFd>)> (first tuple element must be Reply<T> or \
+                                 Result<Reply<T>, E>)",
+                            )
+                        })?;
                     // Check if return type uses `impl Trait`.
                     let uses_impl_trait = matches!(**ty, Type::ImplTrait(_));
                     (
@@ -174,39 +181,43 @@ impl MethodInfo {
                         false,
                         None,
                         Some(inner_type),
+                        err_type,
                         Some((**ty).clone()),
                         uses_impl_trait,
                     )
                 }
             }
         } else if is_streaming {
-            // For streaming methods, extract the Stream's Item type.
-            // Streaming methods can return either:
-            // - `impl Stream<Item = Reply<T>>` (will use boxing)
-            // - A concrete type implementing Stream (can avoid boxing)
+            // For streaming methods, extract the Stream's Item type. Streaming methods can yield:
+            // - `Reply<T>`                — no error path
+            // - `Result<Reply<T>, E>`     — with error path
+            // The macro accepts both `impl Stream<Item = ...>` and concrete stream types.
             match &method.sig.output {
                 ReturnType::Default => {
                     return Err(Error::new_spanned(
                         &method.sig,
-                        "streaming methods must return a Stream<Item = Reply<T>>",
+                        "streaming methods must return a Stream<Item = Reply<T>> or \
+                         Stream<Item = Result<Reply<T>, E>>",
                     ));
                 }
                 ReturnType::Type(_, ty) => {
                     let stream_item = extract_stream_item_type(ty).ok_or_else(|| {
                         Error::new_spanned(
                             ty,
-                            "streaming methods must return a Stream<Item = Reply<T>> \
-                             (could not extract Stream's Item type)",
+                            "streaming methods must return a Stream<Item = Reply<T>> or \
+                             Stream<Item = Result<Reply<T>, E>> (could not extract Stream's Item \
+                             type)",
                         )
                     })?;
-                    // Extract T from Reply<T>.
-                    let inner_type = extract_reply_inner_type(&stream_item).ok_or_else(|| {
-                        Error::new_spanned(
-                            ty,
-                            "streaming methods must return a Stream<Item = Reply<T>> \
-                             (stream item must be Reply<T>)",
-                        )
-                    })?;
+                    let (inner_type, err_type) = extract_reply_or_result_reply(&stream_item)
+                        .ok_or_else(|| {
+                            Error::new_spanned(
+                                ty,
+                                "streaming methods must return a Stream<Item = Reply<T>> or \
+                                 Stream<Item = Result<Reply<T>, E>> (stream item must be \
+                                 Reply<T> or Result<Reply<T>, E>)",
+                            )
+                        })?;
                     // Check if return type uses `impl Trait`.
                     let uses_impl_trait = matches!(**ty, Type::ImplTrait(_));
                     (
@@ -214,6 +225,7 @@ impl MethodInfo {
                         false,
                         None,
                         Some(inner_type),
+                        err_type,
                         Some((**ty).clone()),
                         uses_impl_trait,
                     )
@@ -243,7 +255,7 @@ impl MethodInfo {
 
                     if let Some((inner_ty, err_ty)) = extract_result_types(&first) {
                         // (Result<T, E>, Vec<OwnedFd>).
-                        (inner_ty, true, Some(err_ty), None, None, false)
+                        (inner_ty, true, Some(err_ty), None, None, None, false)
                     } else {
                         // (T, Vec<OwnedFd>).
                         let data_ty = if is_unit_type(&first) {
@@ -251,19 +263,19 @@ impl MethodInfo {
                         } else {
                             Some(first)
                         };
-                        (data_ty, false, None, None, None, false)
+                        (data_ty, false, None, None, None, None, false)
                     }
                 }
             }
         } else {
             // For non-streaming methods, extract Result types as before.
             match &method.sig.output {
-                ReturnType::Default => (None, false, None, None, None, false),
+                ReturnType::Default => (None, false, None, None, None, None, false),
                 ReturnType::Type(_, ty) => {
                     if let Some((inner_ty, err_ty)) = extract_result_types(ty) {
-                        (inner_ty, true, Some(err_ty), None, None, false)
+                        (inner_ty, true, Some(err_ty), None, None, None, false)
                     } else {
-                        (Some((**ty).clone()), false, None, None, None, false)
+                        (Some((**ty).clone()), false, None, None, None, None, false)
                     }
                 }
             }
@@ -284,6 +296,7 @@ impl MethodInfo {
             body,
             is_streaming,
             stream_item_type,
+            stream_error_type,
             stream_return_type,
             stream_uses_impl_trait,
             return_fds,
@@ -592,6 +605,20 @@ fn extract_stream_item_from_trait_bound(trait_bound: &syn::TraitBound) -> Option
     }
 
     None
+}
+
+/// Extract the success and (optional) error types from `Reply<T>` or `Result<Reply<T>, E>`.
+///
+/// Returns `Some((T, None))` for `Reply<T>`, `Some((T, Some(E)))` for `Result<Reply<T>, E>`,
+/// and `None` if the type matches neither shape.
+fn extract_reply_or_result_reply(ty: &Type) -> Option<(Type, Option<Type>)> {
+    if let Some(inner) = extract_reply_inner_type(ty) {
+        return Some((inner, None));
+    }
+    let (ok_ty, err_ty) = extract_result_types(ty)?;
+    let ok_ty = ok_ty?;
+    let inner = extract_reply_inner_type(&ok_ty)?;
+    Some((inner, Some(err_ty)))
 }
 
 /// Extract the inner type `T` from `Reply<T>`.

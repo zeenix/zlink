@@ -1136,9 +1136,20 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// - Set `Reply::set_continues(Some(true))` on every intermediate item and `Some(false)` on the
 ///   final one so that the client knows when the stream ends.
 ///
-/// Streaming methods cannot currently return `Result<T, E>`: every stream item is a `Reply<T>`,
-/// so errors cannot be reported as stream items via this macro yet. This is a temporary limitation
-/// that will be lifted in a future release.
+/// ## Returning Method Errors From Streams
+///
+/// Streaming methods can also opt in to emitting Varlink error replies as stream items. To do so,
+/// return a stream whose item is `Result<Reply<T>, E>` (or `(Result<Reply<T>, E>, Vec<OwnedFd>)`
+/// for `#[zlink(return_fds)]`). When the stream yields `Err(e)`, the server sends an error reply
+/// to the client. The error type `E` must implement `serde::Serialize` and `Debug`, just like for
+/// non-streaming methods, and (because the stream outlives `&self`) cannot borrow from the
+/// service. Different streaming methods may use different error types; the macro combines them
+/// into a single internal enum exposed as `Service::ReplyStreamError`.
+///
+/// Note that, on the wire, an error reply terminates the stream — a client that receives an
+/// error reply should not expect any further items. The macro does not enforce this on the
+/// server side, so callers can still drain the rest of the stream if the server emits more items
+/// after an error.
 ///
 /// ## Example
 ///
@@ -1168,6 +1179,46 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 ///         futures_util::stream::iter((1..=to).map(move |value| {
 ///             Reply::new(Some(Tick { value })).set_continues(Some(value < to))
 ///         }))
+///     }
+/// }
+/// ```
+///
+/// ## Streaming With Errors
+///
+/// ```rust
+/// use futures_util::Stream;
+/// use serde::{Deserialize, Serialize};
+/// use zlink::{introspect, service, Reply};
+///
+/// #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, introspect::Type)]
+/// struct Tick { value: u32 }
+///
+/// #[derive(Debug, Clone, PartialEq, zlink::ReplyError, introspect::ReplyError)]
+/// #[zlink(interface = "org.example.counter")]
+/// enum CountError {
+///     AtZero,
+/// }
+///
+/// struct Counter;
+///
+/// #[service(interface = "org.example.counter")]
+/// impl Counter {
+///     #[zlink(more)]
+///     async fn count(
+///         &self,
+///         _more: bool,
+///         to: u32,
+///     ) -> impl Stream<Item = Result<Reply<Tick>, CountError>> + Unpin {
+///         if to == 0 {
+///             return futures_util::stream::iter(vec![Err(CountError::AtZero)]);
+///         }
+///         let last = to;
+///         let items: Vec<Result<Reply<Tick>, CountError>> = (1..=to)
+///             .map(move |value| {
+///                 Ok(Reply::new(Some(Tick { value })).set_continues(Some(value < last)))
+///             })
+///             .collect();
+///         futures_util::stream::iter(items)
 ///     }
 /// }
 /// ```

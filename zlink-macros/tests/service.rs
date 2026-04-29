@@ -21,5 +21,7 @@ mod metadata;
 mod multiple_interfaces;
 #[path = "service/streaming.rs"]
 mod streaming;
+#[path = "service/streaming_errors.rs"]
+mod streaming_errors;
 #[path = "service/streaming_fds.rs"]
 mod streaming_fds;
