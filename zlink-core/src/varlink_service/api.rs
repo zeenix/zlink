@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "introspection")]
 use crate::introspect;
 
-use crate::ReplyError;
+use crate::{OptionalParams, ReplyError};
 
 #[cfg(feature = "idl")]
 use super::InterfaceDescription;
@@ -15,7 +15,10 @@ use super::{Info, OwnedInfo};
 #[serde(tag = "method", content = "parameters")]
 pub enum Method<'a> {
     /// Get information about the Varlink service.
-    #[serde(rename = "org.varlink.service.GetInfo")]
+    #[serde(
+        rename = "org.varlink.service.GetInfo",
+        deserialize_with = "no_parameters"
+    )]
     GetInfo,
     /// Get the description of the specified interface.
     #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
@@ -276,6 +279,21 @@ impl<'de> Deserialize<'de> for OwnedError {
 
 /// Result type for Varlink service methods.
 pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
+
+/// Deserialize the parameters of a method that takes none.
+///
+/// Callers with nothing to pass either leave the parameters out, which needs no handling, or send
+/// an empty object (or `null`), which is accepted here. Anything else is rejected.
+fn no_parameters<'de, D>(deserializer: D) -> core::result::Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct NoParameters {}
+
+    OptionalParams::<NoParameters>::deserialize(deserializer).map(|_| ())
+}
 
 #[cfg(test)]
 mod tests {
