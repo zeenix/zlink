@@ -56,7 +56,8 @@ Yes — over Unix domain sockets, methods can send and receive `OwnedFd`s alongs
 (see [the client chapter](client.html#other-method-attributes) and the `fds` parameters throughout
 the low-level API). Note that the Varlink IDL has no file-descriptor type, so the convention is for
 JSON parameters to carry *indexes* into the accompanying descriptor array. This zlink extension
-interoperates with systemd's use of the same convention; it requires `std`.
+interoperates with systemd's use of the same convention; it requires `std`. The [`connection`
+module documentation][fd-passing] describes the convention in detail.
 
 ## Why doesn't my proxy method get a `chain_` variant?
 
@@ -85,5 +86,6 @@ you can wrap calls with your runtime's `block_on` (e.g. `tokio`'s current-thread
 [rustc-100013]: https://github.com/rust-lang/rust/issues/100013
 [`LocalSet`]: https://docs.rs/tokio/latest/tokio/task/struct.LocalSet.html
 [`LocalRuntime`]: https://docs.rs/tokio/latest/tokio/runtime/struct.LocalRuntime.html
+[fd-passing]: https://docs.rs/zlink/latest/zlink/connection/index.html#file-descriptor-passing
 [resolved-example]: https://github.com/z-galaxy/zlink/blob/main/zlink/examples/resolved.rs
 [inspect-example]: https://github.com/z-galaxy/zlink/blob/main/zlink/examples/varlink-inspect.rs
