@@ -1,6 +1,6 @@
 //! Unit tests for `Call` serialization and deserialization.
 
-use super::Call;
+use super::{Call, OptionalParams};
 use serde::{Deserialize, Serialize};
 
 mod std {
@@ -411,5 +411,140 @@ mod std {
         let json2 = serde_json::to_string(&deserialized).unwrap();
         let parsed2: serde_json::Value = serde_json::from_str(&json2).unwrap();
         assert_eq!(parsed, parsed2);
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    struct NoParams {}
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    struct AllOptional<'a> {
+        name: Option<&'a str>,
+        value: Option<i32>,
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    struct Required<'a> {
+        name: &'a str,
+        value: Option<i32>,
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    #[serde(tag = "method", content = "parameters")]
+    enum OptionalMethods<'a> {
+        #[serde(rename = "org.example.test.NoParams")]
+        NoParams(OptionalParams<NoParams>),
+        #[serde(rename = "org.example.test.AllOptional")]
+        AllOptional(#[serde(borrow)] OptionalParams<AllOptional<'a>>),
+        #[serde(rename = "org.example.test.Required")]
+        Required(#[serde(borrow)] OptionalParams<Required<'a>>),
+    }
+
+    fn no_params() -> OptionalMethods<'static> {
+        OptionalMethods::NoParams(OptionalParams(NoParams {}))
+    }
+
+    fn all_optional(name: Option<&str>, value: Option<i32>) -> OptionalMethods<'_> {
+        OptionalMethods::AllOptional(OptionalParams(AllOptional { name, value }))
+    }
+
+    #[test]
+    fn deserialize_call_without_parameters() {
+        // `parameters` is optional, e.g. `varlinkctl` leaves it out when it has nothing to pass.
+        let json = r#"{"method":"org.example.test.AllOptional"}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(None, None));
+
+        let json = r#"{"method":"org.example.test.NoParams"}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &no_params());
+
+        // The flags of the call are not affected.
+        let json = r#"{"oneway":true,"method":"org.example.test.AllOptional","more":true}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(None, None));
+        assert!(call.oneway());
+        assert!(call.more());
+        assert!(!call.upgrade());
+    }
+
+    #[test]
+    fn deserialize_call_with_empty_parameters() {
+        // Others (e.g. `varlinkctl call .. '{}'`) send an empty object instead.
+        let json = r#"{"method":"org.example.test.AllOptional","parameters":{}}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(None, None));
+
+        let json = r#"{"method":"org.example.test.NoParams","parameters":{}}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &no_params());
+    }
+
+    #[test]
+    fn deserialize_call_with_null_parameters() {
+        let json = r#"{"method":"org.example.test.AllOptional","parameters":null}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(None, None));
+
+        let json = r#"{"method":"org.example.test.NoParams","parameters":null}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &no_params());
+    }
+
+    #[test]
+    fn deserialize_call_with_parameters_before_method() {
+        // The parameters have to be set aside when they come before the method.
+        let jsons = [
+            r#"{"parameters":{},"method":"org.example.test.AllOptional"}"#,
+            r#"{"parameters":null,"method":"org.example.test.AllOptional"}"#,
+        ];
+        for json in jsons {
+            let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+            assert_eq!(call.method(), &all_optional(None, None), "{json}");
+        }
+
+        let json =
+            r#"{"parameters":{"name":"a","value":7},"method":"org.example.test.AllOptional"}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(Some("a"), Some(7)));
+    }
+
+    #[test]
+    fn deserialize_call_with_some_parameters() {
+        let json = r#"{"method":"org.example.test.AllOptional","parameters":{"value":7}}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(None, Some(7)));
+
+        let json = r#"{"method":"org.example.test.AllOptional","parameters":{"name":"a"}}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(call.method(), &all_optional(Some("a"), None));
+    }
+
+    #[test]
+    fn deserialize_call_without_required_parameters() {
+        // Parameters that can't be left out are still required, however the call leaves them out.
+        let jsons = [
+            r#"{"method":"org.example.test.Required"}"#,
+            r#"{"method":"org.example.test.Required","parameters":{}}"#,
+            r#"{"method":"org.example.test.Required","parameters":null}"#,
+            r#"{"method":"org.example.test.Required","parameters":{"value":7}}"#,
+            r#"{"parameters":null,"method":"org.example.test.Required"}"#,
+        ];
+        for json in jsons {
+            let err = serde_json::from_str::<Call<OptionalMethods<'_>>>(json).unwrap_err();
+            assert!(
+                err.to_string().contains("missing field `name`"),
+                "{json}: {err}"
+            );
+        }
+
+        let json = r#"{"method":"org.example.test.Required","parameters":{"name":"a"}}"#;
+        let call: Call<OptionalMethods<'_>> = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            call.method(),
+            &OptionalMethods::Required(OptionalParams(Required {
+                name: "a",
+                value: None
+            }))
+        );
     }
 }

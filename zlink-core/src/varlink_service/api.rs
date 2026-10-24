@@ -298,6 +298,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Call;
 
     #[test]
     fn error_serialization() {
@@ -395,6 +396,56 @@ mod tests {
                 interface: Cow::Owned("test.interface".into())
             }
         );
+    }
+
+    #[test]
+    fn get_info_parameters() {
+        // Callers with nothing to pass leave the parameters out or send them empty.
+        let jsons = [
+            r#"{"method":"org.varlink.service.GetInfo"}"#,
+            r#"{"method":"org.varlink.service.GetInfo","parameters":{}}"#,
+            r#"{"method":"org.varlink.service.GetInfo","parameters":null}"#,
+            r#"{"parameters":{},"method":"org.varlink.service.GetInfo"}"#,
+            r#"{"parameters":null,"method":"org.varlink.service.GetInfo"}"#,
+        ];
+        for json in jsons {
+            let call: Call<Method<'_>> = serde_json::from_str(json).unwrap();
+            assert!(matches!(call.method(), Method::GetInfo), "{json}");
+        }
+
+        // The method takes no parameters, whatever the call sends.
+        let jsons = [
+            r#"{"method":"org.varlink.service.GetInfo","parameters":{"interface":"a"}}"#,
+            r#"{"method":"org.varlink.service.GetInfo","parameters":1}"#,
+        ];
+        for json in jsons {
+            serde_json::from_str::<Call<Method<'_>>>(json).unwrap_err();
+        }
+    }
+
+    #[test]
+    fn get_interface_description_parameters() {
+        let json = concat!(
+            r#"{"method":"org.varlink.service.GetInterfaceDescription","#,
+            r#""parameters":{"interface":"org.example"}}"#,
+        );
+        let call: Call<Method<'_>> = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            call.method(),
+            Method::GetInterfaceDescription {
+                interface: "org.example"
+            }
+        ));
+
+        // The interface can't be left out.
+        let jsons = [
+            r#"{"method":"org.varlink.service.GetInterfaceDescription"}"#,
+            r#"{"method":"org.varlink.service.GetInterfaceDescription","parameters":{}}"#,
+            r#"{"method":"org.varlink.service.GetInterfaceDescription","parameters":null}"#,
+        ];
+        for json in jsons {
+            serde_json::from_str::<Call<Method<'_>>>(json).unwrap_err();
+        }
     }
 
     // Helper function to serialize Error to JSON string.
