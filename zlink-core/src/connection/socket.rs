@@ -27,7 +27,7 @@ pub trait Socket: core::fmt::Debug {
 pub trait ReadHalf: core::fmt::Debug {
     /// Read from a socket.
     ///
-    /// On completion, the number of bytes read and any file descriptors received are returned.
+    /// On completion, the outcome of the read is returned as a [`ReadResult`].
     ///
     /// Notes for implementers:
     ///
@@ -46,7 +46,16 @@ pub trait WriteHalf: core::fmt::Debug {
     ///
     /// The `fds` parameter contains file descriptors to send along with the data (std only).
     ///
-    /// The returned future has the same requirements as that of [`ReadHalf::read`].
+    /// Notes for implementers:
+    ///
+    /// * The returned future has the same requirements as that of [`ReadHalf::read`].
+    /// * The file descriptors must be sent along with the first byte of `buf`. If `buf` takes more
+    ///   than one `sendmsg` call to write, they are sent with the first one only. When there are
+    ///   file descriptors to pass, `buf` starts with the first byte of the message they belong to,
+    ///   in line with the [file descriptor passing] convention. Implementations for Unix domain
+    ///   sockets can use the hidden `zlink_core::unix_utils::sendmsg` helper, which does that.
+    ///
+    /// [file descriptor passing]: crate::connection#file-descriptor-passing
     fn write(
         &mut self,
         buf: &[u8],
@@ -138,6 +147,16 @@ pub mod impl_for_doc {
 }
 
 /// Result type for [`ReadHalf::read`] operations.
+///
+/// Along with the number of bytes read, it holds the file descriptors (`std` only) and credentials
+/// (`std` on Linux only) received with those bytes.
+///
+/// Implementations of [`ReadHalf`] must return the file descriptors received by the same `recvmsg`
+/// call as the bytes, since the [file descriptor passing] convention associates file descriptors
+/// with the message whose first byte came with them. Implementations for Unix domain sockets can
+/// use the hidden `zlink_core::unix_utils::recvmsg` helper, which does that.
+///
+/// [file descriptor passing]: crate::connection#file-descriptor-passing
 #[derive(Debug)]
 pub struct ReadResult {
     /// The number of bytes read.
@@ -170,6 +189,11 @@ impl ReadResult {
     }
 
     /// The file descriptors received, if any. This is only available with the `std` feature.
+    ///
+    /// These belong to the message whose first byte was received along with them, as per the
+    /// [file descriptor passing] convention.
+    ///
+    /// [file descriptor passing]: crate::connection#file-descriptor-passing
     #[cfg(feature = "std")]
     pub fn fds(&self) -> &[OwnedFd] {
         &self.fds
