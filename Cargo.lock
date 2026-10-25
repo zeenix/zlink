@@ -2293,6 +2293,9 @@ dependencies = [
 [[package]]
 name = "zlink-names"
 version = "0.7.1"
+dependencies = [
+ "winnow",
+]
 
 [[package]]
 name = "zlink-smol"
