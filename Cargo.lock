@@ -2267,6 +2267,7 @@ dependencies = [
  "uuid",
  "zlink-idl",
  "zlink-macros",
+ "zlink-names",
 ]
 
 [[package]]
