@@ -546,7 +546,9 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///
 /// The following attributes can be used to customize the behavior of this macro:
 ///
-/// * `interface` (required) - The Varlink interface name (e.g., `"org.varlink.service"`).
+/// * `interface` (required) - The Varlink interface name (e.g., `"org.varlink.service"`). It can
+///   also be the only argument: `#[proxy("org.varlink.service")]`. It must be a valid Varlink
+///   interface name, in reverse-domain notation, or the macro fails to compile.
 /// * `crate` - Specifies the crate path to use for zlink types. Defaults to `::zlink`.
 /// * `chain_name` - Custom name for the generated chain extension trait. Defaults to
 ///   `{TraitName}Chain`.
@@ -565,6 +567,18 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// trait ConfigProxy {
 ///     // `dry_run` would become `dry-run`, which Varlink cannot express.
 ///     async fn set_config(&mut self, dry_run: bool) -> zlink::Result<Result<(), MyError>>;
+/// }
+/// # #[derive(Debug, serde::Serialize, serde::Deserialize)]
+/// # enum MyError {}
+/// ```
+///
+/// An interface name that is not in reverse-domain notation is rejected at compile time as well:
+///
+/// ```rust,compile_fail
+/// # use zlink::proxy;
+/// #[proxy("Calculator")]
+/// trait CalculatorProxy {
+///     async fn add(&mut self, a: i64, b: i64) -> zlink::Result<Result<i64, MyError>>;
 /// }
 /// # #[derive(Debug, serde::Serialize, serde::Deserialize)]
 /// # enum MyError {}

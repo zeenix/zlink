@@ -153,6 +153,8 @@ fn parse_proxy_attributes(
 
     // Try parsing as a simple string literal first (backward compatibility)
     if let Ok(Lit::Str(lit_str)) = parse2::<Lit>(attr.clone()) {
+        crate::naming::validate_interface(&lit_str)?;
+
         return Ok((lit_str.value(), quote! { ::zlink }, None, None));
     }
 
