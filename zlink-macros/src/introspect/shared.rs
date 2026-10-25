@@ -18,6 +18,14 @@ pub(crate) fn generate_comment_objects(
         .collect()
 }
 
+/// The expression that builds a `TypeName` from a name that was validated at compile time.
+///
+/// The macros check every name when they expand, so the code they generate doesn't check it again:
+/// it builds the name without validating it.
+pub(crate) fn type_name_expr(name: &str, crate_path: &TokenStream2) -> TokenStream2 {
+    quote! { #crate_path::names::TypeName::from_static_str_unchecked(#name) }
+}
+
 /// Generate field definitions for struct fields.
 ///
 /// If variant_prefix is provided, it's used to create unique static names for variant fields.

@@ -96,7 +96,7 @@ async fn run_client(
         let interface = interface.parse().unwrap();
         assert_eq!(interface.name(), "org.example.ftl");
         // Verify methods are present.
-        let method_names: Vec<_> = interface.methods().map(|m| m.name()).collect();
+        let method_names: Vec<_> = interface.methods().map(|m| m.name().as_str()).collect();
         assert!(method_names.contains(&"GetDriveCondition"));
         assert!(method_names.contains(&"SetDriveCondition"));
         assert!(method_names.contains(&"Jump"));

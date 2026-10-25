@@ -11,6 +11,7 @@
 use zlink::{
     idl::{self, CustomEnum, CustomObject, EnumVariant, Field},
     introspect::{CustomType, Type},
+    names::TypeName,
 };
 
 // Test struct that implements custom::Type
@@ -22,12 +23,17 @@ impl CustomType for Point {
         static FIELD_Y: Field = Field::new("y", &idl::Type::Float, &[]);
         static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 
-        idl::CustomType::Object(CustomObject::new("Point", FIELDS, &[]))
+        idl::CustomType::Object(CustomObject::new(
+            TypeName::from_static_str_unchecked("Point"),
+            FIELDS,
+            &[],
+        ))
     };
 }
 
 impl Type for Point {
-    const TYPE: &'static idl::Type<'static> = &{ idl::Type::Custom("Point") };
+    const TYPE: &'static idl::Type<'static> =
+        &{ idl::Type::Custom(TypeName::from_static_str_unchecked("Point")) };
 }
 
 // Test enum that implements custom::Type
@@ -40,7 +46,11 @@ impl CustomType for Color {
         static VARIANT_BLUE: EnumVariant<'static> = EnumVariant::new("Blue", &[]);
         static VARIANTS: &[&EnumVariant<'static>] = &[&VARIANT_RED, &VARIANT_GREEN, &VARIANT_BLUE];
 
-        idl::CustomType::Enum(CustomEnum::new("Color", VARIANTS, &[]))
+        idl::CustomType::Enum(CustomEnum::new(
+            TypeName::from_static_str_unchecked("Color"),
+            VARIANTS,
+            &[],
+        ))
     };
 }
 
@@ -54,12 +64,17 @@ impl CustomType for Person {
         static FIELD_ACTIVE: Field = Field::new("active", &idl::Type::Bool, &[]);
         static FIELDS: &[&Field<'static>] = &[&FIELD_NAME, &FIELD_AGE, &FIELD_ACTIVE];
 
-        idl::CustomType::Object(CustomObject::new("Person", FIELDS, &[]))
+        idl::CustomType::Object(CustomObject::new(
+            TypeName::from_static_str_unchecked("Person"),
+            FIELDS,
+            &[],
+        ))
     };
 }
 
 impl Type for Person {
-    const TYPE: &'static idl::Type<'static> = &{ idl::Type::Custom("Person") };
+    const TYPE: &'static idl::Type<'static> =
+        &{ idl::Type::Custom(TypeName::from_static_str_unchecked("Person")) };
 }
 
 #[test]

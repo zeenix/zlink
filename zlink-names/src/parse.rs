@@ -11,7 +11,7 @@ use winnow::{
 };
 use zcheapstr::CheapStr;
 
-use crate::InterfaceName;
+use crate::{InterfaceName, TypeName};
 
 /// Parse a field name: starts with a letter, continues with alphanumerics, each optionally
 /// preceded by a single underscore (no leading, trailing or doubled underscores).
@@ -33,13 +33,13 @@ pub fn field_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&
 }
 
 /// Parse a type name: starts with uppercase letter, continues with alphanumeric.
-pub fn type_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'a [u8]>> {
+pub fn type_name<'a>(input: &mut &'a [u8]) -> ModalResult<TypeName<'a>, InputError<&'a [u8]>> {
     (
         one_of(|c: u8| c.is_ascii_uppercase()),
         take_while(0.., |c: u8| c.is_ascii_alphanumeric()),
     )
         .take()
-        .map(bytes_to_str)
+        .map(|name| TypeName(CheapStr::from(bytes_to_str(name))))
         .parse_next(input)
 }
 

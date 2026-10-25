@@ -10,6 +10,7 @@
 /// ```rust
 /// use zlink_core::introspect::CustomType;
 /// use zlink_core::idl::{self, Field, CustomObject};
+/// use zlink_core::names::TypeName;
 ///
 /// struct Point {
 ///     x: f64,
@@ -22,7 +23,9 @@
 ///         static FIELD_Y: Field<'static> = Field::new("y", &zlink_core::idl::Type::Float, &[]);
 ///         static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 ///
-///         idl::CustomType::Object(CustomObject::new("Point", FIELDS, &[]))
+///         // `const` items can't use the validating conversions, so the name is not checked.
+///         let name = TypeName::from_static_str_unchecked("Point");
+///         idl::CustomType::Object(CustomObject::new(name, FIELDS, &[]))
 ///     };
 /// }
 /// ```
@@ -37,6 +40,7 @@ mod tests {
     use crate::{
         idl::{self, CustomEnum, CustomObject, EnumVariant, Field},
         introspect,
+        names::TypeName,
     };
 
     // Test implementation for a custom struct type
@@ -48,7 +52,12 @@ mod tests {
             static FIELD_Y: Field<'static> = Field::new("y", <f64 as introspect::Type>::TYPE, &[]);
             static FIELDS: &[&Field<'static>] = &[&FIELD_X, &FIELD_Y];
 
-            idl::CustomType::Object(CustomObject::new("Point", FIELDS, &[]))
+            // `const` items can't use the validating conversions.
+            idl::CustomType::Object(CustomObject::new(
+                TypeName::from_static_str_unchecked("Point"),
+                FIELDS,
+                &[],
+            ))
         };
     }
 
@@ -63,7 +72,12 @@ mod tests {
             static VARIANTS: &[&EnumVariant<'static>] =
                 &[&VARIANT_ACTIVE, &VARIANT_INACTIVE, &VARIANT_PENDING];
 
-            idl::CustomType::Enum(CustomEnum::new("Status", VARIANTS, &[]))
+            // `const` items can't use the validating conversions.
+            idl::CustomType::Enum(CustomEnum::new(
+                TypeName::from_static_str_unchecked("Status"),
+                VARIANTS,
+                &[],
+            ))
         };
     }
 

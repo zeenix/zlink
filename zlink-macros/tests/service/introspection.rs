@@ -61,7 +61,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
         "Unexpected methods"
     );
     for method in methods {
-        match method.name() {
+        match method.name().as_str() {
             "GetBalance" => {
                 assert!(method.has_no_inputs());
                 let output_names = method.outputs().map(|f| f.name()).collect::<Vec<_>>();
@@ -92,7 +92,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
     // (compile-time constant → IDL text → parse).
     for method in interface.methods() {
         let comment_text: Vec<_> = method.comments().map(|c| c.content()).collect();
-        match method.name() {
+        match method.name().as_str() {
             "GetBalance" => {
                 assert_eq!(comment_text, ["Get the current account balance."]);
             }
@@ -139,7 +139,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
     // Verify error doc-comments are propagated.
     for error in interface.errors() {
         let comment_text: Vec<_> = error.comments().map(|c| c.content()).collect();
-        match error.name() {
+        match error.name().as_str() {
             "InsufficientFunds" => {
                 assert_eq!(comment_text, ["Not enough funds available."]);
             }

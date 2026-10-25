@@ -64,7 +64,7 @@ async fn introspect_machined() {
 
         // Check for expected methods
         let methods: Vec<_> = interface.methods().collect();
-        let method_names: Vec<_> = methods.iter().map(|m| m.name()).collect();
+        let method_names: Vec<_> = methods.iter().map(|m| m.name().as_str()).collect();
 
         assert!(method_names.contains(&"Register"));
         assert!(method_names.contains(&"Unregister"));
@@ -75,7 +75,7 @@ async fn introspect_machined() {
 
         // Check for expected custom types
         let custom_types: Vec<_> = interface.custom_types().collect();
-        let type_names: Vec<_> = custom_types.iter().map(|t| t.name()).collect();
+        let type_names: Vec<_> = custom_types.iter().map(|t| t.name().as_str()).collect();
 
         assert!(type_names.contains(&"AcquireMetadata"));
         assert!(type_names.contains(&"MachineOpenMode"));
@@ -85,7 +85,7 @@ async fn introspect_machined() {
 
         // Check for expected errors
         let errors: Vec<_> = interface.errors().collect();
-        let error_names: Vec<_> = errors.iter().map(|e| e.name()).collect();
+        let error_names: Vec<_> = errors.iter().map(|e| e.name().as_str()).collect();
 
         assert!(error_names.contains(&"NoSuchMachine"));
         assert!(error_names.contains(&"MachineExists"));

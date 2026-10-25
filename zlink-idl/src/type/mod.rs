@@ -5,6 +5,8 @@ pub use type_ref::TypeRef;
 
 use core::fmt;
 
+use zlink_names::TypeName;
+
 use super::{EnumVariant, Field, List};
 
 /// Represents a type in Varlink IDL.
@@ -29,7 +31,7 @@ pub enum Type<'a> {
     /// Map type with string keys.
     Map(TypeRef<'a>),
     /// Custom named type reference.
-    Custom(&'a str),
+    Custom(TypeName<'a>),
     /// Inline enum type.
     Enum(List<'a, EnumVariant<'a>>),
     /// Inline struct type.
@@ -62,7 +64,7 @@ impl<'a> Type<'a> {
     }
 
     /// The custom type name if this type is a custom type.
-    pub const fn as_custom(&self) -> Option<&'a str> {
+    pub const fn as_custom(&self) -> Option<&TypeName<'a>> {
         match self {
             Type::Custom(custom) => Some(custom),
             _ => None,

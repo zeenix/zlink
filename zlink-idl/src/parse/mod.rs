@@ -192,12 +192,10 @@ fn method_def<'a>(input: &mut &'a [u8]) -> ModalResult<Method<'a>, InputError<&'
     ws(input)?;
     let output_params = parameter_list(input)?;
 
-    Ok(Method::new_owned(
-        name,
-        input_params,
-        output_params,
-        comments,
-    ))
+    // The name is a `TypeName` already, so there is no conversion that can fail.
+    let Ok(method) = Method::new_owned(name, input_params, output_params, comments);
+
+    Ok(method)
 }
 
 /// Parse an error definition: error Name (fields).
@@ -210,7 +208,9 @@ fn error_def<'a>(input: &mut &'a [u8]) -> ModalResult<super::Error<'a>, InputErr
     ws(input)?;
     let params = parameter_list(input)?;
 
-    Ok(super::Error::new_owned(name, params, comments))
+    let Ok(error) = super::Error::new_owned(name, params, comments);
+
+    Ok(error)
 }
 
 /// A typed field or an untyped enum variant. Custom types may be either a
@@ -268,13 +268,13 @@ fn type_def<'a>(input: &mut &'a [u8]) -> ModalResult<CustomType<'a>, InputError<
     // An empty body is a struct per the Varlink grammar; otherwise, untyped
     // members make an enum and typed members make a struct.
     if !variants.is_empty() {
-        Ok(CustomType::from(CustomEnum::new_owned(
-            name, variants, comments,
-        )))
+        let Ok(custom_enum) = CustomEnum::new_owned(name, variants, comments);
+
+        Ok(CustomType::from(custom_enum))
     } else {
-        Ok(CustomType::from(CustomObject::new_owned(
-            name, fields, comments,
-        )))
+        let Ok(custom_object) = CustomObject::new_owned(name, fields, comments);
+
+        Ok(CustomType::from(custom_object))
     }
 }
 

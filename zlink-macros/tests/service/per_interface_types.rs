@@ -55,7 +55,10 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
     let interface = desc.parse()?;
     assert_eq!(interface.name(), "org.example.books");
 
-    let type_names: Vec<_> = interface.custom_types().map(|t| t.name()).collect();
+    let type_names: Vec<_> = interface
+        .custom_types()
+        .map(|t| t.name().as_str())
+        .collect();
     assert!(
         type_names.contains(&"Book"),
         "org.example.books should contain Book, got: {type_names:?}"
@@ -98,7 +101,10 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
     let interface = desc.parse()?;
     assert_eq!(interface.name(), "org.example.music");
 
-    let type_names: Vec<_> = interface.custom_types().map(|t| t.name()).collect();
+    let type_names: Vec<_> = interface
+        .custom_types()
+        .map(|t| t.name().as_str())
+        .collect();
     assert!(
         type_names.contains(&"Album"),
         "org.example.music should contain Album, got: {type_names:?}"

@@ -1012,7 +1012,10 @@ fn generate_interface_descriptions(
             .enumerate()
             .map(|(idx, method)| {
                 let method_const_name = format_ident!("__METHOD_{}", idx);
-                let method_name = &method.varlink_name;
+                let method_name_expr = crate::introspect::shared::type_name_expr(
+                    &method.varlink_name,
+                    crate_path,
+                );
 
                 // Input parameters (excluding connection params).
                 let in_params: Vec<TokenStream> = method
@@ -1108,14 +1111,15 @@ fn generate_interface_descriptions(
                         #out_params_const
                         // Verify all custom types in method output parameters are declared.
                         const _: () = {
-                            const __DECLARED: &[&str] = &[#(#declared_names),*];
+                            const __DECLARED: &[&#crate_path::names::TypeName<'static>] =
+                                &[#(#declared_names),*];
                             #crate_path::introspect::assert::assert_params_declared(
                                 __OUT_PARAMS,
                                 __DECLARED,
                             );
                         };
                         #crate_path::idl::Method::new(
-                            #method_name,
+                            #method_name_expr,
                             __IN_PARAMS,
                             __OUT_PARAMS,
                             &[#(#comment_objects),*],
@@ -1216,7 +1220,8 @@ fn generate_interface_descriptions(
 
             // Verify all custom types in method parameters are declared.
             const _: () = {
-                const __DECLARED: &[&str] = &[#(#declared_names),*];
+                const __DECLARED: &[&#crate_path::names::TypeName<'static>] =
+                    &[#(#declared_names),*];
                 #(#type_assertions)*
             };
         });
