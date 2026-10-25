@@ -2125,6 +2125,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "zcheapstr"
+version = "1.1.0"
+source = "git+https://github.com/z-galaxy/zcheapstr?rev=9fd99aca4b3676d79e34f46020d89e25b1f23c32#9fd99aca4b3676d79e34f46020d89e25b1f23c32"
+
+[[package]]
 name = "zerocopy"
 version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2296,6 +2301,7 @@ name = "zlink-names"
 version = "0.7.1"
 dependencies = [
  "winnow",
+ "zcheapstr",
 ]
 
 [[package]]
