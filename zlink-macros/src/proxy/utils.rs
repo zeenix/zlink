@@ -4,8 +4,8 @@ use crate::{
 };
 use std::collections::HashSet;
 use syn::{
-    Attribute, Error, Expr, GenericArgument, Ident, Lit, Meta, PathArguments, ReturnType, Type,
-    punctuated::Punctuated,
+    Attribute, Error, Expr, GenericArgument, Ident, Lit, LitStr, Meta, PathArguments, ReturnType,
+    Type, punctuated::Punctuated,
 };
 
 /// Convert snake_case to PascalCase.
@@ -147,12 +147,15 @@ where
 }
 
 /// Parse a rename value from an expression.
-pub(super) fn parse_rename_value(expr: &Expr) -> Result<Option<String>, Error> {
+///
+/// The literal is kept, not just its value, so a bad name can be reported against the span the
+/// user wrote it at.
+pub(super) fn parse_rename_value(expr: &Expr) -> Result<Option<LitStr>, Error> {
     match expr {
         Expr::Lit(syn::ExprLit {
             lit: Lit::Str(lit_str),
             ..
-        }) => Ok(Some(lit_str.value())),
+        }) => Ok(Some(lit_str.clone())),
         _ => Err(Error::new_spanned(
             expr,
             "rename value must be a string literal",
@@ -163,7 +166,7 @@ pub(super) fn parse_rename_value(expr: &Expr) -> Result<Option<String>, Error> {
 /// Parameter attributes extracted from #[zlink(...)] on parameters.
 #[derive(Default)]
 pub(super) struct ParamAttrs {
-    pub rename: Option<String>,
+    pub rename: Option<LitStr>,
     pub is_fds: bool,
 }
 
@@ -178,7 +181,7 @@ pub(super) fn resolve_serialized_name(
     param_attrs: Option<&ParamAttrs>,
     rename_all: Option<RenameAll>,
 ) -> Result<Option<String>, Error> {
-    if let Some(rename) = param_attrs.and_then(|attrs| attrs.rename.clone()) {
+    if let Some(rename) = param_attrs.and_then(|attrs| attrs.rename.as_ref().map(LitStr::value)) {
         return Ok(Some(rename));
     }
 
@@ -195,6 +198,27 @@ pub(super) fn resolve_serialized_name(
     )?;
 
     Ok(Some(name))
+}
+
+/// The method's full wire name, `<interface>.<Method>`.
+///
+/// An explicit `#[zlink(rename = "...")]` is taken verbatim; otherwise the unraw'd ident is
+/// converted to PascalCase. Either way, it has to be a name Varlink can express.
+pub(super) fn resolve_method_path(
+    interface: &str,
+    ident: &Ident,
+    rename: Option<&LitStr>,
+) -> Result<String, Error> {
+    let (name, source) = match rename {
+        Some(lit) => (lit.value(), NameSource::Rename(lit)),
+        None => (
+            snake_case_to_pascal_case(&naming::unraw(ident)),
+            NameSource::Ident(ident),
+        ),
+    };
+    naming::validate(&name, Grammar::Type, "method name", source)?;
+
+    Ok(format!("{interface}.{name}"))
 }
 
 /// Extract parameter attributes from zlink attributes and remove processed attributes.
@@ -697,7 +721,7 @@ mod tests {
     fn explicit_rename_beats_rename_all() {
         let ident: Ident = parse_quote!(dry_run);
         let attrs = ParamAttrs {
-            rename: Some("customName".into()),
+            rename: Some(parse_quote!("customName")),
             is_fds: false,
         };
         let name = resolve_serialized_name(&ident, Some(&attrs), Some(RenameAll::Pascal)).unwrap();
@@ -722,5 +746,73 @@ mod tests {
             .to_string();
 
         assert!(err.contains("`dry-run`"), "must name the bad name: {err}");
+    }
+
+    #[test]
+    fn method_path_is_the_pascal_cased_ident() {
+        let ident: Ident = parse_quote!(get_data);
+
+        assert_eq!(
+            resolve_method_path("org.example.Foo", &ident, None).unwrap(),
+            "org.example.Foo.GetData"
+        );
+    }
+
+    /// The `r#` of a raw ident is Rust syntax, not part of the name.
+    #[test]
+    fn method_path_uses_the_unrawed_ident() {
+        let ident: Ident = parse_quote!(r#type);
+
+        assert_eq!(
+            resolve_method_path("org.example.Foo", &ident, None).unwrap(),
+            "org.example.Foo.Type"
+        );
+    }
+
+    #[test]
+    fn explicit_method_rename_is_taken_verbatim() {
+        let ident: Ident = parse_quote!(get_data);
+        let rename: LitStr = parse_quote!("fetchData");
+
+        // Not a Varlink type name, so verbatim means rejected rather than PascalCased.
+        resolve_method_path("org.example.Foo", &ident, Some(&rename)).unwrap_err();
+
+        let rename: LitStr = parse_quote!("FetchData");
+        assert_eq!(
+            resolve_method_path("org.example.Foo", &ident, Some(&rename)).unwrap(),
+            "org.example.Foo.FetchData"
+        );
+    }
+
+    /// A rename is the user's own word, so rejecting it must not suggest they write one.
+    #[test]
+    fn invalid_method_rename_is_rejected_against_the_literal() {
+        let ident: Ident = parse_quote!(get_data);
+        let rename: LitStr = parse_quote!("get-data");
+        let err = resolve_method_path("org.example.Foo", &ident, Some(&rename))
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("`get-data`"), "must quote the bad name: {err}");
+        assert!(
+            err.contains("method name"),
+            "must say what the name is for: {err}"
+        );
+        assert!(!err.contains("rename"), "must not suggest a rename: {err}");
+    }
+
+    /// A derived name that Varlink can't express can only be fixed with a rename, so say so.
+    #[test]
+    fn invalid_derived_method_name_suggests_a_rename() {
+        let ident: Ident = parse_quote!(größe);
+        let err = resolve_method_path("org.example.Foo", &ident, None)
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("`Größe`"),
+            "must quote the derived name: {err}"
+        );
+        assert!(err.contains("rename"), "must suggest a rename: {err}");
     }
 }

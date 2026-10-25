@@ -871,6 +871,21 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// To specify a different Varlink method name, use the `#[zlink(rename = "...")]` attribute. See
 /// `list_machines` in the example above.
 ///
+/// Either way, the name must be a valid Varlink method name (`[A-Z][A-Za-z0-9]*`), which is checked
+/// at compile time:
+///
+/// ```rust,compile_fail
+/// # use zlink::proxy;
+/// #[proxy("org.example.Status")]
+/// trait StatusProxy {
+///     // `get-status` is not a name Varlink can express.
+///     #[zlink(rename = "get-status")]
+///     async fn status(&mut self) -> zlink::Result<Result<(), MyError>>;
+/// }
+/// # #[derive(Debug, serde::Serialize, serde::Deserialize)]
+/// # enum MyError {}
+/// ```
+///
 /// # Streaming Methods
 ///
 /// For methods that support streaming (the 'more' flag), use the `#[zlink(more)]` attribute.
