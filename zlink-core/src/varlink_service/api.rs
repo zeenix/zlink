@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "introspection")]
 use crate::introspect;
 
-use crate::ReplyError;
+use crate::{OptionalParams, ReplyError};
 
 #[cfg(feature = "idl")]
 use super::InterfaceDescription;
@@ -15,7 +15,10 @@ use super::{Info, OwnedInfo};
 #[serde(tag = "method", content = "parameters")]
 pub enum Method<'a> {
     /// Get information about the Varlink service.
-    #[serde(rename = "org.varlink.service.GetInfo")]
+    #[serde(
+        rename = "org.varlink.service.GetInfo",
+        deserialize_with = "no_parameters"
+    )]
     GetInfo,
     /// Get the description of the specified interface.
     #[serde(rename = "org.varlink.service.GetInterfaceDescription")]
@@ -277,9 +280,25 @@ impl<'de> Deserialize<'de> for OwnedError {
 /// Result type for Varlink service methods.
 pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
 
+/// Deserialize the parameters of a method that takes none.
+///
+/// Callers with nothing to pass either leave the parameters out, which needs no handling, or send
+/// an empty object (or `null`), which is accepted here. Anything else is rejected.
+fn no_parameters<'de, D>(deserializer: D) -> core::result::Result<(), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct NoParameters {}
+
+    OptionalParams::<NoParameters>::deserialize(deserializer).map(|_| ())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Call;
 
     #[test]
     fn error_serialization() {
@@ -377,6 +396,56 @@ mod tests {
                 interface: Cow::Owned("test.interface".into())
             }
         );
+    }
+
+    #[test]
+    fn get_info_parameters() {
+        // Callers with nothing to pass leave the parameters out or send them empty.
+        let jsons = [
+            r#"{"method":"org.varlink.service.GetInfo"}"#,
+            r#"{"method":"org.varlink.service.GetInfo","parameters":{}}"#,
+            r#"{"method":"org.varlink.service.GetInfo","parameters":null}"#,
+            r#"{"parameters":{},"method":"org.varlink.service.GetInfo"}"#,
+            r#"{"parameters":null,"method":"org.varlink.service.GetInfo"}"#,
+        ];
+        for json in jsons {
+            let call: Call<Method<'_>> = serde_json::from_str(json).unwrap();
+            assert!(matches!(call.method(), Method::GetInfo), "{json}");
+        }
+
+        // The method takes no parameters, whatever the call sends.
+        let jsons = [
+            r#"{"method":"org.varlink.service.GetInfo","parameters":{"interface":"a"}}"#,
+            r#"{"method":"org.varlink.service.GetInfo","parameters":1}"#,
+        ];
+        for json in jsons {
+            serde_json::from_str::<Call<Method<'_>>>(json).unwrap_err();
+        }
+    }
+
+    #[test]
+    fn get_interface_description_parameters() {
+        let json = concat!(
+            r#"{"method":"org.varlink.service.GetInterfaceDescription","#,
+            r#""parameters":{"interface":"org.example"}}"#,
+        );
+        let call: Call<Method<'_>> = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            call.method(),
+            Method::GetInterfaceDescription {
+                interface: "org.example"
+            }
+        ));
+
+        // The interface can't be left out.
+        let jsons = [
+            r#"{"method":"org.varlink.service.GetInterfaceDescription"}"#,
+            r#"{"method":"org.varlink.service.GetInterfaceDescription","parameters":{}}"#,
+            r#"{"method":"org.varlink.service.GetInterfaceDescription","parameters":null}"#,
+        ];
+        for json in jsons {
+            serde_json::from_str::<Call<Method<'_>>>(json).unwrap_err();
+        }
     }
 
     // Helper function to serialize Error to JSON string.

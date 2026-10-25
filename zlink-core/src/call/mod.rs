@@ -4,6 +4,10 @@
 mod de;
 mod ser;
 
+mod params;
+#[doc(hidden)]
+pub use params::OptionalParams;
+
 #[cfg(test)]
 mod tests;
 

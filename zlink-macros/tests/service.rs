@@ -7,6 +7,8 @@
 mod basic;
 #[path = "service/borrowed-types.rs"]
 mod borrowed_types;
+#[path = "service/call_params.rs"]
+mod call_params;
 #[path = "service/custom_bounds.rs"]
 mod custom_bounds;
 #[path = "service/explicit-lifetimes.rs"]

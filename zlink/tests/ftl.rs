@@ -8,10 +8,12 @@ use std::{pin::pin, time::Duration};
 
 use futures_util::{TryStreamExt, pin_mut, stream::StreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use tokio::{select, time::sleep};
 use zlink::{
+    Call,
     introspect::{self, CustomType, ReplyError as _, Type},
-    varlink_service::{self, Proxy as _},
+    varlink_service::{self, OwnedInfo, Proxy as _},
 };
 
 #[cfg(all(feature = "smol", not(feature = "tokio")))]
@@ -119,6 +121,47 @@ async fn run_client(
         let target = "Alpha Centauri";
         let location = conn.locate(target).await.unwrap()?;
         assert_eq!(location.name, target);
+
+        // The `parameters` of a call are optional: callers with nothing to pass either leave them
+        // out or send them empty (or `null`). Methods without required parameters accept all.
+        for parameters in [None, Some(json!({})), Some(Value::Null)] {
+            // From the `org.varlink.service` interface.
+            let call = Call::new(RawCall {
+                method: "org.varlink.service.GetInfo",
+                parameters: parameters.clone(),
+            });
+            let (reply, _fds) = conn
+                .call_method::<_, OwnedInfo, varlink_service::OwnedError>(&call, vec![])
+                .await?;
+            let info = reply?.into_parameters().unwrap();
+            assert_eq!(info.vendor, VENDOR);
+            assert_eq!(info.interfaces, INTERFACES);
+
+            // From the service itself.
+            let call = Call::new(RawCall {
+                method: "org.example.ftl.GetCoordinates",
+                parameters: parameters.clone(),
+            });
+            let (reply, _fds) = conn
+                .call_method::<_, Coordinate, FtlError>(&call, vec![])
+                .await?;
+            let coordinates = Coordinate {
+                longitude: 0.0,
+                latitude: 0.0,
+                distance: 0,
+            };
+            assert_eq!(reply?.into_parameters(), Some(coordinates));
+
+            // And one that replies with a stream if asked to, which it isn't.
+            let call = Call::new(RawCall {
+                method: "org.example.ftl.GetDriveCondition",
+                parameters,
+            });
+            let (reply, _fds) = conn
+                .call_method::<_, DriveCondition, FtlError>(&call, vec![])
+                .await?;
+            assert_eq!(reply?.into_parameters(), Some(conditions[0]));
+        }
 
         // Set the drive condition and then set it again to test chaining.
         // Use owned variants for chain methods (chain requires owned types).
@@ -300,6 +343,14 @@ trait FtlProxy {
     // Oneway method - no reply expected. Chain methods are generated for these.
     #[zlink(oneway)]
     async fn reset_coordinates(&mut self) -> zlink::Result<()>;
+}
+
+/// A call whose `parameters` are whatever it is given, or left out if it is given none.
+#[derive(Debug, Serialize)]
+struct RawCall {
+    method: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parameters: Option<Value>,
 }
 
 // ============================================================================
