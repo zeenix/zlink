@@ -3,13 +3,16 @@
 #![cfg(test)]
 
 use crate::{
-    connection::{read_connection::ReadConnection, socket::Socket},
+    connection::{
+        read_connection::ReadConnection,
+        socket::{ReadHalf, ReadResult, Socket},
+    },
     test_utils::mock_socket::MockSocket,
 };
-use alloc::vec::Vec;
+use alloc::{collections::VecDeque, vec::Vec};
 use rustix::fd::AsFd;
 use serde::{Deserialize, Serialize};
-use std::os::unix::net::UnixStream;
+use std::os::{fd::OwnedFd, unix::net::UnixStream};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "method", content = "parameters")]
@@ -91,15 +94,46 @@ async fn receive_multiple_calls_with_mixed_fds() {
 
     let (call, fds) = conn.receive_call::<TestMethod>().await.unwrap();
     assert_eq!(call.method(), &TestMethod::Test { value: 1 });
-    assert_eq!(fds.len(), 2); // All FDs from the batch
+    assert_eq!(fds.len(), 2); // The FDs came with this call.
 
     let (call, fds) = conn.receive_call::<TestMethod>().await.unwrap();
     assert_eq!(call.method(), &TestMethod::Test { value: 2 });
-    assert!(fds.is_empty()); // No new read, so no new FDs
+    assert!(fds.is_empty());
 
     let (call, fds) = conn.receive_call::<TestMethod>().await.unwrap();
     assert_eq!(call.method(), &TestMethod::Test { value: 3 });
-    assert!(fds.is_empty()); // No new read, so no new FDs
+    assert!(fds.is_empty());
+}
+
+// The FDs of a call are sent along with its first byte, but the kernel may return them in a read
+// that also returns other calls.
+#[tokio::test]
+async fn receive_calls_with_fds_among_other_calls() {
+    let call4 = call(4);
+    // Linux can return the data written before the FDs in the read that returns them, which ends
+    // with the data written along with them.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    let reads = [
+        ([call(1), call(2)].concat(), vec![fd()]),
+        ([&call(3), &call4[..10]].concat(), vec![fd(), fd()]),
+        (call4[10..].to_vec(), vec![]),
+    ];
+    // BSD-derived kernels start the read that returns the FDs with the data written along with them
+    // and can return the data written after them in the same read.
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    let reads = [
+        (call(1), vec![]),
+        ([call(2), call(3)].concat(), vec![fd()]),
+        (call4[..10].to_vec(), vec![fd(), fd()]),
+        (call4[10..].to_vec(), vec![]),
+    ];
+    let mut conn = ReadConnection::new(ScriptedReadHalf(reads.into()), 0);
+
+    for (value, fd_count) in [(1, 0), (2, 1), (3, 0), (4, 2)] {
+        let (call, fds) = conn.receive_call::<TestMethod>().await.unwrap();
+        assert_eq!(call.method(), &TestMethod::Test { value });
+        assert_eq!(fds.len(), fd_count, "FDs received with call {value}");
+    }
 }
 
 #[tokio::test]
@@ -299,4 +333,36 @@ async fn receive_reply_error_with_fds() {
         TestError::NotFound { code: 404 }
     ));
     assert_eq!(received_fds.len(), 1);
+}
+
+/// A call to `org.example.Test` with `value`, as it's sent over the socket.
+fn call(value: u32) -> Vec<u8> {
+    let mut call =
+        format!(r#"{{"method":"org.example.Test","parameters":{{"value":{value}}}}}"#).into_bytes();
+    call.push(b'\0');
+
+    call
+}
+
+fn fd() -> OwnedFd {
+    let (fd, _) = UnixStream::pair().unwrap();
+
+    fd.into()
+}
+
+/// A read half returning the given data and FDs, in the given chunks.
+///
+/// This allows emulating how the kernel splits the data written by the peer into reads.
+#[derive(Debug)]
+struct ScriptedReadHalf(VecDeque<(Vec<u8>, Vec<OwnedFd>)>);
+
+impl ReadHalf for ScriptedReadHalf {
+    async fn read(&mut self, buf: &mut [u8]) -> crate::Result<ReadResult> {
+        let Some((data, fds)) = self.0.pop_front() else {
+            return Ok(ReadResult::new(0));
+        };
+        buf[..data.len()].copy_from_slice(&data);
+
+        Ok(ReadResult::new(data.len()).set_fds(fds))
+    }
 }
