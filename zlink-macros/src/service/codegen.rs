@@ -1206,7 +1206,7 @@ fn generate_interface_descriptions(
             const #const_name: &#crate_path::idl::Interface<'static> = &{
                 #(#method_consts)*
                 #crate_path::idl::Interface::new(
-                    #interface,
+                    #crate_path::names::InterfaceName::from_static_str_unchecked(#interface),
                     &[#(#method_refs),*],
                     &[#(#custom_types),*],
                     #error_variants_expr,

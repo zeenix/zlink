@@ -345,13 +345,10 @@ fn interface_def<'a>(input: &mut &'a [u8]) -> ModalResult<Interface<'a>, InputEr
         }
     }
 
-    Ok(Interface::new_owned(
-        name,
-        methods,
-        custom_types,
-        errors,
-        comments,
-    ))
+    // The name is an `InterfaceName` already, so there is no conversion that can fail.
+    let Ok(interface) = Interface::new_owned(name, methods, custom_types, errors, comments);
+
+    Ok(interface)
 }
 
 /// Parse an interface from a string.

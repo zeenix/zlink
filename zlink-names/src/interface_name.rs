@@ -21,7 +21,7 @@ use crate::parse;
 /// # Ok::<(), zlink_names::Error>(())
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct InterfaceName<'a>(CheapStr<'a>);
+pub struct InterfaceName<'a>(pub(crate) CheapStr<'a>);
 
 /// An owned [`InterfaceName`], independent of the data it was created from.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

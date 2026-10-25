@@ -27,6 +27,7 @@ pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     use crate::{
         idl::{Comment, Interface, Method, Parameter},
         introspect::{ReplyError, Type},
+        names::InterfaceName,
     };
 
     const INTERFACE_PARAM: &Parameter<'static> = &Parameter::new("interface", <&str>::TYPE, &[]);
@@ -52,7 +53,7 @@ pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     ];
 
     Interface::new(
-        INTERFACE_NAME,
+        InterfaceName::from_static_str_unchecked(INTERFACE_NAME),
         METHODS,
         &[],
         Error::VARIANTS,

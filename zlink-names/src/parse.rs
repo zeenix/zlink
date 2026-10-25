@@ -9,6 +9,9 @@ use winnow::{
     error::{ErrMode, InputError},
     token::{literal, one_of, take_while},
 };
+use zcheapstr::CheapStr;
+
+use crate::InterfaceName;
 
 /// Parse a field name: starts with a letter, continues with alphanumerics, each optionally
 /// preceded by a single underscore (no leading, trailing or doubled underscores).
@@ -47,7 +50,9 @@ pub fn type_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'
 ///   first segment      = [-]*[A-Za-z0-9]
 ///   subsequent segment = "." [A-Za-z0-9]([-]*[A-Za-z0-9])*
 ///   name               = first_character first_segment* subsequent_segment+
-pub fn interface_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'a [u8]>> {
+pub fn interface_name<'a>(
+    input: &mut &'a [u8],
+) -> ModalResult<InterfaceName<'a>, InputError<&'a [u8]>> {
     (
         // First character.
         one_of(|c: u8| c.is_ascii_alphabetic()),
@@ -65,7 +70,7 @@ pub fn interface_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputErr
         ),
     )
         .take()
-        .map(bytes_to_str)
+        .map(|name| InterfaceName(CheapStr::from(bytes_to_str(name))))
         .parse_next(input)
 }
 
