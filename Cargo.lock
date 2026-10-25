@@ -2288,7 +2288,6 @@ dependencies = [
  "test-log",
  "tokio",
  "zlink",
- "zlink-idl",
  "zlink-names",
 ]
 

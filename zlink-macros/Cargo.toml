@@ -29,10 +29,6 @@ syn = { version = "2.0", default-features = false, features = [
     "proc-macro",
     "extra-traits"
 ] }
-# The Varlink grammar, so the names the derives emit are checked by running the same parser that
-# reads them back. `parse` (hence winnow) is always on: this is a proc-macro crate, so the dep is
-# built for the host and never reaches a user's binary.
-zlink-idl = { path = "../zlink-idl", version = "=0.7.1", features = ["parse"] }
 # The Varlink name grammar, so the names the macros emit are checked by the same rules zlink-idl
 # reads them back with. This is a proc-macro crate, so the dep is built for the host and never
 # reaches a user's binary.
