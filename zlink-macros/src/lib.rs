@@ -557,9 +557,10 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 ///   `kebab-case`, `SCREAMING-KEBAB-CASE`. systemd's Varlink APIs, for instance, use `camelCase`
 ///   argument names (with `PascalCase` where a name mirrors a documented option name), so a proxy
 ///   for one typically wants `rename_all_arguments = "camelCase"`. Per-argument `#[zlink(rename =
-///   "...")]` takes precedence over `rename_all_arguments`. Every produced name must still fit the
-///   Varlink field-name grammar (`[A-Za-z](_?[A-Za-z0-9])*`), so a convention that steps outside it
-///   -- `kebab-case` on a multi-word argument, say -- is rejected at compile time:
+///   "...")]` takes precedence over `rename_all_arguments`. Every argument name -- whether a
+///   convention produced it, a rename gave it, or it is just the Rust identifier -- must fit the
+///   Varlink field-name grammar (`[A-Za-z](_?[A-Za-z0-9])*`), so a name that steps outside it is
+///   rejected at compile time. That is the case for `kebab-case` on a multi-word argument, say:
 ///
 /// ```rust,compile_fail
 /// # use zlink::proxy;
@@ -567,6 +568,20 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// trait ConfigProxy {
 ///     // `dry_run` would become `dry-run`, which Varlink cannot express.
 ///     async fn set_config(&mut self, dry_run: bool) -> zlink::Result<Result<(), MyError>>;
+/// }
+/// # #[derive(Debug, serde::Serialize, serde::Deserialize)]
+/// # enum MyError {}
+/// ```
+///
+/// It is also the case for a Rust identifier that the grammar doesn't allow, such as one with a
+/// leading underscore, unless you give the argument a name with `#[zlink(rename = "...")]`:
+///
+/// ```rust,compile_fail
+/// # use zlink::proxy;
+/// #[proxy("org.example.Config")]
+/// trait ConfigProxy {
+///     // `_dry_run` is a fine Rust identifier, but not a name Varlink can express.
+///     async fn set_config(&mut self, _dry_run: bool) -> zlink::Result<Result<(), MyError>>;
 /// }
 /// # #[derive(Debug, serde::Serialize, serde::Deserialize)]
 /// # enum MyError {}
@@ -1071,6 +1086,22 @@ pub fn derive_introspect_reply_error(input: proc_macro::TokenStream) -> proc_mac
 /// # enum UserError { InvalidInput }
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// # }).unwrap();
+/// ```
+///
+/// Like every argument name, the new name must fit the Varlink field-name grammar:
+///
+/// ```rust,compile_fail
+/// # use zlink::proxy;
+/// #[proxy("org.example.Config")]
+/// trait ConfigProxy {
+///     // `dry-run` is not a name Varlink can express.
+///     async fn set_config(
+///         &mut self,
+///         #[zlink(rename = "dry-run")] dry_run: bool,
+///     ) -> zlink::Result<Result<(), MyError>>;
+/// }
+/// # #[derive(Debug, serde::Serialize, serde::Deserialize)]
+/// # enum MyError {}
 /// ```
 ///
 /// # Generic Parameters

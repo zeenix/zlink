@@ -174,18 +174,40 @@ pub(super) struct ParamAttrs {
 ///
 /// An explicit `#[zlink(rename = "...")]` wins over the trait-level `rename_all_arguments`. A
 /// `rename_all_arguments` convention is applied to the unraw'd ident -- `r#` is Rust syntax,
-/// never part of the name -- and the name it produces is checked against the Varlink field
-/// grammar, which conventions like `kebab-case` cannot always satisfy.
+/// never part of the name. Whichever name ends up on the wire, including the unraw'd ident itself
+/// when there is neither a rename nor a convention, is checked against the Varlink field grammar,
+/// which Rust idents like `_foo` and conventions like `kebab-case` cannot always satisfy.
 pub(super) fn resolve_serialized_name(
     ident: &Ident,
     param_attrs: Option<&ParamAttrs>,
     rename_all: Option<RenameAll>,
 ) -> Result<Option<String>, Error> {
-    if let Some(rename) = param_attrs.and_then(|attrs| attrs.rename.as_ref().map(LitStr::value)) {
-        return Ok(Some(rename));
+    // File descriptors travel out of band: their parameter's name never reaches the wire.
+    if param_attrs.is_some_and(|attrs| attrs.is_fds) {
+        return Ok(None);
+    }
+
+    if let Some(lit) = param_attrs.and_then(|attrs| attrs.rename.as_ref()) {
+        let name = lit.value();
+        naming::validate(
+            &name,
+            Grammar::Field,
+            "parameter name",
+            NameSource::Rename(lit),
+        )?;
+
+        return Ok(Some(name));
     }
 
     let Some(rule) = rename_all else {
+        // Without a rename, serde puts the unraw'd ident itself on the wire.
+        naming::validate(
+            &naming::unraw(ident),
+            Grammar::Field,
+            "parameter name",
+            NameSource::Ident(ident),
+        )?;
+
         return Ok(None);
     };
 
@@ -814,5 +836,54 @@ mod tests {
             "must quote the derived name: {err}"
         );
         assert!(err.contains("rename"), "must suggest a rename: {err}");
+    }
+
+    /// Rust accepts idents that the Varlink field grammar doesn't, and without a rename the ident
+    /// is the name on the wire.
+    #[test]
+    fn unrenamed_idents_must_fit_the_field_grammar() {
+        for name in ["_foo", "foo_", "foo__bar"] {
+            let ident = Ident::new(name, proc_macro2::Span::call_site());
+            let err = resolve_serialized_name(&ident, None, None)
+                .unwrap_err()
+                .to_string();
+
+            assert!(
+                err.contains(&format!("`{name}`")),
+                "must name the ident: {err}"
+            );
+            assert!(err.contains("rename"), "must suggest a rename: {err}");
+        }
+    }
+
+    /// A rename is the user's own word, so rejecting it must not suggest they write one.
+    #[test]
+    fn invalid_parameter_rename_is_rejected_against_the_literal() {
+        let ident: Ident = parse_quote!(dry_run);
+        let attrs = ParamAttrs {
+            rename: Some(parse_quote!("dry-run")),
+            is_fds: false,
+        };
+        let err = resolve_serialized_name(&ident, Some(&attrs), None)
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("`dry-run`"), "must quote the bad name: {err}");
+        assert!(!err.contains("rename"), "must not suggest a rename: {err}");
+    }
+
+    /// File descriptors travel out of band, so their parameter's name never reaches the wire.
+    #[test]
+    fn fds_parameter_name_is_not_checked() {
+        let ident: Ident = parse_quote!(_fds);
+        let attrs = ParamAttrs {
+            rename: None,
+            is_fds: true,
+        };
+
+        assert_eq!(
+            resolve_serialized_name(&ident, Some(&attrs), Some(RenameAll::Kebab)).unwrap(),
+            None
+        );
     }
 }
