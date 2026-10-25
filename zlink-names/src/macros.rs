@@ -2,9 +2,10 @@
 ///
 /// `$name` is the borrowing name type, a tuple struct around a `CheapStr`, and `$owned` is its
 /// owned sibling, a tuple struct around `$name<'static>`. `$is_valid` checks a string against the
-/// family's rule and `$error` is the error that a failed conversion returns.
+/// family's rule and `$error` is the error that a failed conversion returns. `$expecting` says what
+/// the name is, for the error of a failed deserialization.
 macro_rules! impl_name {
-    ($name:ident, $owned:ident, $is_valid:path, $error:expr) => {
+    ($name:ident, $owned:ident, $is_valid:path, $error:expr, $expecting:literal) => {
         impl<'a> $name<'a> {
             /// Create a name from a static string, without validating it.
             ///
@@ -131,6 +132,26 @@ macro_rules! impl_name {
             }
         }
 
+        #[cfg(feature = "serde")]
+        impl ::serde::Serialize for $name<'_> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: ::serde::Serializer,
+            {
+                serializer.serialize_str(self.as_str())
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl<'de: 'a, 'a> ::serde::Deserialize<'de> for $name<'a> {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: ::serde::Deserializer<'de>,
+            {
+                $crate::de::deserialize(deserializer, $is_valid, $expecting).map(Self)
+            }
+        }
+
         impl $owned {
             /// The name as a string slice.
             pub fn as_str(&self) -> &str {
@@ -218,6 +239,27 @@ macro_rules! impl_name {
         impl PartialEq<$owned> for &str {
             fn eq(&self, other: &$owned) -> bool {
                 *self == other.as_str()
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl ::serde::Serialize for $owned {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: ::serde::Serializer,
+            {
+                ::serde::Serialize::serialize(&self.0, serializer)
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl<'de> ::serde::Deserialize<'de> for $owned {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: ::serde::Deserializer<'de>,
+            {
+                <$name<'_> as ::serde::Deserialize<'de>>::deserialize(deserializer)
+                    .map($name::into_owned)
             }
         }
     };

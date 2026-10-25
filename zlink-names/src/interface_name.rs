@@ -31,7 +31,8 @@ impl_name!(
     InterfaceName,
     OwnedInterfaceName,
     is_valid_interface_name,
-    crate::Error::InvalidInterfaceName
+    crate::Error::InvalidInterfaceName,
+    "a Varlink interface name"
 );
 
 /// Whether `name` is a valid Varlink interface name.

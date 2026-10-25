@@ -30,7 +30,8 @@ impl_name!(
     TypeName,
     OwnedTypeName,
     is_valid_type_name,
-    crate::Error::InvalidTypeName
+    crate::Error::InvalidTypeName,
+    "a Varlink type name"
 );
 
 /// Whether `name` is a valid Varlink type name.

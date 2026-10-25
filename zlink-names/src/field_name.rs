@@ -30,7 +30,8 @@ impl_name!(
     FieldName,
     OwnedFieldName,
     is_valid_field_name,
-    crate::Error::InvalidFieldName
+    crate::Error::InvalidFieldName,
+    "a Varlink field name"
 );
 
 /// Whether `name` is a valid Varlink field name.

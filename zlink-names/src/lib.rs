@@ -4,6 +4,11 @@
 //! for each kind of name, which can only hold a valid one, along with functions that check whether
 //! a string is a valid name. It is standalone: it does not pull in the rest of zlink.
 //!
+//! # Features
+//!
+//! * `serde`: The name types implement serde's `Serialize` and `Deserialize`. A name serializes as
+//!   a string, and a string is checked when it is deserialized into a name.
+//!
 //! # Examples
 //!
 //! ```
@@ -44,6 +49,9 @@ pub use type_name::{OwnedTypeName, TypeName, is_valid_type_name};
 
 mod interface_name;
 pub use interface_name::{InterfaceName, OwnedInterfaceName, is_valid_interface_name};
+
+#[cfg(feature = "serde")]
+mod de;
 
 #[doc(hidden)]
 pub mod parse;
