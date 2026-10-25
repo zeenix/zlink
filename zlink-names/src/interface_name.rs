@@ -1,6 +1,38 @@
 //! Varlink interface names.
 
+use zcheapstr::CheapStr;
+
 use crate::parse;
+
+/// A Varlink interface name, e.g. `org.example.Foo`.
+///
+/// Interface names are in reverse-domain notation: at least two dot-separated segments of ASCII
+/// letters, digits and hyphens. The first segment starts with a letter, and no segment starts or
+/// ends with a hyphen.
+///
+/// # Examples
+///
+/// ```
+/// use zlink_names::InterfaceName;
+///
+/// let name = InterfaceName::try_from("org.example.Foo")?;
+/// assert_eq!(name, "org.example.Foo");
+/// assert!(InterfaceName::try_from("Foo").is_err());
+/// # Ok::<(), zlink_names::Error>(())
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InterfaceName<'a>(CheapStr<'a>);
+
+/// An owned [`InterfaceName`], independent of the data it was created from.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OwnedInterfaceName(InterfaceName<'static>);
+
+impl_name!(
+    InterfaceName,
+    OwnedInterfaceName,
+    is_valid_interface_name,
+    crate::Error::InvalidInterfaceName
+);
 
 /// Whether `name` is a valid Varlink interface name.
 ///
@@ -21,6 +53,7 @@ pub fn is_valid_interface_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Error;
 
     #[test]
     fn interface_names() {
@@ -43,5 +76,39 @@ mod tests {
         for name in invalid {
             assert!(!is_valid_interface_name(name), "`{name}` must be invalid");
         }
+    }
+
+    #[test]
+    fn try_from() {
+        let name = InterfaceName::try_from("org.example.Foo").unwrap();
+        assert_eq!(name.as_str(), "org.example.Foo");
+        let name = InterfaceName::try_from(String::from("org.example.Foo")).unwrap();
+        assert_eq!(name.as_str(), "org.example.Foo");
+
+        assert_eq!(
+            InterfaceName::try_from("Foo"),
+            Err(Error::InvalidInterfaceName)
+        );
+        assert_eq!(
+            InterfaceName::try_from(String::from("org.example-")),
+            Err(Error::InvalidInterfaceName)
+        );
+    }
+
+    #[test]
+    fn owned_try_from() {
+        let name = OwnedInterfaceName::try_from("org.example.Foo").unwrap();
+        assert_eq!(name.as_str(), "org.example.Foo");
+        let name = OwnedInterfaceName::try_from(String::from("org.example.Foo")).unwrap();
+        assert_eq!(name.as_str(), "org.example.Foo");
+
+        assert_eq!(
+            OwnedInterfaceName::try_from("Foo"),
+            Err(Error::InvalidInterfaceName)
+        );
+        assert_eq!(
+            OwnedInterfaceName::try_from(String::new()),
+            Err(Error::InvalidInterfaceName)
+        );
     }
 }

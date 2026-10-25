@@ -1,6 +1,37 @@
 //! Varlink type names.
 
+use zcheapstr::CheapStr;
+
 use crate::parse;
+
+/// A Varlink type name, e.g. `FileNotFound`.
+///
+/// Custom types, methods and errors are named this way: an uppercase ASCII letter followed by
+/// ASCII letters and digits.
+///
+/// # Examples
+///
+/// ```
+/// use zlink_names::TypeName;
+///
+/// let name = TypeName::try_from("FileNotFound")?;
+/// assert_eq!(name, "FileNotFound");
+/// assert!(TypeName::try_from("fileNotFound").is_err());
+/// # Ok::<(), zlink_names::Error>(())
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TypeName<'a>(CheapStr<'a>);
+
+/// An owned [`TypeName`], independent of the data it was created from.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OwnedTypeName(TypeName<'static>);
+
+impl_name!(
+    TypeName,
+    OwnedTypeName,
+    is_valid_type_name,
+    crate::Error::InvalidTypeName
+);
 
 /// Whether `name` is a valid Varlink type name.
 ///
@@ -21,7 +52,7 @@ pub fn is_valid_type_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::is_valid_field_name;
+    use crate::{Error, is_valid_field_name};
 
     #[test]
     fn type_names() {
@@ -44,5 +75,39 @@ mod tests {
         for name in ["A", "Foo", "FileNotFound", "Foo0"] {
             assert!(is_valid_field_name(name), "`{name}` must be valid");
         }
+    }
+
+    #[test]
+    fn try_from() {
+        let name = TypeName::try_from("FileNotFound").unwrap();
+        assert_eq!(name.as_str(), "FileNotFound");
+        let name = TypeName::try_from(String::from("FileNotFound")).unwrap();
+        assert_eq!(name.as_str(), "FileNotFound");
+
+        assert_eq!(
+            TypeName::try_from("fileNotFound"),
+            Err(Error::InvalidTypeName)
+        );
+        assert_eq!(
+            TypeName::try_from(String::from("File_not_found")),
+            Err(Error::InvalidTypeName)
+        );
+    }
+
+    #[test]
+    fn owned_try_from() {
+        let name = OwnedTypeName::try_from("FileNotFound").unwrap();
+        assert_eq!(name.as_str(), "FileNotFound");
+        let name = OwnedTypeName::try_from(String::from("FileNotFound")).unwrap();
+        assert_eq!(name.as_str(), "FileNotFound");
+
+        assert_eq!(
+            OwnedTypeName::try_from("fileNotFound"),
+            Err(Error::InvalidTypeName)
+        );
+        assert_eq!(
+            OwnedTypeName::try_from(String::new()),
+            Err(Error::InvalidTypeName)
+        );
     }
 }
