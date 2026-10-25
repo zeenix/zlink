@@ -41,7 +41,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
 
     // Test GetInterfaceDescription for user interface.
     let desc = conn
-        .get_interface_description("org.example.bank")
+        .get_interface_description("org.example.bank".try_into().unwrap())
         .await?
         .unwrap();
     // Parse the interface and verify the name.
@@ -163,7 +163,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
 
     // Test GetInterfaceDescription for org.varlink.service.
     let desc = conn
-        .get_interface_description("org.varlink.service")
+        .get_interface_description("org.varlink.service".try_into().unwrap())
         .await?
         .unwrap();
     let interface = desc.parse()?;
@@ -182,7 +182,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
 
     // Test InterfaceNotFound error - verify the service returns an error for unknown interface.
     let result = conn
-        .get_interface_description("org.example.nonexistent")
+        .get_interface_description("org.example.nonexistent".try_into().unwrap())
         .await;
 
     match result {

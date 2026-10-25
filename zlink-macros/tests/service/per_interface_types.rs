@@ -49,7 +49,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
 
     // org.example.books should have Book and BookList but NOT Album/AlbumList.
     let desc = conn
-        .get_interface_description("org.example.books")
+        .get_interface_description("org.example.books".try_into().unwrap())
         .await?
         .unwrap();
     let interface = desc.parse()?;
@@ -98,7 +98,7 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
 
     // org.example.music should have Album and AlbumList but NOT Book/BookList.
     let desc = conn
-        .get_interface_description("org.example.music")
+        .get_interface_description("org.example.music".try_into().unwrap())
         .await?
         .unwrap();
     let interface = desc.parse()?;

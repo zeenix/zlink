@@ -1686,7 +1686,10 @@ pub fn derive_reply_error(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 /// # ];
 /// # let socket = MockSocket::with_responses(&responses);
 /// # let mut conn = zlink::Connection::new(socket);
-/// let desc = conn.get_interface_description("org.example.bank").await?.unwrap();
+/// let desc = conn
+///     .get_interface_description("org.example.bank".try_into()?)
+///     .await?
+///     .unwrap();
 /// let interface = desc.parse()?;
 /// assert_eq!(interface.name(), "org.example.bank");
 ///

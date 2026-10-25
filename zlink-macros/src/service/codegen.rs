@@ -1680,9 +1680,14 @@ fn generate_handle_body(
         })
         .collect();
 
-    // Build the interfaces list for GetInfo.
-    let interfaces_list: Vec<TokenStream> =
-        interfaces.iter().map(|iface| quote! { #iface }).collect();
+    // Build the interfaces list for GetInfo. The interface names were validated when the
+    // attributes were parsed, so the generated code builds them without checking them again.
+    let interfaces_list: Vec<TokenStream> = interfaces
+        .iter()
+        .map(|iface| {
+            quote! { #crate_path::names::InterfaceName::from_static_str_unchecked(#iface) }
+        })
+        .collect();
 
     // Service metadata.
     let vendor = service_attrs
@@ -1725,31 +1730,40 @@ fn generate_handle_body(
         #crate_path::service::MethodReply::Error(
             #reply_error_name::#varlink_error_variant(
                 #crate_path::varlink_service::Error::InterfaceNotFound {
-                    interface: ::std::borrow::Cow::Borrowed(interface),
+                    interface: ::std::borrow::Cow::Borrowed(interface.as_str()),
                 }
             )
         )
     });
+    // `Info::new` converts the interface names it is given. They are `InterfaceName`s already, so
+    // the conversion can't fail, which makes the `Result` pattern in the `GetInfo` arm irrefutable.
     let varlink_service_match = quote! {
         #method_call_name::__VarlinkService(__varlink_method) => {
             match __varlink_method {
                 #crate_path::varlink_service::Method::GetInfo => {
-                    let info = #crate_path::varlink_service::Info::new(
-                        #vendor,
-                        #product,
-                        #version,
-                        #url,
-                        ::std::vec![
-                            #(#interfaces_list,)*
-                            #crate_path::varlink_service::INTERFACE_NAME,
-                        ],
-                    );
+                    let ::core::result::Result::Ok(info) =
+                        #crate_path::varlink_service::Info::new(
+                            #vendor,
+                            #product,
+                            #version,
+                            #url,
+                            [
+                                #(#interfaces_list,)*
+                                #crate_path::names::InterfaceName::from_static_str_unchecked(
+                                    #crate_path::varlink_service::INTERFACE_NAME.as_str(),
+                                ),
+                            ],
+                        );
                     #get_info_reply
                 }
                 #crate_path::varlink_service::Method::GetInterfaceDescription { interface } => {
-                    match *interface {
+                    // Patterns can't call functions, so the name goes through a constant.
+                    const __ZLINK_VARLINK_SERVICE_INTERFACE: &str =
+                        #crate_path::varlink_service::INTERFACE_NAME.as_str();
+
+                    match interface.as_str() {
                         #(#interface_match_arms)*
-                        #crate_path::varlink_service::INTERFACE_NAME => {
+                        __ZLINK_VARLINK_SERVICE_INTERFACE => {
                             let desc =
                                 #crate_path::varlink_service::InterfaceDescription::from(
                                     #crate_path::varlink_service::DESCRIPTION

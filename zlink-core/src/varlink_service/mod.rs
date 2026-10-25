@@ -3,6 +3,8 @@
 //! This module provides types for methods and errors to be used for both client and server
 //! implementations of the standard Varlink service interface.
 
+use crate::names::InterfaceName;
+
 mod info;
 pub use info::{Info, OwnedInfo};
 mod api;
@@ -19,7 +21,8 @@ mod interface_description;
 pub use interface_description::InterfaceDescription;
 
 /// The name of the `org.varlink.service` interface.
-pub const INTERFACE_NAME: &str = "org.varlink.service";
+pub const INTERFACE_NAME: &InterfaceName<'static> =
+    &InterfaceName::from_static_str_unchecked("org.varlink.service");
 
 /// The description of the `org.varlink.service` interface.
 #[cfg(feature = "introspection")]
@@ -27,7 +30,7 @@ pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     use crate::{
         idl::{Comment, Interface, Method, Parameter},
         introspect::{ReplyError, Type},
-        names::{FieldName, InterfaceName, TypeName},
+        names::{FieldName, TypeName},
     };
 
     const INTERFACE_PARAM: &Parameter<'static> = &Parameter::new(
@@ -57,7 +60,7 @@ pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     ];
 
     Interface::new(
-        InterfaceName::from_static_str_unchecked(INTERFACE_NAME),
+        InterfaceName::from_static_str_unchecked(INTERFACE_NAME.as_str()),
         METHODS,
         &[],
         Error::VARIANTS,

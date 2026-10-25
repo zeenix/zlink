@@ -52,7 +52,7 @@ async fn introspect_machined() {
 
         // Test get_interface_description method
         let interface = conn
-            .get_interface_description("io.systemd.Machine")
+            .get_interface_description("io.systemd.Machine".try_into().unwrap())
             .await
             .unwrap()
             .unwrap();
@@ -98,7 +98,7 @@ async fn introspect_machined() {
 
         // Test `org.varlink.service` interface impl.
         let interface = conn
-            .get_interface_description("org.varlink.service")
+            .get_interface_description("org.varlink.service".try_into().unwrap())
             .await
             .unwrap()
             .unwrap();
@@ -107,7 +107,7 @@ async fn introspect_machined() {
 
         // Test with invalid interface name
         let _ = conn
-            .get_interface_description("invalid.interface.name")
+            .get_interface_description("invalid.interface.name".try_into().unwrap())
             .await
             .expect_err("Method should return error");
 

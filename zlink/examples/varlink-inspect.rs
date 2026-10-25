@@ -60,7 +60,9 @@ async fn run(cli: &Cli) -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", "─".repeat(60));
         println!();
 
-        let desc_result = conn.get_interface_description(interface_name).await?;
+        let desc_result = conn
+            .get_interface_description(interface_name.as_str().try_into()?)
+            .await?;
         let description = match desc_result {
             Ok(desc) => desc,
             Err(error) => {
