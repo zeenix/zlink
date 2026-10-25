@@ -38,9 +38,36 @@
 //! to message sending and receiving via methods like [`Connection::send_call`],
 //! [`Connection::receive_reply`], and [`Connection::chain_call`] for pipelining.
 //!
+//! # File descriptor passing
+//!
+//! Over Unix domain sockets, messages can carry file descriptors (with the `std` feature). This is
+//! not part of the Varlink protocol but a feature of the transport: the file descriptors travel out
+//! of band, as `SCM_RIGHTS` ancillary data alongside the bytes of the message. Sockets declare
+//! whether they support this through [`Socket::CAN_TRANSFER_FDS`]. The methods sending messages
+//! take the file descriptors to pass along, and the ones receiving messages return the file
+//! descriptors that came with them.
+//!
+//! The Varlink specification doesn't cover file descriptor passing, so zlink follows the convention
+//! systemd's `sd-varlink` established, and interoperates with it. The convention is the model D-Bus
+//! has used to pass file descriptors for more than a decade:
+//!
+//! * The file descriptors of a message are sent along with its first byte, and the file descriptors
+//!   received belong to the message whose first byte came with them.
+//! * The peers don't negotiate the capability. Whether a method call or reply comes with file
+//!   descriptors, and what they are, is part of the interface. Since the Varlink IDL has no type
+//!   for file descriptors, parameters typically refer to them by their index in the list of file
+//!   descriptors of the message.
+//! * The receiver has to accept the file descriptors. Since Linux 6.16, a socket can refuse them by
+//!   turning off the `SO_PASSRIGHTS` socket option (on by default), which makes sending file
+//!   descriptors to it fail with `EPERM`. A peer can also choose to not receive them, in which case
+//!   they are dropped. `sd-varlink`, for example, only receives them on connections set up to
+//!   accept file descriptors. zlink always receives them and leaves `SO_PASSRIGHTS` on.
+//! * Linux limits the number of file descriptors sent at once, and hence per message, to 253.
+//!
 //! [`proxy`]: macro@crate::proxy
 //! [`service`]: macro@crate::service
 //! [`Service`]: crate::service::Service
+//! [`Socket::CAN_TRANSFER_FDS`]: socket::Socket::CAN_TRANSFER_FDS
 
 #[cfg(feature = "std")]
 mod credentials;
