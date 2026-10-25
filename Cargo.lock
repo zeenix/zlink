@@ -2269,6 +2269,7 @@ name = "zlink-idl"
 version = "0.7.1"
 dependencies = [
  "winnow",
+ "zlink-names",
 ]
 
 [[package]]
