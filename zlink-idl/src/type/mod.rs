@@ -235,16 +235,16 @@ mod tests {
 
         // Test inline enum
         let enum_type = Type::Enum(List::from(vec![
-            EnumVariant::new("one", &[]),
-            EnumVariant::new("two", &[]),
-            EnumVariant::new("three", &[]),
+            EnumVariant::new("one".try_into().unwrap(), &[]),
+            EnumVariant::new("two".try_into().unwrap(), &[]),
+            EnumVariant::new("three".try_into().unwrap(), &[]),
         ]));
         assert_eq!(enum_type.to_string(), "(one, two, three)");
 
         // Test inline struct
         let struct_type = Type::Object(List::from(vec![
-            Field::new("first", &Type::Int, &[]),
-            Field::new("second", &Type::String, &[]),
+            Field::new("first".try_into().unwrap(), &Type::Int, &[]),
+            Field::new("second".try_into().unwrap(), &Type::String, &[]),
         ]));
         assert_eq!(struct_type.to_string(), "(first: int, second: string)");
     }
@@ -254,9 +254,9 @@ mod tests {
         use core::fmt::Write;
 
         // Test single-line format when no variants have comments
-        let var1 = EnumVariant::new("red", &[]);
-        let var2 = EnumVariant::new("green", &[]);
-        let var3 = EnumVariant::new("blue", &[]);
+        let var1 = EnumVariant::new("red".try_into().unwrap(), &[]);
+        let var2 = EnumVariant::new("green".try_into().unwrap(), &[]);
+        let var3 = EnumVariant::new("blue".try_into().unwrap(), &[]);
         let variants_no_comments = [&var1, &var2, &var3];
         let enum_no_comments = Type::Enum(List::from(&variants_no_comments[..]));
 
@@ -266,9 +266,9 @@ mod tests {
 
         // Test multi-line format when any variant has comments
         let comment_refs = [&Comment::new("Primary color")];
-        let var_with_comment = EnumVariant::new("red", &comment_refs);
-        let var_without_comment1 = EnumVariant::new("green", &[]);
-        let var_without_comment2 = EnumVariant::new("blue", &[]);
+        let var_with_comment = EnumVariant::new("red".try_into().unwrap(), &comment_refs);
+        let var_without_comment1 = EnumVariant::new("green".try_into().unwrap(), &[]);
+        let var_without_comment2 = EnumVariant::new("blue".try_into().unwrap(), &[]);
         let variants_with_comments = [
             &var_with_comment,
             &var_without_comment1,

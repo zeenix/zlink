@@ -142,8 +142,8 @@ mod tests {
 
     #[test]
     fn method_creation() {
-        let input = Parameter::new("id", &Type::Int, &[]);
-        let output = Parameter::new("name", &Type::String, &[]);
+        let input = Parameter::new("id".try_into().unwrap(), &Type::Int, &[]);
+        let output = Parameter::new("name".try_into().unwrap(), &Type::String, &[]);
         let inputs = [&input];
         let outputs = [&output];
 
@@ -192,8 +192,8 @@ mod tests {
         write!(&mut displayed, "{}", method).unwrap();
         assert_eq!(displayed, "method Ping() -> ()");
 
-        let name_param = Parameter::new("name", &Type::String, &[]);
-        let id_param = Parameter::new("id", &Type::String, &[]);
+        let name_param = Parameter::new("name".try_into().unwrap(), &Type::String, &[]);
+        let id_param = Parameter::new("id".try_into().unwrap(), &Type::String, &[]);
         let params = [&name_param, &id_param];
         let method = Method::new("Register".try_into().unwrap(), &params, &[], &[]);
         let mut displayed = String::new();
@@ -210,9 +210,9 @@ mod tests {
         let comment2 = Comment::new("Returns user details by ID");
         let comments = [&comment1, &comment2];
 
-        let input = Parameter::new("id", &Type::Int, &[]);
+        let input = Parameter::new("id".try_into().unwrap(), &Type::Int, &[]);
         let user_type = Type::Custom("User".try_into().unwrap());
-        let output = Parameter::new("user", &user_type, &[]);
+        let output = Parameter::new("user".try_into().unwrap(), &user_type, &[]);
         let inputs = [&input];
         let outputs = [&output];
 

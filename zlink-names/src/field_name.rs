@@ -20,7 +20,7 @@ use crate::parse;
 /// # Ok::<(), zlink_names::Error>(())
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FieldName<'a>(CheapStr<'a>);
+pub struct FieldName<'a>(pub(crate) CheapStr<'a>);
 
 /// An owned [`FieldName`], independent of the data it was created from.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

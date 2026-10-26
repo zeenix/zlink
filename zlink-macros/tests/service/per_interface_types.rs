@@ -87,7 +87,10 @@ async fn run_client(socket_path: &std::path::Path) -> Result<(), Box<dyn std::er
         .methods()
         .find(|m| m.name() == "ListBooks")
         .expect("ListBooks method should be present");
-    let out_param_names: Vec<_> = list_books_method.outputs().map(|p| p.name()).collect();
+    let out_param_names: Vec<_> = list_books_method
+        .outputs()
+        .map(|p| p.name().as_str())
+        .collect();
     assert!(
         out_param_names.contains(&"books"),
         "ListBooks should have 'books' as an out-param, got: {out_param_names:?}"

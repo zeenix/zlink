@@ -154,16 +154,24 @@ mod tests {
         // Build the org.varlink.service interface as our test case
         let interfaces_type = Type::Array(TypeRef::new(&Type::String));
         let get_info_outputs = [
-            &Parameter::new("vendor", &Type::String, &[]),
-            &Parameter::new("product", &Type::String, &[]),
-            &Parameter::new("version", &Type::String, &[]),
-            &Parameter::new("url", &Type::String, &[]),
-            &Parameter::new("interfaces", &interfaces_type, &[]),
+            &Parameter::new("vendor".try_into().unwrap(), &Type::String, &[]),
+            &Parameter::new("product".try_into().unwrap(), &Type::String, &[]),
+            &Parameter::new("version".try_into().unwrap(), &Type::String, &[]),
+            &Parameter::new("url".try_into().unwrap(), &Type::String, &[]),
+            &Parameter::new("interfaces".try_into().unwrap(), &interfaces_type, &[]),
         ];
         let get_info = Method::new("GetInfo".try_into().unwrap(), &[], &get_info_outputs, &[]);
 
-        let get_interface_desc_inputs = [&Parameter::new("interface", &Type::String, &[])];
-        let get_interface_desc_outputs = [&Parameter::new("description", &Type::String, &[])];
+        let get_interface_desc_inputs = [&Parameter::new(
+            "interface".try_into().unwrap(),
+            &Type::String,
+            &[],
+        )];
+        let get_interface_desc_outputs = [&Parameter::new(
+            "description".try_into().unwrap(),
+            &Type::String,
+            &[],
+        )];
         let get_interface_desc = Method::new(
             "GetInterfaceDescription".try_into().unwrap(),
             &get_interface_desc_inputs,
@@ -171,28 +179,44 @@ mod tests {
             &[],
         );
 
-        let interface_not_found_fields = [&Field::new("interface", &Type::String, &[])];
+        let interface_not_found_fields = [&Field::new(
+            "interface".try_into().unwrap(),
+            &Type::String,
+            &[],
+        )];
         let interface_not_found = Error::new(
             "InterfaceNotFound".try_into().unwrap(),
             &interface_not_found_fields,
             &[],
         );
 
-        let method_not_found_fields = [&Field::new("method", &Type::String, &[])];
+        let method_not_found_fields = [&Field::new(
+            "method".try_into().unwrap(),
+            &Type::String,
+            &[],
+        )];
         let method_not_found = Error::new(
             "MethodNotFound".try_into().unwrap(),
             &method_not_found_fields,
             &[],
         );
 
-        let method_not_impl_fields = [&Field::new("method", &Type::String, &[])];
+        let method_not_impl_fields = [&Field::new(
+            "method".try_into().unwrap(),
+            &Type::String,
+            &[],
+        )];
         let method_not_impl = Error::new(
             "MethodNotImplemented".try_into().unwrap(),
             &method_not_impl_fields,
             &[],
         );
 
-        let invalid_param_fields = [&Field::new("parameter", &Type::String, &[])];
+        let invalid_param_fields = [&Field::new(
+            "parameter".try_into().unwrap(),
+            &Type::String,
+            &[],
+        )];
         let invalid_param = Error::new(
             "InvalidParameter".try_into().unwrap(),
             &invalid_param_fields,
@@ -333,9 +357,9 @@ error ExpectedMore ()
 
         // Build ResolvedAddress custom type.
         let resolved_address_fields = [
-            &Field::new("ifindex", &optional_int_type, &[]),
-            &Field::new("family", &Type::Int, &[]),
-            &Field::new("address", &int_array_type, &[]),
+            &Field::new("ifindex".try_into().unwrap(), &optional_int_type, &[]),
+            &Field::new("family".try_into().unwrap(), &Type::Int, &[]),
+            &Field::new("address".try_into().unwrap(), &int_array_type, &[]),
         ];
         let resolved_address = CustomType::from(CustomObject::new(
             "ResolvedAddress".try_into().unwrap(),
@@ -345,8 +369,8 @@ error ExpectedMore ()
 
         // Build ResolvedName custom type.
         let resolved_name_fields = [
-            &Field::new("ifindex", &optional_int_type, &[]),
-            &Field::new("name", &Type::String, &[]),
+            &Field::new("ifindex".try_into().unwrap(), &optional_int_type, &[]),
+            &Field::new("name".try_into().unwrap(), &Type::String, &[]),
         ];
         let resolved_name = CustomType::from(CustomObject::new(
             "ResolvedName".try_into().unwrap(),
@@ -356,9 +380,9 @@ error ExpectedMore ()
 
         // Build ResourceKey custom type.
         let resource_key_fields = [
-            &Field::new("class", &Type::Int, &[]),
-            &Field::new("type", &Type::Int, &[]),
-            &Field::new("name", &Type::String, &[]),
+            &Field::new("class".try_into().unwrap(), &Type::Int, &[]),
+            &Field::new("type".try_into().unwrap(), &Type::Int, &[]),
+            &Field::new("name".try_into().unwrap(), &Type::String, &[]),
         ];
         let resource_key = CustomType::from(CustomObject::new(
             "ResourceKey".try_into().unwrap(),
@@ -369,12 +393,12 @@ error ExpectedMore ()
         // Build ResourceRecord custom type (references ResourceKey).
         let resource_key_type = Type::Custom("ResourceKey".try_into().unwrap());
         let resource_record_fields = [
-            &Field::new("key", &resource_key_type, &[]),
-            &Field::new("priority", &optional_int_type, &[]),
-            &Field::new("weight", &optional_int_type, &[]),
-            &Field::new("port", &optional_int_type, &[]),
-            &Field::new("name", &optional_string_type, &[]),
-            &Field::new("address", &optional_int_array_type, &[]),
+            &Field::new("key".try_into().unwrap(), &resource_key_type, &[]),
+            &Field::new("priority".try_into().unwrap(), &optional_int_type, &[]),
+            &Field::new("weight".try_into().unwrap(), &optional_int_type, &[]),
+            &Field::new("port".try_into().unwrap(), &optional_int_type, &[]),
+            &Field::new("name".try_into().unwrap(), &optional_string_type, &[]),
+            &Field::new("address".try_into().unwrap(), &optional_int_array_type, &[]),
         ];
         let resource_record = CustomType::from(CustomObject::new(
             "ResourceRecord".try_into().unwrap(),
@@ -389,15 +413,19 @@ error ExpectedMore ()
         let resolved_name_array_type = Type::Array(TypeRef::new(&resolved_name_type));
 
         let resolve_hostname_inputs = [
-            &Parameter::new("ifindex", &optional_int_type, &[]),
-            &Parameter::new("name", &Type::String, &[]),
-            &Parameter::new("family", &optional_int_type, &[]),
-            &Parameter::new("flags", &optional_int_type, &[]),
+            &Parameter::new("ifindex".try_into().unwrap(), &optional_int_type, &[]),
+            &Parameter::new("name".try_into().unwrap(), &Type::String, &[]),
+            &Parameter::new("family".try_into().unwrap(), &optional_int_type, &[]),
+            &Parameter::new("flags".try_into().unwrap(), &optional_int_type, &[]),
         ];
         let resolve_hostname_outputs = [
-            &Parameter::new("addresses", &resolved_address_array_type, &[]),
-            &Parameter::new("name", &Type::String, &[]),
-            &Parameter::new("flags", &Type::Int, &[]),
+            &Parameter::new(
+                "addresses".try_into().unwrap(),
+                &resolved_address_array_type,
+                &[],
+            ),
+            &Parameter::new("name".try_into().unwrap(), &Type::String, &[]),
+            &Parameter::new("flags".try_into().unwrap(), &Type::Int, &[]),
         ];
         let resolve_hostname = Method::new(
             "ResolveHostname".try_into().unwrap(),
@@ -407,14 +435,14 @@ error ExpectedMore ()
         );
 
         let resolve_address_inputs = [
-            &Parameter::new("ifindex", &optional_int_type, &[]),
-            &Parameter::new("family", &Type::Int, &[]),
-            &Parameter::new("address", &int_array_type, &[]),
-            &Parameter::new("flags", &optional_int_type, &[]),
+            &Parameter::new("ifindex".try_into().unwrap(), &optional_int_type, &[]),
+            &Parameter::new("family".try_into().unwrap(), &Type::Int, &[]),
+            &Parameter::new("address".try_into().unwrap(), &int_array_type, &[]),
+            &Parameter::new("flags".try_into().unwrap(), &optional_int_type, &[]),
         ];
         let resolve_address_outputs = [
-            &Parameter::new("names", &resolved_name_array_type, &[]),
-            &Parameter::new("flags", &Type::Int, &[]),
+            &Parameter::new("names".try_into().unwrap(), &resolved_name_array_type, &[]),
+            &Parameter::new("flags".try_into().unwrap(), &Type::Int, &[]),
         ];
         let resolve_address = Method::new(
             "ResolveAddress".try_into().unwrap(),
@@ -428,9 +456,17 @@ error ExpectedMore ()
         let query_timed_out = Error::new("QueryTimedOut".try_into().unwrap(), &[], &[]);
 
         let dnssec_validation_failed_fields = [
-            &Field::new("result", &Type::String, &[]),
-            &Field::new("extendedDNSErrorCode", &optional_int_type, &[]),
-            &Field::new("extendedDNSErrorMessage", &optional_string_type, &[]),
+            &Field::new("result".try_into().unwrap(), &Type::String, &[]),
+            &Field::new(
+                "extendedDNSErrorCode".try_into().unwrap(),
+                &optional_int_type,
+                &[],
+            ),
+            &Field::new(
+                "extendedDNSErrorMessage".try_into().unwrap(),
+                &optional_string_type,
+                &[],
+            ),
         ];
         let dnssec_validation_failed = Error::new(
             "DNSSECValidationFailed".try_into().unwrap(),
@@ -439,9 +475,17 @@ error ExpectedMore ()
         );
 
         let dns_error_fields = [
-            &Field::new("rcode", &Type::Int, &[]),
-            &Field::new("extendedDNSErrorCode", &optional_int_type, &[]),
-            &Field::new("extendedDNSErrorMessage", &optional_string_type, &[]),
+            &Field::new("rcode".try_into().unwrap(), &Type::Int, &[]),
+            &Field::new(
+                "extendedDNSErrorCode".try_into().unwrap(),
+                &optional_int_type,
+                &[],
+            ),
+            &Field::new(
+                "extendedDNSErrorMessage".try_into().unwrap(),
+                &optional_string_type,
+                &[],
+            ),
         ];
         let dns_error = Error::new("DNSError".try_into().unwrap(), &dns_error_fields, &[]);
 
@@ -703,8 +747,12 @@ error DNSError(
         let type_comments = [&type_comment];
         let name_field_comment = Comment::new("Full name");
         let name_field_comments = [&name_field_comment];
-        let name_field = Field::new("name", &Type::String, &name_field_comments);
-        let age_field = Field::new("age", &Type::Int, &[]);
+        let name_field = Field::new(
+            "name".try_into().unwrap(),
+            &Type::String,
+            &name_field_comments,
+        );
+        let age_field = Field::new("age".try_into().unwrap(), &Type::Int, &[]);
         let fields = [&name_field, &age_field];
         let user_object = CustomObject::new("User".try_into().unwrap(), &fields, &type_comments);
         let user_type = CustomType::from(user_object);
@@ -715,9 +763,9 @@ error DNSError(
         let method_comments = [&method_comment];
         let id_param_comment = Comment::new("User ID");
         let id_param_comments = [&id_param_comment];
-        let id_param = Parameter::new("id", &Type::Int, &id_param_comments);
+        let id_param = Parameter::new("id".try_into().unwrap(), &Type::Int, &id_param_comments);
         let user_ref = Type::Custom("User".try_into().unwrap());
-        let user_param = Parameter::new("user", &user_ref, &[]);
+        let user_param = Parameter::new("user".try_into().unwrap(), &user_ref, &[]);
         let inputs = [&id_param];
         let outputs = [&user_param];
         let method = Method::new(
@@ -731,7 +779,7 @@ error DNSError(
         // Error with comments
         let error_comment = Comment::new("User not found error");
         let error_comments = [&error_comment];
-        let msg_field = Field::new("message", &Type::String, &[]);
+        let msg_field = Field::new("message".try_into().unwrap(), &Type::String, &[]);
         let error_fields = [&msg_field];
         let error = Error::new(
             "UserNotFound".try_into().unwrap(),

@@ -114,8 +114,8 @@ mod tests {
 
     #[test]
     fn error_creation() {
-        let message_field = Field::new("message", &Type::String, &[]);
-        let code_field = Field::new("code", &Type::Int, &[]);
+        let message_field = Field::new("message".try_into().unwrap(), &Type::String, &[]);
+        let code_field = Field::new("code".try_into().unwrap(), &Type::Int, &[]);
         let fields = [&message_field, &code_field];
 
         let error = Error::new("InvalidInput".try_into().unwrap(), &fields, &[]);
@@ -158,8 +158,8 @@ mod tests {
         let comment2 = Comment::new("Invalid credentials provided");
         let comments = [&comment1, &comment2];
 
-        let message_field = Field::new("message", &Type::String, &[]);
-        let code_field = Field::new("code", &Type::Int, &[]);
+        let message_field = Field::new("message".try_into().unwrap(), &Type::String, &[]);
+        let code_field = Field::new("code".try_into().unwrap(), &Type::Int, &[]);
         let fields = [&message_field, &code_field];
 
         let error = Error::new("AuthError".try_into().unwrap(), &fields, &comments);

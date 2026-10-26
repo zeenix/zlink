@@ -139,9 +139,9 @@ mod tests {
         let comment2 = Comment::new("Represents current state");
         let comments = [&comment1, &comment2];
 
-        let var1 = EnumVariant::new("active", &[]);
-        let var2 = EnumVariant::new("inactive", &[]);
-        let var3 = EnumVariant::new("pending", &[]);
+        let var1 = EnumVariant::new("active".try_into().unwrap(), &[]);
+        let var2 = EnumVariant::new("inactive".try_into().unwrap(), &[]);
+        let var3 = EnumVariant::new("pending".try_into().unwrap(), &[]);
         let variants = [&var1, &var2, &var3];
 
         let custom_enum = CustomEnum::new("Status".try_into().unwrap(), &variants, &comments);
@@ -156,8 +156,8 @@ mod tests {
     #[test]
     fn display_with_variant_comments() {
         let var_comment = Comment::new("The active state");
-        let var1 = EnumVariant::new_owned("active", vec![var_comment]);
-        let var2 = EnumVariant::new_owned("inactive", vec![]);
+        let var1 = EnumVariant::new_owned("active", vec![var_comment]).unwrap();
+        let var2 = EnumVariant::new_owned("inactive", vec![]).unwrap();
         let custom_enum = CustomEnum::new_owned("Status", vec![var1, var2], vec![]).unwrap();
 
         let mut displayed = String::new();
@@ -177,9 +177,9 @@ mod tests {
         let inactive_comment = Comment::new("System is stopped");
         let pending_comment = Comment::new("System is starting up");
 
-        let var1 = EnumVariant::new_owned("active", vec![active_comment]);
-        let var2 = EnumVariant::new_owned("inactive", vec![inactive_comment]);
-        let var3 = EnumVariant::new_owned("pending", vec![pending_comment]);
+        let var1 = EnumVariant::new_owned("active", vec![active_comment]).unwrap();
+        let var2 = EnumVariant::new_owned("inactive", vec![inactive_comment]).unwrap();
+        let var3 = EnumVariant::new_owned("pending", vec![pending_comment]).unwrap();
 
         let custom_enum =
             CustomEnum::new_owned("SystemStatus", vec![var1, var2, var3], vec![enum_comment])
@@ -205,9 +205,9 @@ mod tests {
     #[test]
     fn formatting_with_and_without_comments() {
         // Test single-line format when no variants have comments
-        let var1 = EnumVariant::new("red", &[]);
-        let var2 = EnumVariant::new("green", &[]);
-        let var3 = EnumVariant::new("blue", &[]);
+        let var1 = EnumVariant::new("red".try_into().unwrap(), &[]);
+        let var2 = EnumVariant::new("green".try_into().unwrap(), &[]);
+        let var3 = EnumVariant::new("blue".try_into().unwrap(), &[]);
         let variants_no_comments = [&var1, &var2, &var3];
 
         let enum_no_comments =
@@ -219,9 +219,9 @@ mod tests {
         // Test multi-line format when any variant has comments
         let comment = Comment::new("Primary color");
         let comment_refs = [&comment];
-        let var_with_comment = EnumVariant::new("red", &comment_refs);
-        let var_without_comment1 = EnumVariant::new("green", &[]);
-        let var_without_comment2 = EnumVariant::new("blue", &[]);
+        let var_with_comment = EnumVariant::new("red".try_into().unwrap(), &comment_refs);
+        let var_without_comment1 = EnumVariant::new("green".try_into().unwrap(), &[]);
+        let var_without_comment2 = EnumVariant::new("blue".try_into().unwrap(), &[]);
         let variants_with_comments = [
             &var_with_comment,
             &var_without_comment1,

@@ -27,10 +27,14 @@ pub const DESCRIPTION: &crate::idl::Interface<'static> = &{
     use crate::{
         idl::{Comment, Interface, Method, Parameter},
         introspect::{ReplyError, Type},
-        names::{InterfaceName, TypeName},
+        names::{FieldName, InterfaceName, TypeName},
     };
 
-    const INTERFACE_PARAM: &Parameter<'static> = &Parameter::new("interface", <&str>::TYPE, &[]);
+    const INTERFACE_PARAM: &Parameter<'static> = &Parameter::new(
+        FieldName::from_static_str_unchecked("interface"),
+        <&str>::TYPE,
+        &[],
+    );
     const METHODS: &[&Method<'static>] = &[
         &Method::new(
             TypeName::from_static_str_unchecked("GetInfo"),

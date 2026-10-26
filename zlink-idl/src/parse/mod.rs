@@ -73,7 +73,11 @@ fn field<'a>(input: &mut &'a [u8]) -> ModalResult<Field<'a>, InputError<&'a [u8]
     literal(":").parse_next(input)?;
     ws(input)?;
     let ty = varlink_type(input)?;
-    Ok(Field::new_owned(name, ty, comments))
+
+    // The name is a `FieldName` already, so there is no conversion that can fail.
+    let Ok(field) = Field::new_owned(name, ty, comments);
+
+    Ok(field)
 }
 
 /// Separator between fields/variants of a comma-separated list.
@@ -105,7 +109,9 @@ fn struct_type<'a>(input: &mut &'a [u8]) -> ModalResult<Type<'a>, InputError<&'a
 fn enum_variant<'a>(input: &mut &'a [u8]) -> ModalResult<EnumVariant<'a>, InputError<&'a [u8]>> {
     let comments = parse_preceding_comments(input)?;
     let name = field_name(input)?;
-    Ok(EnumVariant::new_owned(name, comments))
+    let Ok(variant) = EnumVariant::new_owned(name, comments);
+
+    Ok(variant)
 }
 
 /// Parse an inline enum type: (variant1, variant2, variant3).
@@ -230,8 +236,16 @@ fn field_or_variant<'a>(
     let name = field_name(input)?;
     let ty = opt(preceded((ws, literal(":"), ws), varlink_type)).parse_next(input)?;
     Ok(match ty {
-        Some(ty) => FieldOrVariant::Field(Field::new_owned(name, ty, comments)),
-        None => FieldOrVariant::Variant(EnumVariant::new_owned(name, comments)),
+        Some(ty) => {
+            let Ok(field) = Field::new_owned(name, ty, comments);
+
+            FieldOrVariant::Field(field)
+        }
+        None => {
+            let Ok(variant) = EnumVariant::new_owned(name, comments);
+
+            FieldOrVariant::Variant(variant)
+        }
     })
 }
 

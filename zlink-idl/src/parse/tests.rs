@@ -151,7 +151,7 @@ fn test_parse_method() {
     let mut outputs = method.outputs();
     assert_eq!(
         outputs.next().unwrap(),
-        &Parameter::new("info", &Type::String, &[])
+        &Parameter::new("info".try_into().unwrap(), &Type::String, &[])
     );
     assert!(outputs.next().is_none());
 
@@ -161,17 +161,17 @@ fn test_parse_method() {
     let mut inputs = method.inputs();
     assert_eq!(
         inputs.next().unwrap(),
-        &Parameter::new("a", &Type::Int, &[])
+        &Parameter::new("a".try_into().unwrap(), &Type::Int, &[])
     );
     assert_eq!(
         inputs.next().unwrap(),
-        &Parameter::new("b", &Type::Int, &[])
+        &Parameter::new("b".try_into().unwrap(), &Type::Int, &[])
     );
     assert!(inputs.next().is_none());
     let mut outputs = method.outputs();
     assert_eq!(
         outputs.next().unwrap(),
-        &Parameter::new("sum", &Type::Int, &[])
+        &Parameter::new("sum".try_into().unwrap(), &Type::Int, &[])
     );
     assert!(outputs.next().is_none());
 }
@@ -185,7 +185,7 @@ fn test_parse_error() {
     let mut fields = error.fields();
     assert_eq!(
         fields.next().unwrap(),
-        &Field::new("resource", &Type::String, &[])
+        &Field::new("resource".try_into().unwrap(), &Type::String, &[])
     );
     assert!(fields.next().is_none());
 
@@ -203,9 +203,12 @@ fn test_parse_custom_type() {
     let mut fields = custom_type.as_object().unwrap().fields();
     assert_eq!(
         fields.next().unwrap(),
-        &Field::new("name", &Type::String, &[])
+        &Field::new("name".try_into().unwrap(), &Type::String, &[])
     );
-    assert_eq!(fields.next().unwrap(), &Field::new("age", &Type::Int, &[]));
+    assert_eq!(
+        fields.next().unwrap(),
+        &Field::new("age".try_into().unwrap(), &Type::Int, &[])
+    );
     assert!(fields.next().is_none());
 
     let input = "type Config (host: string, port: int, enabled: bool)";
@@ -215,12 +218,15 @@ fn test_parse_custom_type() {
     let mut fields = custom_type.as_object().unwrap().fields();
     assert_eq!(
         fields.next().unwrap(),
-        &Field::new("host", &Type::String, &[])
+        &Field::new("host".try_into().unwrap(), &Type::String, &[])
     );
-    assert_eq!(fields.next().unwrap(), &Field::new("port", &Type::Int, &[]));
     assert_eq!(
         fields.next().unwrap(),
-        &Field::new("enabled", &Type::Bool, &[])
+        &Field::new("port".try_into().unwrap(), &Type::Int, &[])
+    );
+    assert_eq!(
+        fields.next().unwrap(),
+        &Field::new("enabled".try_into().unwrap(), &Type::Bool, &[])
     );
     assert!(fields.next().is_none());
 

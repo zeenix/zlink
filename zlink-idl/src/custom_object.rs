@@ -118,8 +118,8 @@ mod tests {
         let comment2 = Comment::new("Contains basic user information");
         let comments = [&comment1, &comment2];
 
-        let name_field = Field::new("name", &Type::String, &[]);
-        let age_field = Field::new("age", &Type::Int, &[]);
+        let name_field = Field::new("name".try_into().unwrap(), &Type::String, &[]);
+        let age_field = Field::new("age".try_into().unwrap(), &Type::Int, &[]);
         let fields = [&name_field, &age_field];
 
         let custom_object = CustomObject::new("User".try_into().unwrap(), &fields, &comments);

@@ -1021,11 +1021,14 @@ fn generate_interface_descriptions(
                 let in_params: Vec<TokenStream> = method
                     .serialized_params()
                     .map(|p| {
-                        let param_name = p.wire_name();
+                        let param_name_expr = crate::introspect::shared::field_name_expr(
+                            &p.wire_name(),
+                            crate_path,
+                        );
                         let ty = convert_type_lifetimes(&p.ty, "'static");
                         quote! {
                             &#crate_path::idl::Parameter::new(
-                                #param_name,
+                                #param_name_expr,
                                 <#ty as #crate_path::introspect::Type>::TYPE,
                                 &[],
                             )

@@ -11,11 +11,11 @@ use winnow::{
 };
 use zcheapstr::CheapStr;
 
-use crate::{InterfaceName, TypeName};
+use crate::{FieldName, InterfaceName, TypeName};
 
 /// Parse a field name: starts with a letter, continues with alphanumerics, each optionally
 /// preceded by a single underscore (no leading, trailing or doubled underscores).
-pub fn field_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&'a [u8]>> {
+pub fn field_name<'a>(input: &mut &'a [u8]) -> ModalResult<FieldName<'a>, InputError<&'a [u8]>> {
     (
         one_of(|c: u8| c.is_ascii_alphabetic()),
         repeat::<_, _, (), _, _>(
@@ -28,7 +28,7 @@ pub fn field_name<'a>(input: &mut &'a [u8]) -> ModalResult<&'a str, InputError<&
         ),
     )
         .take()
-        .map(bytes_to_str)
+        .map(|name| FieldName(CheapStr::from(bytes_to_str(name))))
         .parse_next(input)
 }
 
